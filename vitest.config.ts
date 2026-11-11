@@ -7,7 +7,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           include: ['*.test.ts', 'packages/**/src/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'tooling/**/test/**/*.test.ts'],
-          exclude: ['**/*.int.test.ts', '**/node_modules/**'],
+          exclude: ['**/*.int.test.ts', '**/node_modules/**', 'tooling/eslint-config/test/fixtures/**'],
         },
       },
       {
