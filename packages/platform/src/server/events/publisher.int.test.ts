@@ -195,6 +195,14 @@ describe('event publisher', () => {
     expect(await countRows('outbox_events', ownerB)).toBe(2);
   });
 
+  it('accepts sibling publishes that run concurrently on one transaction', async () => {
+    const before = await countRows('outbox_events', ownerB);
+    await uow.write(scopeB, async (tx) => {
+      await Promise.all([publisher.publish(pinged('left'), tx), publisher.publish(pinged('right'), tx)]);
+    });
+    expect(await countRows('outbox_events', ownerB)).toBe(before + 2);
+  });
+
   it('derives the owner from the transaction, not from input', async () => {
     const marks = await asMigrator('select owner_id from fixture_sync_marks');
     expect(new Set(marks.rows.map((r) => r.owner_id))).toEqual(new Set([ownerA, ownerB]));

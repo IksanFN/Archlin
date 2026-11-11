@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
 import type { Clock, EventEnvelope, EventPublisher, Ids, ModuleRegistry, NewDomainEvent, WriteTx } from '@archlin/kernel';
 import type { OutboxDatabase } from './outbox-schema';
@@ -22,15 +23,17 @@ export interface EventPublisherDeps {
 }
 
 export function createEventPublisher({ registry, ids, clock }: EventPublisherDeps): EventPublisher {
-  // Transaction handles whose sync handlers are running right now.
-  const dispatching = new WeakSet<object>();
+  // Holds the transaction while one of its sync handlers runs. Following the async call chain (instead of flagging the
+  // transaction) means only a publish made BY a handler counts as nested; sibling publishes started concurrently on
+  // the same transaction, for example with Promise.all, are legitimate.
+  const runningSyncHandler = new AsyncLocalStorage<WriteTx>();
 
   return {
     async publish<TPayload>(event: NewDomainEvent<TPayload>, tx: WriteTx): Promise<void> {
       const { definition } = event;
 
       // A sync handler that publishes again could trigger itself; handlers must return their follow-up through the caller.
-      if (dispatching.has(tx)) {
+      if (runningSyncHandler.getStore() === tx) {
         throw new EventPublishError('nested_publish', `Event "${definition.type}" was published from a sync handler.`);
       }
       if (registry.event(definition.type) !== definition) {
@@ -56,13 +59,8 @@ export function createEventPublisher({ registry, ids, clock }: EventPublisherDep
       };
 
       // Sync handlers share the transaction: a failure here aborts the whole business change.
-      dispatching.add(tx);
-      try {
-        for (const handler of registry.syncHandlersFor(definition.type)) {
-          await handler.handle(envelope, tx);
-        }
-      } finally {
-        dispatching.delete(tx);
+      for (const handler of registry.syncHandlersFor(definition.type)) {
+        await runningSyncHandler.run(tx, () => handler.handle(envelope, tx));
       }
 
       // An event nobody consumes asynchronously leaves no outbox trace.
