@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./migrations": "./src/migrations/index.ts"
+    "./migrations": "./src/migrations/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./scoped": "./src/scoped.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
