@@ -3,12 +3,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./server": "./src/server/index.ts"
+    "./server": "./src/server/index.ts",
+    "./migrations": "./src/migrations/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
     "kysely": "catalog:",
     "pino": "catalog:",

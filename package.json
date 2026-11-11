@@ -16,6 +16,9 @@
     "db:down": "docker compose -f docker/compose.dev.yml down"
   },
   "devDependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
     "@archlin/eslint-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:",

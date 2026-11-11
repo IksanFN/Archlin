@@ -1,0 +1,22 @@
+{
+  "name": "@archlin/migrate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "start": "node --env-file-if-exists=../../.env.migrate dist/main.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

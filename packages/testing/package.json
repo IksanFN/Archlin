@@ -11,7 +11,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
     "@testcontainers/postgresql": "catalog:",
     "pg": "catalog:",
     "testcontainers": "catalog:",
