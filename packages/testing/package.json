@@ -5,6 +5,7 @@
   "exports": {
     "./fakes": "./src/fakes/index.ts",
     "./db": "./src/db/index.ts",
+    "./auth": "./src/auth/index.ts",
     "./logging": "./src/logging/index.ts",
     "./fixture-module": "./fixtures/fixture-module/index.ts"
   },

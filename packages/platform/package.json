@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./contracts": "./src/contracts/index.ts",
     "./server": "./src/server/index.ts",
     "./migrations": "./src/migrations/index.ts"
   },
