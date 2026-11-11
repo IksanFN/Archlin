@@ -1,0 +1,10 @@
+node_modules/
+.output/
+dist/
+.tanstack/
+coverage/
+test-results/
+playwright-report/
+.env
+.env.migrate
+*.log
