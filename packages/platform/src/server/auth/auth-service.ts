@@ -16,7 +16,7 @@ import { hashRecoveryCode, normalizeRecoveryCode } from './recovery-codes';
 import { recordSecurityEvent } from './security-events';
 import type { SecretBox } from './secret-box';
 import { insertSession } from './sessions';
-import type { AuthContext, IssuedSession, PendingChallenge, RequestMeta } from './sessions';
+import type { ApiTokenContext, AuthContext, IssuedSession, PendingChallenge, RequestMeta } from './sessions';
 import { generateToken, hashToken } from './tokens';
 import type { Totp } from './totp';
 
@@ -43,6 +43,7 @@ export interface AuthService {
   login(input: LoginInput, meta: RequestMeta): Promise<LoginResult>;
   completeTotpLogin(challengeToken: string, input: TotpLoginInput, meta: RequestMeta): Promise<IssuedSession>;
   authenticate(sessionToken: string): Promise<AuthContext>;
+  authenticateApiToken(token: string): Promise<ApiTokenContext>;
   logout(ctx: AuthContext): Promise<void>;
 }
 
@@ -255,6 +256,12 @@ export function createAuthService(deps: AuthDeps): AuthService {
     },
 
     authenticate,
+
+    async authenticateApiToken(token) {
+      const record = await gateway.resolveApiToken(hashToken(token), clock.now());
+      if (!record) throw new UnauthorizedError();
+      return { owner: issueOwnerScope(record.ownerId), tokenId: record.tokenId, scopes: record.scopes };
+    },
 
     async logout(ctx) {
       await uow.write(ctx.scope, async (tx) => {

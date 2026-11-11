@@ -22,6 +22,12 @@ export interface SessionRecord {
   readonly reauthUntil: Date | null;
 }
 
+export interface ApiTokenRecord {
+  readonly tokenId: string;
+  readonly ownerId: string;
+  readonly scopes: readonly string[];
+}
+
 export type AttemptOutcome = 'password_failed' | 'totp_failed' | 'recovery_failed' | 'locked';
 
 export interface AttemptInput {
@@ -53,6 +59,7 @@ export interface IdentityGateway {
   finishChallenge(id: string, success: boolean, timeStep: number | null, now: Date): Promise<boolean>;
   consumeRecoveryCode(challengeId: string, codeHash: string, now: Date): Promise<string | null>;
   resolveSession(id: string, now: Date): Promise<SessionRecord | null>;
+  resolveApiToken(tokenHash: string, now: Date): Promise<ApiTokenRecord | null>;
 }
 
 export function createIdentityGateway(db: Kysely<unknown>): IdentityGateway {
@@ -136,6 +143,14 @@ export function createIdentityGateway(db: Kysely<unknown>): IdentityGateway {
       `.execute(db);
       const row = result.rows[0];
       return row ? { userId: row.user_id, publicId: row.public_id, reauthUntil: row.reauth_until } : null;
+    },
+
+    async resolveApiToken(tokenHash, now) {
+      const result = await sql<{ token_id: string; owner_id: string; scopes: string[] }>`
+        select * from public.auth_resolve_api_token(${tokenHash}::text, ${now}::timestamptz)
+      `.execute(db);
+      const row = result.rows[0];
+      return row ? { tokenId: row.token_id, ownerId: row.owner_id, scopes: row.scopes } : null;
     },
   };
 }

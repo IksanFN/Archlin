@@ -1,0 +1,38 @@
+{
+  "name": "@archlin/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file-if-exists=../../.env ./node_modules/vite/bin/vite.js dev --port 3000",
+    "build": "vite build",
+    "start": "node --env-file-if-exists=../../.env .output/server/index.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
+    "@node-rs/argon2": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "kysely": "catalog:",
+    "nitro": "catalog:",
+    "qrcode": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@archlin/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@types/qrcode": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "pg": "catalog:",
+    "vitest": "catalog:"
+  }
+}

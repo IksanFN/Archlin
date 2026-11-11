@@ -49,7 +49,7 @@ export class ConflictError extends DomainError {
   override readonly name = 'ConflictError';
 }
 
-export type ForbiddenCode = 'forbidden' | 'reauth_required' | 'setup_not_configured' | 'invalid_setup_token';
+export type ForbiddenCode = 'forbidden' | 'reauth_required' | 'setup_not_configured' | 'invalid_setup_token' | 'insufficient_scope';
 
 export class ForbiddenError extends DomainError {
   readonly kind = 'forbidden';

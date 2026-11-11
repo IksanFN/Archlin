@@ -25,6 +25,12 @@ export interface AuthContext {
   readonly reauthUntil: Date | null;
 }
 
+export interface ApiTokenContext {
+  readonly owner: OwnerScope;
+  readonly tokenId: string;
+  readonly scopes: readonly string[];
+}
+
 const USER_AGENT_MAX_CHARS = 512;
 
 // The column limit counts characters, so cut by code point; slicing UTF-16 units could leave a lone surrogate.

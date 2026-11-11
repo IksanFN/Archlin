@@ -4,7 +4,7 @@ import type { AuthHarness } from '@archlin/testing/auth';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SESSION_ABSOLUTE_MS, SESSION_IDLE_MS } from './policy';
-import { hashToken } from './tokens';
+import { generateToken, hashToken } from './tokens';
 
 const DAY = 24 * 60 * 60_000;
 const MINUTE = 60_000;
@@ -260,5 +260,40 @@ describe('security events and logging', () => {
     expect(h.logs.text()).not.toContain(SENTINEL);
     expect(h.logs.text()).not.toContain(session.token);
     expect(h.logs.text()).not.toContain(VALID_SETUP.setupToken);
+  });
+});
+
+describe('api tokens', () => {
+  const insertToken = async (revoked: boolean): Promise<{ token: string; tokenId: string; ownerId: string }> => {
+    const session = await auth.setup(VALID_SETUP, TEST_META);
+    const ctx = await auth.authenticate(session.token);
+    const token = generateToken();
+    const tokenId = '00000000-0000-7000-8000-0000000000aa';
+    const revokedAt = revoked ? h.clock.now() : null;
+    await h.uow.write(ctx.scope, (tx) =>
+      sql`
+        insert into public.api_tokens (id, owner_id, name, token_hash, scopes, revoked_at, created_at)
+        values (${tokenId}::uuid, ${ctx.scope.ownerId}::uuid, 'ios shortcut', ${hashToken(token)}, array['capture:write'],
+                ${revokedAt}, ${h.clock.now()})
+      `.execute(sqlFor(tx)),
+    );
+    return { token, tokenId, ownerId: ctx.scope.ownerId };
+  };
+
+  it('resolves an active api token to its owner, id and scopes', async () => {
+    const { token, tokenId, ownerId } = await insertToken(false);
+    const resolved = await auth.authenticateApiToken(token);
+    expect(resolved.owner.ownerId).toBe(ownerId);
+    expect(resolved.tokenId).toBe(tokenId);
+    expect(resolved.scopes).toEqual(['capture:write']);
+  });
+
+  it('rejects an unknown api token', async () => {
+    await expect(auth.authenticateApiToken(generateToken())).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+
+  it('rejects a revoked api token', async () => {
+    const { token } = await insertToken(true);
+    await expect(auth.authenticateApiToken(token)).rejects.toMatchObject({ code: 'unauthenticated' });
   });
 });
