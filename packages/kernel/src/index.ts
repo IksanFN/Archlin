@@ -31,3 +31,4 @@ export type {
   RegistryErrorCode,
 } from './module';
 export type { OwnerId, OwnerScope, OwnerUnitOfWork, ReadTx, WriteTx } from './uow';
+export type { Logger } from './logger';
