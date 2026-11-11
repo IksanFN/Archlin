@@ -5,9 +5,8 @@ import { closeHandle, openHandle } from '../internal/transaction-registry';
 
 type AccessMode = 'read only' | 'read write';
 
-// Every transaction starts by binding `app.owner_id` with set_config(..., is_local = true), so the setting dies with the
-// transaction and cannot leak to the next user of a pooled connection. There is deliberately no overload without a
-// scope and no fallback to the pool: a query outside a unit of work has no owner and RLS returns nothing.
+// `app.owner_id` is set with is_local = true, so it dies with the transaction and cannot leak to the next user of a
+// pooled connection. There is no scope-less overload: a query outside a unit of work has no owner and RLS returns nothing.
 async function inTransaction<T>(
   db: Kysely<unknown>,
   mode: AccessMode,

@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import type { Migration } from 'kysely/migration';
 
-// Transactional outbox with one delivery row per async handler (plan decision E). Static statements only.
+// Transactional outbox with one delivery row per async handler. Static statements only.
 const STATEMENTS = [
   `CREATE TABLE public.outbox_events (
     owner_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,

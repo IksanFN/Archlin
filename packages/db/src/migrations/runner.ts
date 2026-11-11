@@ -92,9 +92,8 @@ export async function runMigrations({
     await lockClient.query('select pg_advisory_lock($1)', [MIGRATION_ADVISORY_LOCK_ID]);
 
     const applied: string[] = [];
-    // Kysely sorts pending migrations alphabetically and ignores `nameComparator` for that, which would run
-    // "fixture:" before "platform:". So each round hands Kysely exactly one pending migration (the next one in
-    // our order) next to the ones already recorded; each migration commits in its own transaction.
+    // Kysely sorts pending migrations alphabetically ("fixture:" before "platform:"), so each round gives it only
+    // the next pending migration in our order. Each migration commits in its own transaction.
     for (;;) {
       const recorded = (await readRecordedMigrations(db)) ?? [];
       const done = new Set(recorded);

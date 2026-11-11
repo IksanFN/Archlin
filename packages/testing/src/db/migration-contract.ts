@@ -57,8 +57,7 @@ const POLICIES_SQL = `
 
 const mentionsOwnerSetting = (expression: string | null): boolean => expression?.includes('app.owner_id') ?? false;
 
-// Executable form of the module migration contract (spec 13.4 K3, plan Task 10). Throws one Error that lists every
-// violation, so a failing migration shows everything to fix at once.
+// Executable form of the module migration contract (spec 13.4 K3). Throws one Error listing every violation.
 export async function assertModuleMigrationContract(options: {
   urls: TestDbUrls;
   namespace: string;

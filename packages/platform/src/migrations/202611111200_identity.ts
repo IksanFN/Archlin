@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import type { Migration } from 'kysely/migration';
 
-// Identity tables, row level security and the narrow pre-auth gateway (spec 6, 13.4 K3; plan matrix of ownership).
+// Identity tables, row level security and the narrow pre-auth gateway (spec 6, 13.4 K3).
 // Every statement is static text: nothing here is built from input.
 
 const TABLES = [
@@ -136,10 +136,9 @@ const POLICIES = [
 ];
 
 const GRANTS = [
-  // cortex_app (runtime)
   `GRANT SELECT ON public.users TO cortex_app`,
-  // Never email or id. totp_last_used_step is writable because reauthentication and TOTP enrollment (Part 3) advance it
-  // for the current owner's own row; the pre-login path goes through auth_finish_challenge instead.
+  // Never email or id. totp_last_used_step is writable because reauthentication and TOTP enrollment advance it;
+  // the pre-login path goes through auth_finish_challenge.
   `GRANT UPDATE (display_name, password_hash, password_changed_at, totp_secret_enc, totp_pending_secret_enc,
                  totp_enabled, totp_enabled_at, totp_last_used_step, updated_at) ON public.users TO cortex_app`,
   `GRANT SELECT, UPDATE ON public.user_settings TO cortex_app`,

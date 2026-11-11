@@ -23,9 +23,8 @@ export interface EventPublisherDeps {
 }
 
 export function createEventPublisher({ registry, ids, clock }: EventPublisherDeps): EventPublisher {
-  // Holds the transaction while one of its sync handlers runs. Following the async call chain (instead of flagging the
-  // transaction) means only a publish made BY a handler counts as nested; sibling publishes started concurrently on
-  // the same transaction, for example with Promise.all, are legitimate.
+  // Holds the transaction while one of its sync handlers runs. Tracking the async call chain, not the transaction,
+  // keeps concurrent sibling publishes (Promise.all) from counting as nested.
   const runningSyncHandler = new AsyncLocalStorage<WriteTx>();
 
   return {

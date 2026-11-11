@@ -1,9 +1,8 @@
 import type { OwnerId, WriteTx } from '@archlin/kernel';
 import type { Transaction } from 'kysely';
 
-// Internal to @archlin/db (not in package exports): the runtime creates handles, `scoped` reads them.
-// Handles stay opaque objects with no properties, so module code cannot reach the connection or the owner except
-// through sqlFor/ownerOf. The state lives here, keyed by the handle.
+// Internal to @archlin/db: the runtime creates handles, `scoped` reads them.
+// Handles have no properties, so module code reaches the connection and owner only through sqlFor/ownerOf.
 
 interface TransactionState {
   readonly trx: Transaction<unknown>;

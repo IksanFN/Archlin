@@ -1,4 +1,4 @@
--- Run as superuser against any database (psql variable: db_name). Creates the database and its baseline privileges.
+-- Run as superuser (psql variable: db_name).
 CREATE DATABASE :"db_name" OWNER cortex_migrator;
 \connect :"db_name"
 CREATE EXTENSION IF NOT EXISTS vector;

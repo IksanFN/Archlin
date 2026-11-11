@@ -39,7 +39,6 @@ const iso = (d: Date) => d.toISOString();
 const secondsFrom = (base: Date, seconds: number) => new Date(base.getTime() + seconds * 1000);
 const DAY = 86_400;
 
-// owner column per table protected by the `_owner` policy
 const OWNER_COLUMN = {
   users: 'id',
   user_settings: 'owner_id',
