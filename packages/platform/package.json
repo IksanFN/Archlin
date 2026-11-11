@@ -12,7 +12,9 @@
   "dependencies": {
     "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
+    "@node-rs/argon2": "catalog:",
     "kysely": "catalog:",
+    "otplib": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
