@@ -341,6 +341,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.1
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
