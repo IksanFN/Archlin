@@ -1,4 +1,5 @@
 import { runMigrations } from '@archlin/db/migrations';
+import type { NamespacedMigrations } from '@archlin/db/migrations';
 import { systemIds } from '@archlin/kernel';
 import { platformMigrations } from '@archlin/platform/migrations';
 import pg from 'pg';
@@ -9,10 +10,13 @@ import type { TestDbUrls } from './urls';
 export const OWNER_A_EMAIL = 'a@x.id';
 export const OWNER_B_EMAIL = 'b@x.id';
 
-// Scratch database with the platform migrations applied and two accounts (owner A and owner B).
-export async function createTwoOwnerDatabase(): Promise<{ urls: TestDbUrls; ownerA: string; ownerB: string }> {
+// Scratch database with the platform migrations (plus `extraSets`, for example the fixture module) applied and two
+// accounts (owner A and owner B).
+export async function createTwoOwnerDatabase(
+  options: { extraSets?: readonly NamespacedMigrations[] } = {},
+): Promise<{ urls: TestDbUrls; ownerA: string; ownerB: string }> {
   const urls = await createScratchDatabase();
-  await runMigrations({ connectionString: urls.migrator, sets: [platformMigrations], logger: noopLogger });
+  await runMigrations({ connectionString: urls.migrator, sets: [platformMigrations, ...(options.extraSets ?? [])], logger: noopLogger });
 
   const ownerA = systemIds.uuidv7();
   const ownerB = systemIds.uuidv7();
