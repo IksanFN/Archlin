@@ -1,0 +1,19 @@
+{
+  "name": "archlin-cortex",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": { "node": ">=24.11.0 <25" },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --parallel run typecheck",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:int": "vitest run --project integration"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

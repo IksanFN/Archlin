@@ -1,0 +1,18 @@
+{
+  "name": "@archlin/kernel",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./trusted": "./src/trusted.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "uuid": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}
