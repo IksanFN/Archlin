@@ -4,8 +4,7 @@ export const REAUTH_WINDOW_MS = 10 * 60_000;
 export const LOGIN_WINDOW_MS = 15 * 60_000;
 export const LOGIN_MAX_FAILURES = 5;
 export const CHALLENGE_TTL_MS = 5 * 60_000;
-export const RECOVERY_CODE_COUNT = 10;
-export const PASSWORD_MIN_CHARS = 12;
+export { PASSWORD_MIN_CHARS, RECOVERY_CODE_COUNT } from '../../contracts/auth';
 // The maximum bounds argon2 cost per request.
 export const PASSWORD_MAX_CHARS = 256;
 

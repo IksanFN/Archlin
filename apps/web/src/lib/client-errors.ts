@@ -1,5 +1,6 @@
-import { AppError } from '../server/errors';
+import { PASSWORD_MIN_CHARS } from '@archlin/platform/contracts';
 import { messages } from '../i18n/id';
+import { AppError } from '../server/errors';
 
 export type ErrorPresentation =
   | { kind: 'field'; fields: Record<string, string> }
@@ -19,6 +20,13 @@ function readIssues(details: unknown): FieldIssue[] {
   );
 }
 
+// The server reports a rule code, not prose; unknown codes (raw validator text) get a neutral line instead of English.
+function fieldMessage(code: string): string {
+  if (code === 'password_too_short') return messages.password.tooShort(PASSWORD_MIN_CHARS);
+  if (code === 'password_too_long') return messages.password.tooLong;
+  return messages.errors.invalidField;
+}
+
 function retryMinutes(details: unknown): number | null {
   if (typeof details !== 'object' || details === null || !('retryAfterSeconds' in details)) return null;
   const seconds = details.retryAfterSeconds;
@@ -32,7 +40,7 @@ export function messageForError(error: unknown): ErrorPresentation {
   if (error.status === 401 && error.code === 'unauthenticated') return { kind: 'redirect_login' };
   if (error.status === 422) {
     const fields: Record<string, string> = {};
-    for (const { path, message } of readIssues(error.details)) fields[path] ??= message;
+    for (const { path, message } of readIssues(error.details)) fields[path] ??= fieldMessage(message);
     if (Object.keys(fields).length > 0) return { kind: 'field', fields };
   }
   if (error.status === 429) {

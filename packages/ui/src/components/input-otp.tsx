@@ -45,4 +45,5 @@ function InputOTPSlot({ index, className, ...props }: ComponentProps<'div'> & { 
   );
 }
 
+export { REGEXP_ONLY_DIGITS } from 'input-otp';
 export { InputOTP, InputOTPGroup, InputOTPSlot };

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Shared with the browser so the length meter and the server rule cannot drift apart.
+export const PASSWORD_MIN_CHARS = 12;
+export const RECOVERY_CODE_COUNT = 10;
+
 export const setupInputSchema = z.strictObject({
   setupToken: z.string().min(1).max(256),
   displayName: z.string().trim().min(1).max(80),

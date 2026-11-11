@@ -31,18 +31,21 @@ describe('messageForError', () => {
     const error = appError({
       status: 422,
       code: 'invalid_input',
-      details: { issues: [{ path: 'password', message: 'Terlalu pendek' }, { path: 'email', message: 'Tidak valid' }] },
+      details: { issues: [{ path: 'password', message: 'password_too_short' }, { path: 'email', message: 'Invalid email address' }] },
     });
-    expect(messageForError(error)).toEqual({ kind: 'field', fields: { password: 'Terlalu pendek', email: 'Tidak valid' } });
+    expect(messageForError(error)).toEqual({
+      kind: 'field',
+      fields: { password: 'Password minimal 12 karakter.', email: 'Isian ini tidak valid.' },
+    });
   });
 
   it('keeps the first message when one field has several issues', () => {
     const error = appError({
       status: 422,
       code: 'invalid_input',
-      details: { issues: [{ path: 'password', message: 'Pertama' }, { path: 'password', message: 'Kedua' }] },
+      details: { issues: [{ path: 'password', message: 'password_too_short' }, { path: 'password', message: 'password_too_long' }] },
     });
-    expect(messageForError(error)).toEqual({ kind: 'field', fields: { password: 'Pertama' } });
+    expect(messageForError(error)).toEqual({ kind: 'field', fields: { password: 'Password minimal 12 karakter.' } });
   });
 
   it('maps an internal error to a message with the request id', () => {
