@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": { "config": "", "css": "src/styles/globals.css", "baseColor": "neutral", "cssVariables": true },
+  "iconLibrary": "phosphor",
+  "aliases": {
+    "components": "@archlin/ui/components",
+    "ui": "@archlin/ui/components",
+    "utils": "@archlin/ui/lib/utils",
+    "lib": "@archlin/ui/lib",
+    "hooks": "@archlin/ui/hooks"
+  }
+}

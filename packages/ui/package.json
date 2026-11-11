@@ -1,0 +1,33 @@
+{
+  "name": "@archlin/ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./styles/*": "./src/styles/*",
+    "./components/*": "./src/components/*.tsx",
+    "./lib/*": "./src/lib/*.ts",
+    "./shell/*": "./src/shell/*.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "catalog:",
+    "class-variance-authority": "catalog:",
+    "clsx": "catalog:",
+    "input-otp": "catalog:",
+    "radix-ui": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "sonner": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwindcss": "catalog:",
+    "tw-animate-css": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
