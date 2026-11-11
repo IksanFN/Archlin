@@ -11,7 +11,9 @@
     "typecheck": "pnpm -r --parallel run typecheck",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
-    "test:int": "vitest run --project integration"
+    "test:int": "vitest run --project integration",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.dev.yml down"
   },
   "devDependencies": {
     "@archlin/eslint-config": "workspace:*",

@@ -53,4 +53,8 @@ catalog:
   "@axe-core/playwright": 4.14.0
   tsdown: 0.23.7
 
-allowBuilds: {}
+allowBuilds:
+  # Native build scripts pulled in by testcontainers (ssh2 optional crypto binding, cpu-features, protobufjs postinstall). Denied on purpose: the pure JS fallbacks are enough (K9).
+  cpu-features: false
+  protobufjs: false
+  ssh2: false

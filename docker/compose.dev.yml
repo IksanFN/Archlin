@@ -1,0 +1,25 @@
+# Development database only. The production-like stack (Task 22) does not publish the database port.
+name: archlin-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: dev-only-superuser
+      CORTEX_MIGRATOR_PASSWORD: dev-only-migrator
+      CORTEX_APP_PASSWORD: dev-only-app
+      CORTEX_BACKUP_PASSWORD: dev-only-backup
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./postgres/sql:/opt/archlin:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cortex"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata-dev:
