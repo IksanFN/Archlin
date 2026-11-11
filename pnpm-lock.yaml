@@ -574,6 +574,9 @@ importers:
       '@phosphor-icons/react':
         specifier: 'catalog:'
         version: 2.1.10(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@tanstack/react-router':
+        specifier: 'catalog:'
+        version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
