@@ -1,3 +1,5 @@
+export { createAccountService } from './account-service';
+export type { AccountService } from './account-service';
 export { createAuthService } from './auth-service';
 export type { AuthDeps, AuthService, LoginResult } from './auth-service';
 export { createPasswordHasher } from './password';

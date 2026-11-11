@@ -18,6 +18,7 @@
     "@archlin/platform": "workspace:*",
     "@testcontainers/postgresql": "catalog:",
     "kysely": "catalog:",
+    "otplib": "catalog:",
     "pg": "catalog:",
     "testcontainers": "catalog:",
     "vitest": "catalog:",

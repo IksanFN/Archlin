@@ -1,11 +1,5 @@
 import { sqlFor } from '@archlin/db/scoped';
-import {
-  ConflictError,
-  ForbiddenError,
-  RateLimitedError,
-  UnauthorizedError,
-  ValidationError,
-} from '@archlin/kernel';
+import { ConflictError, ForbiddenError, UnauthorizedError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, Logger, OwnerUnitOfWork, WriteTx } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { sql } from 'kysely';
@@ -13,15 +7,11 @@ import type { Kysely } from 'kysely';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { AuthState, LoginInput, SetupInput, TotpLoginInput } from '../../contracts';
 import { createIdentityGateway } from './identity-gateway';
+import { createLoginAttempts } from './login-attempts';
 import { isSupportedTimezone, normalizeEmail } from './normalize';
 import { normalizePassword, validateNewPassword } from './password';
 import type { PasswordHasher } from './password';
-import {
-  CHALLENGE_TTL_MS,
-  failureDelayMs,
-  LOGIN_MAX_FAILURES,
-  LOGIN_WINDOW_MS,
-} from './policy';
+import { CHALLENGE_TTL_MS } from './policy';
 import { hashRecoveryCode, normalizeRecoveryCode } from './recovery-codes';
 import { recordSecurityEvent } from './security-events';
 import type { SecretBox } from './secret-box';
@@ -71,6 +61,7 @@ function sameSecret(expected: string, submitted: string): boolean {
 export function createAuthService(deps: AuthDeps): AuthService {
   const { db, uow, clock, hasher, totp, secretBox, logger, setupToken, sleep } = deps;
   const gateway = createIdentityGateway(db);
+  const attempts = createLoginAttempts({ gateway, clock, logger, sleep });
 
   async function issueSession(
     userId: string,
@@ -84,36 +75,6 @@ export function createAuthService(deps: AuthDeps): AuthService {
       await inTransaction?.(tx);
       return { token: session.token, expiresAt: session.expiresAt };
     });
-  }
-
-  // Returns the failures already in the window so the caller can scale its delay; throws once the limit is reached.
-  async function assertNotLocked(email: string | null, userId: string | null, meta: RequestMeta): Promise<number> {
-    const now = clock.now();
-    const since = new Date(now.getTime() - LOGIN_WINDOW_MS);
-    const { byEmail, byIp } = await gateway.countRecentFailures(email, meta.ip, since);
-    if (byEmail >= LOGIN_MAX_FAILURES || byIp >= LOGIN_MAX_FAILURES) {
-      await gateway.recordAttempt({ email, ip: meta.ip, userId, outcome: 'locked', userAgent: meta.userAgent, now });
-      logger.warn({ outcome: 'locked', userIdPresent: userId !== null });
-      throw new RateLimitedError('too_many_attempts', 'Terlalu banyak percobaan. Coba lagi nanti.', {
-        retryAfterSeconds: LOGIN_WINDOW_MS / 1000,
-      });
-    }
-    return Math.max(byEmail, byIp);
-  }
-
-  async function failLogin(email: string, userId: string | null, priorFailures: number, meta: RequestMeta): Promise<never> {
-    await gateway.recordAttempt({
-      email,
-      ip: meta.ip,
-      userId,
-      outcome: 'password_failed',
-      userAgent: meta.userAgent,
-      now: clock.now(),
-    });
-    logger.info({ outcome: 'login_failed', userIdPresent: userId !== null });
-    await sleep(failureDelayMs(priorFailures));
-    // One code and message for unknown email and wrong password, so the response never reveals which accounts exist.
-    throw new UnauthorizedError('invalid_credentials', 'Email atau password salah');
   }
 
   async function recordSecondFactorFailure(
@@ -243,15 +204,15 @@ export function createAuthService(deps: AuthDeps): AuthService {
     async login(input, meta) {
       const email = normalizeEmail(input.email);
       const account = await gateway.findLogin(email);
-      const priorFailures = await assertNotLocked(email, account?.userId ?? null, meta);
+      const priorFailures = await attempts.assertNotLocked(email, account?.userId ?? null, meta);
 
       const password = normalizePassword(input.password);
       if (!account) {
         await hasher.burn(password);
-        return failLogin(email, null, priorFailures, meta);
+        return attempts.failPassword(email, null, priorFailures, meta);
       }
       if (!(await hasher.verify(account.passwordHash, password))) {
-        return failLogin(email, account.userId, priorFailures, meta);
+        return attempts.failPassword(email, account.userId, priorFailures, meta);
       }
 
       if (account.totpEnabled) {
@@ -269,7 +230,7 @@ export function createAuthService(deps: AuthDeps): AuthService {
     },
 
     async completeTotpLogin(challengeToken, input, meta) {
-      await assertNotLocked(null, null, meta);
+      await attempts.assertNotLocked(null, null, meta);
       const challengeId = hashToken(challengeToken);
 
       if ('code' in input) {

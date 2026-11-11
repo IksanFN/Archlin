@@ -2,14 +2,16 @@ import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { systemIds } from '@archlin/kernel';
 import type { OwnerUnitOfWork } from '@archlin/kernel';
 import {
+  createAccountService,
   createAuthService,
   createLogger,
   createPasswordHasher,
   createSecretBox,
   createTotp,
 } from '@archlin/platform/server';
-import type { AuthDeps, AuthService, RequestMeta } from '@archlin/platform/server';
+import type { AccountService, AuthDeps, AuthService, IssuedSession, RequestMeta } from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
+import { generate } from 'otplib';
 import pg from 'pg';
 import { FakeClock } from '../fakes';
 import { createPlatformDatabase, resetIdentityData } from '../db';
@@ -29,6 +31,14 @@ export const VALID_SETUP = {
   timezone: 'Asia/Jakarta',
 } as const;
 
+export interface EnrolledTotp {
+  readonly secret: string;
+  readonly recoveryCodes: readonly string[];
+  readonly session: IssuedSession;
+  // A valid code for the current harness time plus `offsetSeconds`.
+  codeAt(offsetSeconds?: number): Promise<string>;
+}
+
 export interface AuthHarness {
   readonly urls: TestDbUrls;
   readonly db: Kysely<unknown>;
@@ -38,8 +48,10 @@ export interface AuthHarness {
   readonly logs: MemoryDestination;
   readonly deps: AuthDeps;
   readonly auth: AuthService;
+  readonly account: AccountService;
   makeAuth(overrides?: Partial<AuthDeps>): AuthService;
   asMigrator(text: string, params?: unknown[]): Promise<pg.QueryResult>;
+  enrollTotp(session: IssuedSession): Promise<EnrolledTotp>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }
@@ -76,6 +88,7 @@ export async function createAuthHarness(): Promise<AuthHarness> {
     logs,
     deps,
     auth: createAuthService(deps),
+    account: createAccountService(deps),
     makeAuth: (overrides = {}) => createAuthService({ ...deps, ...overrides }),
     async asMigrator(text, params = []) {
       const client = new pg.Client({ connectionString: urls.migrator });
@@ -85,6 +98,19 @@ export async function createAuthHarness(): Promise<AuthHarness> {
       } finally {
         await client.end();
       }
+    },
+    async enrollTotp(session) {
+      const account = createAccountService(deps);
+      const ctx = await createAuthService(deps).authenticate(session.token);
+      const { secret } = await account.beginTotpEnrollment(ctx);
+      const code = await generate({ secret, epoch: Math.floor(clock.now().getTime() / 1000) });
+      const enabled = await account.confirmTotpEnrollment(ctx, { code }, TEST_META);
+      return {
+        secret,
+        recoveryCodes: enabled.recoveryCodes,
+        session: enabled.session,
+        codeAt: (offsetSeconds = 0) => generate({ secret, epoch: Math.floor(clock.now().getTime() / 1000) + offsetSeconds }),
+      };
     },
     async reset() {
       await resetIdentityData(urls);

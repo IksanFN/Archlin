@@ -1,2 +1,29 @@
-export { loginInputSchema, SECURITY_EVENT_NAMES, setupInputSchema, totpLoginInputSchema } from './auth';
-export type { AuthState, LoginInput, LoginOutcome, SecurityEventName, SetupInput, TotpLoginInput } from './auth';
+export {
+  changePasswordInputSchema,
+  confirmTotpInputSchema,
+  loginInputSchema,
+  reauthInputSchema,
+  revokeSessionInputSchema,
+  SECURITY_EVENT_NAMES,
+  securityEventsInputSchema,
+  setupInputSchema,
+  totpLoginInputSchema,
+  updateProfileInputSchema,
+} from './auth';
+export type {
+  AuthState,
+  ChangePasswordInput,
+  ConfirmTotpInput,
+  LoginInput,
+  LoginOutcome,
+  ReauthInput,
+  RevokeSessionInput,
+  SecurityEventName,
+  SecurityEventsInput,
+  SecurityEventSummary,
+  SessionSummary,
+  SetupInput,
+  TotpLoginInput,
+  UpdateProfileInput,
+  Viewer,
+} from './auth';
