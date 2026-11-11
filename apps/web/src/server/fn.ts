@@ -1,5 +1,5 @@
 import { UnauthorizedError } from '@archlin/kernel';
-import { createMiddleware, createServerFn, getGlobalStartContext } from '@tanstack/react-start';
+import { createIsomorphicFn, createMiddleware, createServerFn, getGlobalStartContext } from '@tanstack/react-start';
 import { getCookie, setResponseHeader, setResponseStatus } from '@tanstack/react-start/server';
 import { ZodError } from 'zod';
 import type { z } from 'zod';
@@ -37,13 +37,19 @@ const sessionMiddleware = createMiddleware({ type: 'function' }).server(async ({
 export const publicFn = createServerFn({ method: 'POST' }).middleware([errorMiddleware]);
 export const authedFn = createServerFn({ method: 'POST' }).middleware([errorMiddleware, sessionMiddleware]);
 
+// Validators ship in the client bundle too, so the server-only status call lives in an isomorphic function whose
+// server arm the compiler strips from the browser build.
+const setStatusOnServer = createIsomorphicFn()
+  .server((status: number): void => setResponseStatus(status))
+  .client((): void => undefined);
+
 // Sets the status here as well: validators can run before the error middleware has wrapped the call.
 export function strictInput<T>(schema: z.ZodType<T>): (input: unknown) => T {
   return (input) => {
     const parsed = schema.safeParse(input);
     if (parsed.success) return parsed.data;
     const appError = toAppError(new ZodError(parsed.error.issues), getGlobalStartContext()?.requestId ?? null);
-    setResponseStatus(appError.status);
+    setStatusOnServer(appError.status);
     throw appError;
   };
 }
