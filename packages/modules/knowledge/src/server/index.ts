@@ -1,7 +1,11 @@
+export { createKnowledgeApi } from './api';
+export type { KnowledgeApi } from './api';
 export { documentText, parseDocument } from './document';
 export { pageStateHash } from './hash';
 export type { PageState } from './hash';
 export { createKnowledgeModule, KB_MODULE_ID, noteTypeUpdated, PAGE_KIND } from './module';
+export { createPageService } from './page-service';
+export type { PageService } from './page-service';
 export type { KnowledgeDatabase } from './schema';
 export { seedSystemNoteTypes } from './seed';
 export { SYSTEM_NOTE_TYPES } from './system-note-types';

@@ -24,3 +24,23 @@ export {
   validateProperties,
 } from './field-schema';
 export type { FieldDefinition, FieldType, PropertyIssue } from './field-schema';
+export {
+  changeNoteTypeInputSchema,
+  contextFieldsSchema,
+  createPageInputSchema,
+  overwritePageInputSchema,
+  pageIdInputSchema,
+  propertiesSchema,
+  renamePageInputSchema,
+  savePageInputSchema,
+} from './inputs';
+export type {
+  ChangeNoteTypeInput,
+  ContextFields,
+  CreatePageInput,
+  OverwritePageInput,
+  PageIdInput,
+  RenamePageInput,
+  SavePageInput,
+} from './inputs';
+export type { NoteTypeRef, PageView, SaveResult } from './types';
