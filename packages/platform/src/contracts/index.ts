@@ -48,3 +48,27 @@ export type {
   SpaceSummary,
   UpdateSpaceInput,
 } from './spaces';
+export {
+  entityIdInputSchema,
+  MAX_TREE_DEPTH,
+  moveEntityInputSchema,
+  setIconInputSchema,
+  setStarredInputSchema,
+  trashRootInputSchema,
+  treeChildrenInputSchema,
+  TRASH_RETENTION_DAYS,
+} from './tree';
+export type {
+  Breadcrumb,
+  EntityIdInput,
+  EntityRef,
+  MoveEntityInput,
+  RecentEntity,
+  RestoreOutcome,
+  SetIconInput,
+  SetStarredInput,
+  TrashRoot,
+  TrashRootInput,
+  TreeChildrenInput,
+  TreeNode,
+} from './tree';
