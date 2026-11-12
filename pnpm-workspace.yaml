@@ -11,6 +11,7 @@ catalog:
   uuid: 14.0.3
   zod: 4.6.7
   kysely: 0.29.8
+  fractional-indexing: 4.0.0
   pg: 8.23.1
   "@types/pg": 8.23.1
   pg-boss: 12.38.2

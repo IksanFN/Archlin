@@ -233,6 +233,9 @@ catalogs:
     eslint-plugin-react-hooks:
       specifier: 7.1.1
       version: 7.1.1
+    fractional-indexing:
+      specifier: 4.0.0
+      version: 4.0.0
     globals:
       specifier: 17.14.0
       version: 17.14.0
@@ -555,6 +558,9 @@ importers:
       '@node-rs/argon2':
         specifier: 'catalog:'
         version: 2.2.2
+      fractional-indexing:
+        specifier: 'catalog:'
+        version: 4.0.0
       kysely:
         specifier: 'catalog:'
         version: 0.29.8
@@ -3082,6 +3088,10 @@ packages:
   foreground-child@3.3.1:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
     engines: {node: '>=14'}
+
+  fractional-indexing@4.0.0:
+    resolution: {integrity: sha512-Nr2P1Yyaj2sy1Qdt/wI3GcByxrUdbSKg5+cGvw8f18hT2SkQt6V72iOjBpk7IO3UkzBsdlGRs2a4z6dLrJprgw==}
+    engines: {node: ^14.13.1 || >=16.0.0}
 
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
@@ -6743,6 +6753,8 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
+
+  fractional-indexing@4.0.0: {}
 
   fs-constants@1.0.0: {}
 

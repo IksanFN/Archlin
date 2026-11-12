@@ -29,3 +29,22 @@ export type {
   UpdateProfileInput,
   Viewer,
 } from './auth';
+export { emojiIconSchema, isSingleEmoji } from './icons';
+export {
+  createSpaceInputSchema,
+  listSpacesInputSchema,
+  reorderInputSchema,
+  spaceIdInputSchema,
+  spaceNameSchema,
+  spaceSlugInputSchema,
+  updateSpaceInputSchema,
+} from './spaces';
+export type {
+  CreateSpaceInput,
+  ListSpacesInput,
+  ReorderInput,
+  SpaceIdInput,
+  SpaceSlugInput,
+  SpaceSummary,
+  UpdateSpaceInput,
+} from './spaces';
