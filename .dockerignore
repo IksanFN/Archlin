@@ -1,0 +1,9 @@
+**/node_modules
+**/.output
+**/dist
+.git
+.env*
+!.env.example
+**/test-results
+**/playwright-report
+**/.tanstack
