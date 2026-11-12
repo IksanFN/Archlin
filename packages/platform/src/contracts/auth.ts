@@ -79,6 +79,7 @@ export interface Viewer {
   email: string;
   timezone: string;
   totpEnabled: boolean;
+  totpEnabledAt: string | null;
   recoveryCodesRemaining: number;
   passwordChangedAt: string;
 }

@@ -248,6 +248,13 @@ describe('viewer and profile', () => {
     expect(serialized).not.toMatch(/hash|secret/i);
   });
 
+  it('viewer reports when totp was enabled, and null before', async () => {
+    expect((await h.account.getViewer(ctx)).totpEnabledAt).toBeNull();
+    const totp = await h.enrollTotp(session);
+    const viewer = await h.account.getViewer(await h.auth.authenticate(totp.session.token));
+    expect(viewer.totpEnabledAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it('updateProfile changes the display name and timezone', async () => {
     const viewer = await h.account.updateProfile(ctx, { displayName: 'Andra S', timezone: 'Asia/Makassar' });
     expect(viewer).toMatchObject({ displayName: 'Andra S', timezone: 'Asia/Makassar' });

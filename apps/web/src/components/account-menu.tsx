@@ -9,15 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@archlin/ui/components/dropdown-menu';
-import { toast } from '@archlin/ui/components/sonner';
 import { useTheme } from '@archlin/ui/lib/theme';
 import type { ThemePreference } from '@archlin/ui/lib/theme';
 import { DesktopIcon, MoonIcon, SignOutIcon, SunIcon } from '@phosphor-icons/react/ssr';
-import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import { messages } from '~/i18n/id';
-import { messageForError } from '~/lib/client-errors';
-import { logoutFn } from '~/server/functions/auth';
+import { useSignOut } from '~/lib/use-sign-out';
 
 const THEME_OPTIONS = [
   { value: 'system', label: messages.account.themeSystem, icon: DesktopIcon },
@@ -32,22 +28,7 @@ function isThemePreference(value: string): value is ThemePreference {
 // Theme and sign-out live here because they must be reachable from every screen (spec 11).
 export function AccountMenu({ displayName }: { displayName: string }) {
   const { preference, setPreference } = useTheme();
-  const navigate = useNavigate();
-  const [signingOut, setSigningOut] = useState(false);
-
-  async function signOut(): Promise<void> {
-    setSigningOut(true);
-    try {
-      await logoutFn({ data: {} });
-      await navigate({ to: '/login' });
-    } catch (error) {
-      const presentation = messageForError(error);
-      if (presentation.kind === 'redirect_login') await navigate({ to: '/login' });
-      else if (presentation.kind === 'toast') toast.error(presentation.text);
-    } finally {
-      setSigningOut(false);
-    }
-  }
+  const { signOut, signingOut } = useSignOut();
 
   return (
     <DropdownMenu>

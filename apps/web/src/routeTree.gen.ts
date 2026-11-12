@@ -14,8 +14,11 @@ import { Route as HealthRouteImport } from './routes/health'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginTotpRouteImport } from './routes/login.totp'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
+import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -41,6 +44,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -51,14 +59,27 @@ const LoginTotpRoute = LoginTotpRouteImport.update({
   path: '/totp',
   getParentRoute: () => LoginRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/health': typeof HealthRoute
   '/login': typeof LoginRouteWithChildren
   '/setup': typeof SetupRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/login/totp': typeof LoginTotpRoute
   '/login/': typeof LoginIndexRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
@@ -66,6 +87,8 @@ export interface FileRoutesByTo {
   '/login/totp': typeof LoginTotpRoute
   '/': typeof AppIndexRoute
   '/login': typeof LoginIndexRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -73,24 +96,46 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/login': typeof LoginRouteWithChildren
   '/setup': typeof SetupRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/login/totp': typeof LoginTotpRoute
   '/_app/': typeof AppIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/_app/settings/security': typeof AppSettingsSecurityRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/health' | '/login' | '/setup' | '/login/totp' | '/login/'
+  fullPaths:
+    | '/'
+    | '/health'
+    | '/login'
+    | '/setup'
+    | '/settings'
+    | '/login/totp'
+    | '/login/'
+    | '/settings/security'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/health' | '/setup' | '/login/totp' | '/' | '/login'
+  to:
+    | '/health'
+    | '/setup'
+    | '/login/totp'
+    | '/'
+    | '/login'
+    | '/settings/security'
+    | '/settings'
   id:
     | '__root__'
     | '/_app'
     | '/health'
     | '/login'
     | '/setup'
+    | '/_app/settings'
     | '/login/totp'
     | '/_app/'
     | '/login/'
+    | '/_app/settings/security'
+    | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,6 +182,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/login/': {
       id: '/login/'
       path: '/'
@@ -151,14 +203,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginTotpRouteImport
       parentRoute: typeof LoginRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/security': {
+      id: '/_app/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AppSettingsSecurityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsSecurityRoute: AppSettingsSecurityRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppRouteChildren {
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 

@@ -128,10 +128,11 @@ export function createAccountService(deps: AuthDeps): AccountService {
         email: string;
         timezone: string;
         totp_enabled: boolean;
+        totp_enabled_at: Date | null;
         password_changed_at: Date;
         recovery_codes_remaining: number;
       }>`
-        select u.display_name, u.email, s.timezone, u.totp_enabled, u.password_changed_at,
+        select u.display_name, u.email, s.timezone, u.totp_enabled, u.totp_enabled_at, u.password_changed_at,
                (select count(*)::int from public.recovery_codes r where r.used_at is null) as recovery_codes_remaining
         from public.users u join public.user_settings s on s.owner_id = u.id
         where u.id = ${ownerOf(tx)}::uuid
@@ -144,6 +145,7 @@ export function createAccountService(deps: AuthDeps): AccountService {
       email: row.email,
       timezone: row.timezone,
       totpEnabled: row.totp_enabled,
+      totpEnabledAt: row.totp_enabled_at?.toISOString() ?? null,
       recoveryCodesRemaining: row.recovery_codes_remaining,
       passwordChangedAt: row.password_changed_at.toISOString(),
     };
