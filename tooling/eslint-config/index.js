@@ -67,6 +67,8 @@ export default function createEslintConfig({ rootDir }) {
         '**/.output/**',
         '**/dist/**',
         '**/.tanstack/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
         'tooling/eslint-config/test/fixtures/**',
         'apps/web/src/routeTree.gen.ts',
       ],

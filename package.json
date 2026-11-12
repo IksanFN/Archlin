@@ -13,7 +13,8 @@
     "test:unit": "vitest run --project unit",
     "test:int": "vitest run --project integration",
     "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
-    "db:down": "docker compose -f docker/compose.dev.yml down"
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "test:e2e": "pnpm --filter @archlin/web test:e2e"
   },
   "devDependencies": {
     "@archlin/db": "workspace:*",

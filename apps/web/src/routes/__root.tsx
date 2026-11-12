@@ -7,7 +7,8 @@ import appCss from '~/styles/app.css?url';
 export const Route = createRootRoute({
   head: () => ({
     meta: [{ charSet: 'utf-8' }, { name: 'viewport', content: 'width=device-width, initial-scale=1' }, { title: 'Archlin' }],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    // No favicon asset exists yet; an empty one stops every page load from logging a 404.
+    links: [{ rel: 'stylesheet', href: appCss }, { rel: 'icon', href: 'data:,' }],
     // Router-managed scripts carry the request nonce, so this stays inside the CSP.
     scripts: [{ children: themeBootScript }],
   }),

@@ -1,3 +1,4 @@
+import './zod-config';
 import { createRouter } from '@tanstack/react-router';
 import { getGlobalStartContext } from '@tanstack/react-start';
 import { ErrorBoundary } from './components/error-boundary';

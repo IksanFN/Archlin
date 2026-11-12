@@ -8,6 +8,10 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   server: { port: 3000, strictPort: true },
   resolve: { tsconfigPaths: true },
+  build: {
+    // The CSP has no font-src, so a font inlined as a data: URI is blocked. Fonts must stay separate same-origin files.
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+  },
   // The argon2 binding is a native .node file: it must be loaded from node_modules at runtime, not bundled.
   ssr: { external: ['@node-rs/argon2'] },
   plugins: [

@@ -18,7 +18,6 @@ export const messages = {
     showSidebar: 'Tampilkan sidebar',
   },
   account: {
-    menuLabel: 'Menu akun',
     theme: 'Tema',
     themeSystem: 'Ikuti sistem',
     themeLight: 'Terang',

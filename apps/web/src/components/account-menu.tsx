@@ -35,7 +35,6 @@ export function AccountMenu({ displayName }: { displayName: string }) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`${messages.account.menuLabel}: ${displayName}`}
           className="flex h-11 w-full items-center gap-3 rounded-md pr-3 pl-2.5 text-ui text-fg-secondary transition-colors duration-[120ms] ease-out hover:bg-overlay data-[state=open]:bg-overlay"
         >
           <span

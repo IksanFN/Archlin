@@ -6,7 +6,9 @@
     "dev": "node --env-file-if-exists=../../.env ./node_modules/vite/bin/vite.js dev --port 3000",
     "build": "vite build",
     "start": "node --env-file-if-exists=../../.env .output/server/index.mjs",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "e2e:prepare": "docker compose -f ../../docker/compose.dev.yml exec -T postgres bash /opt/archlin/recreate-database.sh cortex_e2e && node --env-file=e2e/.env.e2e-runner ../migrate/dist/main.mjs",
+    "test:e2e": "pnpm run build && pnpm --filter @archlin/migrate build && pnpm run e2e:prepare && playwright test"
   },
   "dependencies": {
     "@archlin/db": "workspace:*",
@@ -32,12 +34,15 @@
   },
   "devDependencies": {
     "@archlin/testing": "workspace:*",
+    "@axe-core/playwright": "catalog:",
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@types/qrcode": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "otplib": "catalog:",
     "pg": "catalog:",
     "vitest": "catalog:"
   }
