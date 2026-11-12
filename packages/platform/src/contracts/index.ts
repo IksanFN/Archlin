@@ -48,6 +48,8 @@ export type {
   SpaceSummary,
   UpdateSpaceInput,
 } from './spaces';
+export { setEntityTagsInputSchema, suggestTagsInputSchema, tagNameSchema } from './tags';
+export type { SetEntityTagsInput, SuggestTagsInput, TagRef } from './tags';
 export {
   entityIdInputSchema,
   MAX_TREE_DEPTH,

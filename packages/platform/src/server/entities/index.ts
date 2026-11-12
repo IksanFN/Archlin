@@ -17,5 +17,7 @@ export type {
 export { nextFreeSlug, slugCandidate } from './slug';
 export { createSpaceService } from './space-service';
 export type { SpaceService } from './space-service';
+export { createTagService } from './tag-service';
+export type { TagService } from './tag-service';
 export { createTreeService, normalizeTitle } from './tree-service';
 export type { EntityRecord, TreeService } from './tree-service';
