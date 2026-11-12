@@ -1,0 +1,27 @@
+{
+  "name": "@archlin/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "start": "node --env-file-if-exists=../../.env dist/main.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
+    "kysely": "catalog:",
+    "pg-boss": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@archlin/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,125 @@
+# Local stack: pnpm stack:up (runs with --env-file .env from the cortex directory).
+# The database has no published port and the worker has no route out: both sit on the internal-only network.
+name: archlin
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      CORTEX_MIGRATOR_PASSWORD: ${CORTEX_MIGRATOR_PASSWORD}
+      CORTEX_APP_PASSWORD: ${CORTEX_APP_PASSWORD}
+      CORTEX_BACKUP_PASSWORD: ${CORTEX_BACKUP_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      - ./postgres/sql:/opt/archlin:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cortex"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # Runs once and exits. It is the only service that receives the migrator credential.
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      target: migrate
+    environment:
+      MIGRATOR_DATABASE_URL: postgres://cortex_migrator:${CORTEX_MIGRATOR_PASSWORD}@postgres:5432/cortex
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: "no"
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      target: web
+    environment:
+      DATABASE_URL: postgres://cortex_app:${CORTEX_APP_PASSWORD}@postgres:5432/cortex
+      TOTP_ENC_KEY: ${TOTP_ENC_KEY}
+      ARCHLIN_SETUP_TOKEN: ${ARCHLIN_SETUP_TOKEN}
+      ARCHLIN_PUBLIC_ORIGIN: http://localhost:${ARCHLIN_STACK_PORT:-8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # 8080 on the host so it does not collide with `pnpm dev` on 3000; bound to loopback only.
+    ports:
+      - "127.0.0.1:${ARCHLIN_STACK_PORT:-8080}:3000"
+    volumes:
+      - files:/data/files
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal, edge]
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/app.Dockerfile
+      target: worker
+    environment:
+      DATABASE_URL: postgres://cortex_app:${CORTEX_APP_PASSWORD}@postgres:5432/cortex
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    restart: unless-stopped
+
+  # Encrypts with the public key only; the private key stays off the server (docker/restore.sh takes it as a file).
+  backup:
+    build:
+      context: ./backup
+    environment:
+      BACKUP_DATABASE_URL: postgres://cortex_backup:${CORTEX_BACKUP_PASSWORD}@postgres:5432/cortex
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      TZ: ${BACKUP_TZ:-Asia/Jakarta}
+      BACKUP_AT: "02:00"
+      BACKUP_RETENTION_DAYS: "14"
+      APP_VERSION: ${APP_VERSION:-dev}
+    volumes:
+      - backups:/backups
+      - files:/data/files:ro
+    tmpfs:
+      - /work:mode=1777
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: unless-stopped
+
+  # Started on demand by docker/restore.sh (profile ops); never part of `stack:up`.
+  restore:
+    profiles: ["ops"]
+    build:
+      context: ./backup
+    user: root
+    entrypoint: ["restore-inside.sh"]
+    environment:
+      RESTORE_ADMIN_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+    volumes:
+      - files:/data/files
+      - ./postgres/sql:/opt/archlin:ro
+    tmpfs:
+      - /work
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+networks:
+  internal:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
+  files:
+  backups:

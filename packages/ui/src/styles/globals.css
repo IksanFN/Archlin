@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./tokens.css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --breakpoint-sm: 640px; --breakpoint-nav: 768px; --breakpoint-md: 960px; --breakpoint-lg: 1280px; --breakpoint-xl: 1440px;
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --text-h1: 44px;    --text-h1--line-height: 1.14;  --text-h1--letter-spacing: -0.4px;  --text-h1--font-weight: 600;
+  --text-h2: 36px;    --text-h2--line-height: 1.12;  --text-h2--letter-spacing: -0.36px; --text-h2--font-weight: 500;
+  --text-h3: 24px;    --text-h3--line-height: 1.33;  --text-h3--font-weight: 600;
+  --text-title: 20px; --text-title--line-height: 1.4; --text-title--font-weight: 500;
+  --text-lead: 18px;  --text-lead--line-height: 1.625;
+  --text-body: 16px;  --text-body--line-height: 1.625;
+  --text-small: 14px; --text-small--line-height: 1.43;
+  --text-nav: 13px;   --text-nav--line-height: 1.5;  --text-nav--font-weight: 500;
+  --text-micro: 12px; --text-micro--line-height: 1.33;
+  --text-auth-title: 32px; --text-auth-title--line-height: 1.2; --text-auth-title--font-weight: 500;
+  --text-ui: 15px; --text-ui--line-height: 1.4;
+  --radius-xs: 2px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 9999px;
+  --shadow-overlay: 0 16px 48px var(--grok-color-shadow);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@theme inline {
+  --color-bg: var(--grok-color-bg); --color-surface: var(--grok-color-surface);
+  --color-surface-raised: var(--grok-color-surface-raised); --color-surface-hover: var(--grok-color-surface-hover);
+  --color-surface-pressed: var(--grok-color-surface-pressed); --color-overlay: var(--grok-color-overlay);
+  --color-selected: var(--grok-color-selected);
+  --color-line: var(--grok-color-border); --color-line-subtle: var(--grok-color-border-subtle); --color-line-strong: var(--grok-color-border-strong);
+  --color-fg: var(--grok-color-text); --color-fg-secondary: var(--grok-color-text-secondary);
+  --color-fg-muted: var(--grok-color-text-muted); --color-fg-disabled: var(--grok-color-text-disabled);
+  --color-inverse: var(--grok-color-inverse-bg); --color-inverse-fg: var(--grok-color-inverse-text);
+  --color-inverse-hover: var(--grok-color-inverse-hover); --color-inverse-pressed: var(--grok-color-inverse-pressed);
+  --color-attention: var(--grok-color-attention); --color-attention-soft: var(--grok-color-attention-soft);
+  --color-success: var(--grok-color-success); --color-danger: var(--grok-color-danger);
+  --color-danger-soft: var(--grok-color-danger-soft); --color-on-danger: var(--grok-color-on-danger);
+  --color-info: var(--grok-color-info); --color-focus: var(--grok-color-focus);
+  --color-disabled-bg: var(--grok-color-disabled-bg); --color-scrim: var(--grok-color-scrim);
+  /* Aliases read by components from the shadcn generator. shadcn "accent" means hover fill, not grok.accent. */
+  --color-background: var(--grok-color-bg); --color-foreground: var(--grok-color-text);
+  --color-popover: var(--grok-color-surface-raised); --color-popover-foreground: var(--grok-color-text);
+  --color-primary: var(--grok-color-inverse-bg); --color-primary-foreground: var(--grok-color-inverse-text);
+  --color-secondary: var(--grok-color-surface-raised); --color-secondary-foreground: var(--grok-color-text);
+  --color-muted: var(--grok-color-surface); --color-muted-foreground: var(--grok-color-text-muted);
+  --color-accent: var(--grok-color-overlay); --color-accent-foreground: var(--grok-color-text);
+  --color-destructive: var(--grok-color-danger);
+  --color-border: var(--grok-color-border-subtle); --color-input: var(--grok-color-border-subtle); --color-ring: var(--grok-color-focus);
+}
+
+@layer base {
+  html { background: var(--grok-color-bg); color: var(--grok-color-text); font-family: var(--font-sans); }
+  a[href], button:not(:disabled), summary, select, label[for], [role="button"], [role="tab"], [role="switch"], [role="menuitem"], [role="menuitemradio"] { cursor: pointer; }
+  :disabled, [aria-disabled="true"] { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--grok-color-focus); outline-offset: 2px; }
+  /* Entrance for a screen's blocks: set --rise-index per block so they arrive one after another. */
+  @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes fade-in-only { from { opacity: 0; } to { opacity: 1; } }
+  .rise { animation: rise-in var(--grok-motion-slow) var(--ease-out) backwards; animation-delay: calc(var(--rise-index, 0) * 60ms); }
+  @media (prefers-reduced-motion: reduce) {
+    .rise { animation-name: fade-in-only; animation-delay: 0ms; }
+    *, *::before, *::after { animation-duration: 120ms !important; transition-duration: 120ms !important; }
+    [data-state] { --tw-enter-translate-x: 0; --tw-enter-translate-y: 0; --tw-exit-translate-x: 0; --tw-exit-translate-y: 0; --tw-enter-scale: 1; --tw-exit-scale: 1; }
+  }
+}

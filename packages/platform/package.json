@@ -1,0 +1,32 @@
+{
+  "name": "@archlin/platform",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./contracts": "./src/contracts/index.ts",
+    "./server": "./src/server/index.ts",
+    "./migrations": "./src/migrations/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@node-rs/argon2": "catalog:",
+    "kysely": "catalog:",
+    "otplib": "catalog:",
+    "pg": "catalog:",
+    "pg-boss": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@archlin/testing": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

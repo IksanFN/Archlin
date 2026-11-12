@@ -24,4 +24,10 @@ describe('boundaries', () => {
   it('rejects the kernel importing db', async () => {
     expect(await rulesFor('packages/kernel/src/uses-db.ts')).toContain('boundaries/dependencies');
   });
+  it('rejects production code in platform importing testing', async () => {
+    expect(await rulesFor('packages/platform/src/uses-testing.ts')).toContain('boundaries/dependencies');
+  });
+  it('allows a platform test file importing testing', async () => {
+    expect(await rulesFor('packages/platform/src/uses-testing.test.ts')).not.toContain('boundaries/dependencies');
+  });
 });

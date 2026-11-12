@@ -3,15 +3,30 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./fakes": "./src/fakes/index.ts"
+    "./fakes": "./src/fakes/index.ts",
+    "./db": "./src/db/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./logging": "./src/logging/index.ts",
+    "./fixture-module": "./fixtures/fixture-module/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@archlin/kernel": "workspace:*"
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
+    "@testcontainers/postgresql": "catalog:",
+    "kysely": "catalog:",
+    "otplib": "catalog:",
+    "pg": "catalog:",
+    "testcontainers": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
     "typescript": "catalog:"
   }
 }

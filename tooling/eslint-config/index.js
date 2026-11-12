@@ -6,6 +6,7 @@ import tseslint from 'typescript-eslint';
 
 const SOURCE_FILES = ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'];
 const LAYERED_FILES = ['packages/**/*.{ts,tsx,js,jsx}', 'apps/**/*.{ts,tsx,js,jsx}', 'tooling/**/*.{ts,tsx,js,jsx}'];
+const TEST_FILES = ['packages/**/*.test.{ts,tsx}', 'apps/**/*.test.{ts,tsx}'];
 const PACKAGE_AND_APP_FILES = ['packages/**/*.{ts,tsx,js,jsx}', 'apps/**/*.{ts,tsx,js,jsx}'];
 
 // Spec 5.3: element types of the dependency rule. Patterns are relative to rootDir.
@@ -47,6 +48,12 @@ const DEPENDENCY_POLICIES = [
   { from: { element: { type: 'tooling' } }, ...allowTo('tooling') },
 ];
 
+// packages/testing is test-only support code, so only test files of the other layers may import it.
+const TEST_DEPENDENCY_POLICIES = [
+  ...DEPENDENCY_POLICIES,
+  { from: { element: { type: ['db', 'platform', 'module', 'ui'] } }, ...allowTo('testing') },
+];
+
 /**
  * Builds the shared flat ESLint config for the workspace.
  * @param {{ rootDir: string }} options rootDir is the absolute path that element patterns are relative to.
@@ -60,6 +67,8 @@ export default function createEslintConfig({ rootDir }) {
         '**/.output/**',
         '**/dist/**',
         '**/.tanstack/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
         'tooling/eslint-config/test/fixtures/**',
         'apps/web/src/routeTree.gen.ts',
       ],
@@ -91,6 +100,12 @@ export default function createEslintConfig({ rootDir }) {
       },
       rules: {
         'boundaries/dependencies': [2, { default: 'disallow', policies: DEPENDENCY_POLICIES }],
+      },
+    },
+    {
+      files: TEST_FILES,
+      rules: {
+        'boundaries/dependencies': [2, { default: 'disallow', policies: TEST_DEPENDENCY_POLICIES }],
       },
     },
     {

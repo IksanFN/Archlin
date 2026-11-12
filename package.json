@@ -11,9 +11,20 @@
     "typecheck": "pnpm -r --parallel run typecheck",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
-    "test:int": "vitest run --project integration"
+    "test:int": "vitest run --project integration",
+    "db:up": "docker compose -f docker/compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.dev.yml down",
+    "test:e2e": "pnpm --filter @archlin/web test:e2e",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm audit --prod --audit-level high",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "stack:up": "docker compose -f docker/compose.yml --env-file .env up -d --build --wait",
+    "stack:down": "docker compose -f docker/compose.yml --env-file .env down",
+    "stack:logs": "docker compose -f docker/compose.yml --env-file .env logs -f web worker"
   },
   "devDependencies": {
+    "@archlin/db": "workspace:*",
+    "@archlin/kernel": "workspace:*",
+    "@archlin/platform": "workspace:*",
     "@archlin/eslint-config": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:",
