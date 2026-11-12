@@ -1,5 +1,5 @@
 import { runMigrations } from '@archlin/db/migrations';
-import { createLogger } from '@archlin/platform/server';
+import { bootstrapQueue, createLogger } from '@archlin/platform/server';
 import { migrationSets } from '../../../archlin.config';
 import { loadMigrateEnv } from './env';
 
@@ -8,6 +8,7 @@ try {
   const env = loadMigrateEnv();
   const logger = createLogger({ level: env.LOG_LEVEL, service: 'migrate' });
   await runMigrations({ connectionString: env.MIGRATOR_DATABASE_URL, sets: migrationSets(), logger });
+  await bootstrapQueue({ connectionString: env.MIGRATOR_DATABASE_URL, logger });
 } catch (err) {
   createLogger({ level: 'error', service: 'migrate' }).error({ err }, 'migration run failed');
   process.exitCode = 1;

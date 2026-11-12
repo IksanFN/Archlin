@@ -8,5 +8,7 @@ export default defineConfig({
   target: 'node24',
   outDir: 'dist',
   noExternal: [/.*/],
-  external: ['pg-native', '@opentelemetry/api'],
+  // pg-native is an optional driver nobody installs. @opentelemetry/api is imported unconditionally by pg-boss and does
+  // nothing without an SDK, so it is bundled rather than left for a node_modules the image does not have.
+  external: ['pg-native'],
 });

@@ -16,6 +16,8 @@
     "@node-rs/argon2": "catalog:",
     "kysely": "catalog:",
     "otplib": "catalog:",
+    "pg": "catalog:",
+    "pg-boss": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },
