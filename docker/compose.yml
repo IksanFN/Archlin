@@ -73,6 +73,47 @@ services:
     networks: [internal]
     restart: unless-stopped
 
+  # Encrypts with the public key only; the private key stays off the server (docker/restore.sh takes it as a file).
+  backup:
+    build:
+      context: ./backup
+    environment:
+      BACKUP_DATABASE_URL: postgres://cortex_backup:${CORTEX_BACKUP_PASSWORD}@postgres:5432/cortex
+      BACKUP_AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      TZ: ${BACKUP_TZ:-Asia/Jakarta}
+      BACKUP_AT: "02:00"
+      BACKUP_RETENTION_DAYS: "14"
+      APP_VERSION: ${APP_VERSION:-dev}
+    volumes:
+      - backups:/backups
+      - files:/data/files:ro
+    tmpfs:
+      - /work:mode=1777
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: unless-stopped
+
+  # Started on demand by docker/restore.sh (profile ops); never part of `stack:up`.
+  restore:
+    profiles: ["ops"]
+    build:
+      context: ./backup
+    user: root
+    entrypoint: ["restore-inside.sh"]
+    environment:
+      RESTORE_ADMIN_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+    volumes:
+      - files:/data/files
+      - ./postgres/sql:/opt/archlin:ro
+    tmpfs:
+      - /work
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
 networks:
   internal:
     internal: true
