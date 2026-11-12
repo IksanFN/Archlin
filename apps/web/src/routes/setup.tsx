@@ -1,3 +1,4 @@
+import { PASSWORD_MIN_CHARS } from '@archlin/platform/contracts';
 import { Button } from '@archlin/ui/components/button';
 import { FormField } from '@archlin/ui/components/form-field';
 import { InlineStatus } from '@archlin/ui/components/inline-status';
@@ -100,6 +101,7 @@ function SetupPage() {
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
                 autoComplete="name"
+                placeholder={copy.namePlaceholder}
                 autoFocus
                 required
                 maxLength={80}
@@ -116,6 +118,7 @@ function SetupPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="username"
+                placeholder={copy.emailPlaceholder}
                 required
                 leadingIcon={<EnvelopeSimpleIcon aria-hidden="true" />}
               />
@@ -126,6 +129,7 @@ function SetupPage() {
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
+            placeholder={messages.password.minimumPlaceholder(PASSWORD_MIN_CHARS)}
             error={errors.password}
             meter
           />
@@ -149,6 +153,7 @@ function SetupPage() {
                 value={setupToken}
                 onChange={(event) => setSetupToken(event.target.value)}
                 autoComplete="off"
+                placeholder={copy.setupCodePlaceholder}
                 autoCapitalize="none"
                 spellCheck={false}
                 required

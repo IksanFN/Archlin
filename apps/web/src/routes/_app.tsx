@@ -34,7 +34,6 @@ function AppLayout() {
         skipToContent: messages.common.skipToContent,
         navigation: messages.nav.label,
         openNavigation: messages.nav.openNavigation,
-        showSidebar: messages.nav.showSidebar,
       }}
     >
       <Outlet />

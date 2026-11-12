@@ -19,7 +19,7 @@ function NativeSelect({ className, wrapperClassName, size = 'default', children,
     <div
       data-slot="native-select"
       className={cn(
-        'relative flex items-center focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus',
+        'relative flex items-center',
         fieldSurface,
         wrapperClassName,
       )}

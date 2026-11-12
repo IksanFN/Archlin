@@ -76,13 +76,20 @@ function LoginPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               autoComplete="username"
+              placeholder={copy.emailPlaceholder}
               autoFocus
               required
               leadingIcon={<EnvelopeSimpleIcon aria-hidden="true" />}
             />
           )}
         </FormField>
-        <PasswordField label={copy.password} value={password} onChange={setPassword} autoComplete="current-password" />
+        <PasswordField
+          label={copy.password}
+          value={password}
+          onChange={setPassword}
+          autoComplete="current-password"
+          placeholder={copy.passwordPlaceholder}
+        />
         <Button type="submit" size="auth" loading={pending}>
           {copy.submit}
         </Button>

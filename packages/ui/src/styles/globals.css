@@ -55,7 +55,12 @@
   a[href], button:not(:disabled), summary, select, label[for], [role="button"], [role="tab"], [role="switch"], [role="menuitem"], [role="menuitemradio"] { cursor: pointer; }
   :disabled, [aria-disabled="true"] { cursor: not-allowed; }
   :focus-visible { outline: 2px solid var(--grok-color-focus); outline-offset: 2px; }
+  /* Entrance for a screen's blocks: set --rise-index per block so they arrive one after another. */
+  @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes fade-in-only { from { opacity: 0; } to { opacity: 1; } }
+  .rise { animation: rise-in var(--grok-motion-slow) var(--ease-out) backwards; animation-delay: calc(var(--rise-index, 0) * 60ms); }
   @media (prefers-reduced-motion: reduce) {
+    .rise { animation-name: fade-in-only; animation-delay: 0ms; }
     *, *::before, *::after { animation-duration: 120ms !important; transition-duration: 120ms !important; }
     [data-state] { --tw-enter-translate-x: 0; --tw-enter-translate-y: 0; --tw-exit-translate-x: 0; --tw-exit-translate-y: 0; --tw-enter-scale: 1; --tw-exit-scale: 1; }
   }

@@ -14,7 +14,7 @@
   --grok-color-attention-soft: #E8A33D24; --grok-color-success: #28C840;
   --grok-color-danger: #FF5F57;         --grok-color-danger-soft: #FF5F571F;
   --grok-color-on-danger: #0A0A0A;      --grok-color-info: #8FA9F0;
-  --grok-color-focus: #4AD8EC;          --grok-color-disabled-bg: #1A1A1A;
+  --grok-color-focus: #FFFFFF;          --grok-color-disabled-bg: #1A1A1A;
   --grok-color-scrim: #000000B3;        --grok-color-shadow: #00000099;
   --grok-color-code-keyword: #B6B3F9;
   color-scheme: dark;
@@ -36,7 +36,7 @@
   --grok-color-attention-soft: #965A001A; --grok-color-success: #1C7A30;
   --grok-color-danger: #C42B22;         --grok-color-danger-soft: #C42B2214;
   --grok-color-on-danger: #FFFFFF;      --grok-color-info: #3860BE;
-  --grok-color-focus: #3860BE;          --grok-color-disabled-bg: #F1F0EE;
+  --grok-color-focus: #4D4D4D;          --grok-color-disabled-bg: #F1F0EE;
   --grok-color-scrim: #0A0A0A59;        --grok-color-shadow: #0A0A0A1F;
   --grok-color-code-keyword: #5B3FD0;
   color-scheme: light;

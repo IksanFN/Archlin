@@ -132,6 +132,7 @@ function ReauthForm({ totpEnabled, onConfirmed }: { totpEnabled: boolean; onConf
         value={password}
         onChange={setPassword}
         autoComplete="current-password"
+        placeholder={messages.password.currentPlaceholder}
         error={passwordError}
         size="default"
         autoFocus

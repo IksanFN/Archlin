@@ -1,4 +1,4 @@
-import { ListIcon, SidebarSimpleIcon } from '@phosphor-icons/react/ssr';
+import { ListIcon } from '@phosphor-icons/react/ssr';
 import { useState, useSyncExternalStore } from 'react';
 import type { MouseEvent, ReactNode } from 'react';
 import { Button } from '../components/button';
@@ -7,7 +7,7 @@ import { cn } from '../lib/utils';
 import { SkipLink } from './skip-link';
 import { ShellContext } from './sidebar';
 
-export const SIDEBAR_HIDDEN_KEY = 'archlin.sidebar.hidden';
+export const SIDEBAR_COLLAPSED_KEY = 'archlin.sidebar.collapsed';
 
 export const MAIN_ID = 'konten';
 
@@ -15,7 +15,6 @@ export interface AppShellLabels {
   skipToContent: string;
   navigation: string;
   openNavigation: string;
-  showSidebar: string;
 }
 
 interface AppShellProps {
@@ -25,44 +24,44 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-const hiddenListeners = new Set<() => void>();
+const collapsedListeners = new Set<() => void>();
 // Fallback for a tab whose storage refuses writes, so the toggle still responds.
-let unsavedHidden: boolean | null = null;
+let unsavedCollapsed: boolean | null = null;
 
-function readHidden(): boolean {
-  if (unsavedHidden !== null) return unsavedHidden;
+function readCollapsed(): boolean {
+  if (unsavedCollapsed !== null) return unsavedCollapsed;
   try {
-    return window.localStorage.getItem(SIDEBAR_HIDDEN_KEY) === '1';
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
   } catch {
     return false;
   }
 }
 
-function writeHidden(hidden: boolean): void {
+function writeCollapsed(collapsed: boolean): void {
   try {
-    if (hidden) window.localStorage.setItem(SIDEBAR_HIDDEN_KEY, '1');
-    else window.localStorage.removeItem(SIDEBAR_HIDDEN_KEY);
-    unsavedHidden = null;
+    if (collapsed) window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '1');
+    else window.localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+    unsavedCollapsed = null;
   } catch {
-    unsavedHidden = hidden;
+    unsavedCollapsed = collapsed;
   }
-  for (const listener of hiddenListeners) listener();
+  for (const listener of collapsedListeners) listener();
 }
 
-function subscribeHidden(onChange: () => void): () => void {
-  hiddenListeners.add(onChange);
+function subscribeCollapsed(onChange: () => void): () => void {
+  collapsedListeners.add(onChange);
   const onStorage = (event: StorageEvent): void => {
-    if (event.key === SIDEBAR_HIDDEN_KEY) onChange();
+    if (event.key === SIDEBAR_COLLAPSED_KEY) onChange();
   };
   window.addEventListener('storage', onStorage);
   return () => {
-    hiddenListeners.delete(onChange);
+    collapsedListeners.delete(onChange);
     window.removeEventListener('storage', onStorage);
   };
 }
 
 function AppShell({ sidebar, title, labels, children }: AppShellProps) {
-  const hidden = useSyncExternalStore(subscribeHidden, readHidden, () => false);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // A tapped link inside the drawer navigates; the drawer should not stay open over the new page.
@@ -71,14 +70,19 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
   };
 
   return (
-    <div className={cn('min-h-dvh nav:grid', hidden ? 'nav:grid-cols-[1fr]' : 'nav:grid-cols-[300px_1fr]')}>
+    <div className={cn('min-h-dvh nav:grid', collapsed ? 'nav:grid-cols-[72px_1fr]' : 'nav:grid-cols-[300px_1fr]')}>
       <SkipLink label={labels.skipToContent} targetId={MAIN_ID} />
 
-      <aside
-        aria-label={labels.navigation}
-        className={cn('sticky top-0 hidden h-dvh overflow-y-auto bg-surface', hidden ? '' : 'nav:block')}
-      >
-        <ShellContext value={{ inDrawer: false, hideSidebar: () => writeHidden(true) }}>{sidebar}</ShellContext>
+      <aside aria-label={labels.navigation} className="sticky top-0 hidden h-dvh overflow-x-hidden overflow-y-auto bg-surface nav:block">
+        <ShellContext
+          value={{
+            variant: collapsed ? 'rail' : 'full',
+            collapse: collapsed ? null : () => writeCollapsed(true),
+            expand: collapsed ? () => writeCollapsed(false) : null,
+          }}
+        >
+          {sidebar}
+        </ShellContext>
       </aside>
 
       <div className="flex min-w-0 flex-col">
@@ -89,14 +93,6 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
           <span className="truncate text-ui font-medium text-fg">{title}</span>
         </header>
 
-        {hidden ? (
-          <div className="hidden px-4 pt-4 nav:block">
-            <Button variant="icon" size="icon-sm" aria-label={labels.showSidebar} className="bg-transparent text-fg-muted hover:bg-overlay" onClick={() => writeHidden(false)}>
-              <SidebarSimpleIcon aria-hidden="true" size={18} />
-            </Button>
-          </div>
-        ) : null}
-
         <main id={MAIN_ID} tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
           {children}
         </main>
@@ -106,7 +102,7 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
         <SheetContent aria-describedby={undefined} onClick={closeDrawerOnNavigate}>
           <SheetTitle>{labels.navigation}</SheetTitle>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <ShellContext value={{ inDrawer: true, hideSidebar: null }}>{sidebar}</ShellContext>
+            <ShellContext value={{ variant: 'drawer', collapse: null, expand: null }}>{sidebar}</ShellContext>
           </div>
         </SheetContent>
       </Sheet>

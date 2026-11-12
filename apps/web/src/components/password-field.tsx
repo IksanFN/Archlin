@@ -12,6 +12,7 @@ interface PasswordFieldProps {
   value: string;
   onChange: (value: string) => void;
   autoComplete: 'current-password' | 'new-password';
+  placeholder?: string;
   error?: string | undefined;
   size?: 'default' | 'lg';
   // Shows the length meter; only set it where the user is choosing a new password.
@@ -36,7 +37,7 @@ function LengthMeter({ value }: { value: string }) {
   );
 }
 
-export function PasswordField({ label, value, onChange, autoComplete, error, size = 'lg', meter = false, autoFocus }: PasswordFieldProps) {
+export function PasswordField({ label, value, onChange, autoComplete, placeholder, error, size = 'lg', meter = false, autoFocus }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false);
   return (
     <FormField label={label} error={error}>
@@ -49,6 +50,7 @@ export function PasswordField({ label, value, onChange, autoComplete, error, siz
             value={value}
             onChange={(event) => onChange(event.target.value)}
             autoComplete={autoComplete}
+            placeholder={placeholder}
             autoFocus={autoFocus}
             required
             leadingIcon={size === 'lg' ? <LockSimpleIcon aria-hidden="true" /> : undefined}

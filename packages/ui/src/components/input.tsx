@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 export const fieldSurface =
-  'w-full rounded-md bg-overlay border border-line-subtle text-fg has-[[aria-invalid=true]]:border-danger has-[:disabled]:bg-disabled-bg has-[:disabled]:text-fg-disabled';
+  'w-full rounded-md bg-overlay border border-line-subtle text-fg focus-within:border-focus focus-within:outline-1 focus-within:-outline-offset-1 focus-within:outline-focus has-[[aria-invalid=true]]:border-danger has-[[aria-invalid=true]]:focus-within:outline-danger has-[:disabled]:bg-disabled-bg has-[:disabled]:text-fg-disabled';
 
 const fieldSize = {
   default: 'h-10 pl-[14px] pr-3 text-small',
@@ -17,13 +17,14 @@ export interface InputProps extends Omit<ComponentProps<'input'>, 'size'> {
   inputClassName?: string;
 }
 
-// The frame owns border, fill and focus ring so an icon or a button can sit inside the same field.
+// The frame owns border, fill and focus so an icon or a button can sit inside the same field. Focus thickens the border
+// to 2px inside the box (border plus inset outline) so nothing shifts and the field matches the mockup frames.
 function Input({ className, inputClassName, size = 'default', leadingIcon, trailing, ...props }: InputProps) {
   return (
     <div
       data-slot="input"
       className={cn(
-        'flex items-center focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus',
+        'flex items-center',
         fieldSurface,
         fieldSize[size],
         className,

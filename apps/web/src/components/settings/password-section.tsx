@@ -1,6 +1,7 @@
 import { Button } from '@archlin/ui/components/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@archlin/ui/components/dialog';
 import { toast } from '@archlin/ui/components/sonner';
+import { PASSWORD_MIN_CHARS } from '@archlin/platform/contracts';
 import type { Viewer } from '@archlin/platform/contracts';
 import { useRouter } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
@@ -79,8 +80,8 @@ function ChangePasswordForm({ onDone }: { onDone: () => void }) {
         <DialogTitle>{copy.dialogTitle}</DialogTitle>
         <DialogDescription>{copy.dialogBody}</DialogDescription>
       </DialogHeader>
-      <PasswordField label={copy.newPassword} value={password} onChange={setPassword} autoComplete="new-password" error={passwordError} size="default" meter autoFocus />
-      <PasswordField label={copy.repeatPassword} value={repeat} onChange={setRepeat} autoComplete="new-password" error={repeatError} size="default" />
+      <PasswordField label={copy.newPassword} value={password} onChange={setPassword} autoComplete="new-password" placeholder={messages.password.minimumPlaceholder(PASSWORD_MIN_CHARS)} error={passwordError} size="default" meter autoFocus />
+      <PasswordField label={copy.repeatPassword} value={repeat} onChange={setRepeat} autoComplete="new-password" placeholder={messages.password.repeatPlaceholder} error={repeatError} size="default" />
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="outline">{messages.common.cancel}</Button>
