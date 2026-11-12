@@ -1,11 +1,12 @@
 import { sqlFor } from '@archlin/db/scoped';
 import { ConflictError, ForbiddenError, UnauthorizedError, ValidationError } from '@archlin/kernel';
-import type { Clock, Ids, Logger, OwnerUnitOfWork, WriteTx } from '@archlin/kernel';
+import type { Clock, EventPublisher, Ids, Logger, OwnerUnitOfWork, WriteTx } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { sql } from 'kysely';
 import type { Kysely } from 'kysely';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { AuthState, LoginInput, SetupInput, TotpLoginInput } from '../../contracts';
+import { accountCreated } from '../platform-events';
 import { createIdentityGateway } from './identity-gateway';
 import { createLoginAttempts } from './login-attempts';
 import { isSupportedTimezone, normalizeEmail } from './normalize';
@@ -35,6 +36,7 @@ export interface AuthDeps {
   logger: Logger;
   setupToken: string | null;
   sleep: (ms: number) => Promise<void>;
+  publisher: EventPublisher;
 }
 
 export interface AuthService {
@@ -60,7 +62,7 @@ function sameSecret(expected: string, submitted: string): boolean {
 }
 
 export function createAuthService(deps: AuthDeps): AuthService {
-  const { db, uow, clock, hasher, totp, secretBox, logger, setupToken, sleep } = deps;
+  const { db, uow, clock, hasher, totp, secretBox, logger, setupToken, sleep, publisher } = deps;
   const gateway = createIdentityGateway(db);
   const attempts = createLoginAttempts({ gateway, clock, logger, sleep });
 
@@ -184,14 +186,22 @@ export function createAuthService(deps: AuthDeps): AuthService {
 
       const id = deps.ids.uuidv7();
       const now = clock.now();
+      // Hash outside the write: argon2 would otherwise hold a pooled connection for hundreds of milliseconds.
+      const passwordHash = await hasher.hash(normalizePassword(input.password));
       try {
-        await gateway.createInitialAccount({
-          id,
-          email: normalizeEmail(input.email),
-          displayName: input.displayName.trim(),
-          passwordHash: await hasher.hash(normalizePassword(input.password)),
-          timezone: input.timezone,
-          now,
+        await uow.write(issueOwnerScope(id), async (tx) => {
+          await gateway.createInitialAccount(tx, {
+            id,
+            email: normalizeEmail(input.email),
+            displayName: input.displayName.trim(),
+            passwordHash,
+            timezone: input.timezone,
+            now,
+          });
+          await publisher.publish(
+            { definition: accountCreated, aggregateId: id, aggregateRevision: 1, payload: {} },
+            tx,
+          );
         });
       } catch (err) {
         // The single-account unique index settles two setup requests that passed the check above together.

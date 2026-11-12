@@ -1,19 +1,24 @@
 import '@tanstack/react-start/server-only';
 import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
-import { systemClock, systemIds } from '@archlin/kernel';
-import type { Clock, Logger, OwnerUnitOfWork } from '@archlin/kernel';
+import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
+import type { Clock, EventPublisher, Logger, ModuleRegistry, OwnerUnitOfWork } from '@archlin/kernel';
 import {
   createAccountService,
   createAuthService,
+  createEventPublisher,
   createLogger,
   createPasswordHasher,
   createSecretBox,
+  createSpaceService,
+  createTagService,
   createTotp,
+  createTreeService,
+  PLATFORM_EVENTS,
 } from '@archlin/platform/server';
-import type { AccountService, AuthDeps, AuthService } from '@archlin/platform/server';
+import type { AccountService, AuthDeps, AuthService, SpaceService, TagService, TreeService } from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
-import { migrationSets } from '../../../../archlin.config';
+import { migrationSets, moduleDrafts } from '../../../../archlin.config';
 import { loadWebEnv } from './env';
 import type { WebEnv } from './env';
 import { createControllableClock } from './test-mode';
@@ -26,6 +31,11 @@ export interface WebContainer {
   uow: OwnerUnitOfWork;
   clock: Clock;
   testClock: ControllableClock | null;
+  registry: ModuleRegistry;
+  publisher: EventPublisher;
+  spaces: SpaceService;
+  tree: TreeService;
+  tags: TagService;
   auth: AuthService;
   account: AccountService;
   expectedMigrations: readonly string[];
@@ -43,6 +53,11 @@ function buildContainer(): WebContainer {
   const uow = createOwnerUnitOfWork(db);
   const testClock = env.testMode ? createControllableClock(new Date()) : null;
   const clock = testClock ?? systemClock;
+  const registry = buildRegistry(moduleDrafts({ ids: systemIds }), PLATFORM_EVENTS);
+  const publisher = createEventPublisher({ registry, ids: systemIds, clock });
+  const spaces = createSpaceService({ registry, ids: systemIds, clock });
+  const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
+  const tags = createTagService({ tree, ids: systemIds, clock });
 
   const authDeps: AuthDeps = {
     db,
@@ -55,6 +70,7 @@ function buildContainer(): WebContainer {
     logger,
     setupToken: env.setupToken,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    publisher,
   };
 
   return {
@@ -64,6 +80,11 @@ function buildContainer(): WebContainer {
     uow,
     clock,
     testClock,
+    registry,
+    publisher,
+    spaces,
+    tree,
+    tags,
     auth: createAuthService(authDeps),
     account: createAccountService(authDeps),
     expectedMigrations: qualifiedMigrationNames(migrationSets()),

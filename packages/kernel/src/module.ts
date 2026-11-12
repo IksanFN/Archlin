@@ -1,5 +1,10 @@
 import type { EventDefinition, EventEnvelope } from './events';
+import type { Ids } from './ids';
 import type { WriteTx } from './uow';
+
+export interface ModuleServerDeps {
+  readonly ids: Ids;
+}
 
 export interface EntityKindDraft {
   readonly label: string;
