@@ -25,22 +25,34 @@ export {
 } from './field-schema';
 export type { FieldDefinition, FieldType, PropertyIssue } from './field-schema';
 export {
+  REVIEW_MODES,
   changeNoteTypeInputSchema,
   contextFieldsSchema,
+  createNoteTypeInputSchema,
   createPageInputSchema,
+  deleteNoteTypeInputSchema,
+  noteTypeIdInputSchema,
+  noteTypeNameSchema,
   overwritePageInputSchema,
   pageIdInputSchema,
   propertiesSchema,
   renamePageInputSchema,
   savePageInputSchema,
+  updateNoteTypeInputSchema,
 } from './inputs';
 export type {
   ChangeNoteTypeInput,
   ContextFields,
+  CreateNoteTypeInput,
   CreatePageInput,
+  DeleteNoteTypeInput,
+  NoteTypeIdInput,
   OverwritePageInput,
   PageIdInput,
   RenamePageInput,
+  ReviewMode,
   SavePageInput,
+  UpdateNoteTypeInput,
 } from './inputs';
-export type { NoteTypeRef, PageView, SaveResult } from './types';
+export { deriveTypeKey } from './type-key';
+export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageView, SaveResult } from './types';

@@ -1,5 +1,6 @@
+import { emojiIconSchema } from '@archlin/platform/contracts';
 import { z } from 'zod';
-import { PROPERTY_KEY } from './field-schema';
+import { PROPERTY_KEY, fieldSchemaSchema } from './field-schema';
 
 export const contextFieldsSchema = z.strictObject({
   summary: z.string().max(1000).nullable(),
@@ -47,3 +48,37 @@ export type ChangeNoteTypeInput = z.infer<typeof changeNoteTypeInputSchema>;
 
 export const pageIdInputSchema = z.strictObject({ entityId: z.uuid() });
 export type PageIdInput = z.infer<typeof pageIdInputSchema>;
+
+export const REVIEW_MODES = ['none', 'daily', 'spaced'] as const;
+export type ReviewMode = (typeof REVIEW_MODES)[number];
+
+export const noteTypeNameSchema = z.string().trim().min(1).max(60);
+
+export const createNoteTypeInputSchema = z.strictObject({
+  name: noteTypeNameSchema,
+  icon: emojiIconSchema,
+  fieldSchema: fieldSchemaSchema,
+  template: z.json(),
+  defaultReviewMode: z.enum(REVIEW_MODES),
+});
+export type CreateNoteTypeInput = z.infer<typeof createNoteTypeInputSchema>;
+
+export const updateNoteTypeInputSchema = z.strictObject({
+  id: z.uuid(),
+  baseSchemaVersion: z.int().min(1),
+  name: noteTypeNameSchema.optional(),
+  icon: emojiIconSchema.optional(),
+  fieldSchema: fieldSchemaSchema.optional(),
+  template: z.json().optional(),
+  defaultReviewMode: z.enum(REVIEW_MODES).optional(),
+});
+export type UpdateNoteTypeInput = z.infer<typeof updateNoteTypeInputSchema>;
+
+export const deleteNoteTypeInputSchema = z.strictObject({
+  id: z.uuid(),
+  reassignTo: z.uuid().nullable(),
+});
+export type DeleteNoteTypeInput = z.infer<typeof deleteNoteTypeInputSchema>;
+
+export const noteTypeIdInputSchema = z.strictObject({ id: z.uuid() });
+export type NoteTypeIdInput = z.infer<typeof noteTypeIdInputSchema>;

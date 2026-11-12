@@ -1,7 +1,7 @@
 import type { TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
 import type { FieldDefinition } from './field-schema';
-import type { ContextFields } from './inputs';
+import type { ContextFields, ReviewMode } from './inputs';
 
 export interface NoteTypeRef {
   id: string;
@@ -10,6 +10,16 @@ export interface NoteTypeRef {
   icon: string | null;
   fieldSchema: FieldDefinition[];
   schemaVersion: number;
+}
+
+export interface NoteTypeSummary extends NoteTypeRef {
+  isSystem: boolean;
+  defaultReviewMode: ReviewMode;
+  pageCount: number;
+}
+
+export interface NoteTypeDetail extends NoteTypeSummary {
+  template: JSONContent;
 }
 
 export interface PageView {
