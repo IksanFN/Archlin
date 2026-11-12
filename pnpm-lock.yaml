@@ -200,7 +200,13 @@ catalogs:
     '@tiptap/core':
       specifier: 3.32.1
       version: 3.32.1
+    '@tiptap/extension-code-block':
+      specifier: 3.32.1
+      version: 3.32.1
     '@tiptap/extension-details':
+      specifier: 3.32.1
+      version: 3.32.1
+    '@tiptap/extension-heading':
       specifier: 3.32.1
       version: 3.32.1
     '@tiptap/extension-image':
@@ -600,9 +606,15 @@ importers:
       '@tiptap/core':
         specifier: 'catalog:'
         version: 3.32.1(@tiptap/pm@3.32.1)
+      '@tiptap/extension-code-block':
+        specifier: 'catalog:'
+        version: 3.32.1(@tiptap/core@3.32.1(@tiptap/pm@3.32.1))(@tiptap/pm@3.32.1)
       '@tiptap/extension-details':
         specifier: 'catalog:'
         version: 3.32.1(@tiptap/core@3.32.1(@tiptap/pm@3.32.1))(@tiptap/extension-text-style@3.32.1(@tiptap/core@3.32.1(@tiptap/pm@3.32.1)))(@tiptap/pm@3.32.1)
+      '@tiptap/extension-heading':
+        specifier: 'catalog:'
+        version: 3.32.1(@tiptap/core@3.32.1(@tiptap/pm@3.32.1))
       '@tiptap/extension-image':
         specifier: 'catalog:'
         version: 3.32.1(@tiptap/core@3.32.1(@tiptap/pm@3.32.1))

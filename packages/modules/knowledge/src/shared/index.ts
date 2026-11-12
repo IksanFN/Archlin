@@ -1,3 +1,18 @@
+export { canonicalJson } from './canonical-json';
+export {
+  ALLOWED_LINK_PROTOCOLS,
+  ArchlinHeading,
+  ArchlinImage,
+  CALLOUT_VARIANTS,
+  Callout,
+  contentExtensions,
+  emptyDocument,
+  getDocumentSchema,
+  headingDocument,
+  isAllowedImageSrc,
+  isAllowedLink,
+} from './document-schema';
+export type { CalloutVariant } from './document-schema';
 export {
   FIELD_TYPES,
   PROPERTY_KEY,
