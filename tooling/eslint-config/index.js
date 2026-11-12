@@ -54,6 +54,17 @@ const TEST_DEPENDENCY_POLICIES = [
   { from: { element: { type: ['db', 'platform', 'module', 'ui'] } }, ...allowTo('testing') },
 ];
 
+// Shared by every module subpath rule: flat config replaces a rule of the same name, so later layers must repeat these.
+const MODULE_PATH_BANS = [
+  { name: '@archlin/kernel/trusted', message: 'Scope tepercaya hanya untuk platform, db, testing, dan apps.' },
+  { name: '@archlin/db/runtime', message: 'Modul tidak boleh memakai runtime db secara langsung.' },
+  {
+    name: '@archlin/db/migrations',
+    allowTypeImports: true,
+    message: 'Modul hanya boleh mengimpor tipe dari migrasi db.',
+  },
+];
+
 /**
  * Builds the shared flat ESLint config for the workspace.
  * @param {{ rootDir: string }} options rootDir is the absolute path that element patterns are relative to.
@@ -136,17 +147,59 @@ export default function createEslintConfig({ rootDir }) {
         '@typescript-eslint/no-restricted-imports': [
           'error',
           {
+            paths: MODULE_PATH_BANS,
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/modules/*/src/shared/**/*.{ts,tsx,js,jsx}'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
             paths: [
-              { name: '@archlin/kernel/trusted', message: 'Scope tepercaya hanya untuk platform, db, testing, dan apps.' },
-              { name: '@archlin/db/runtime', message: 'Modul tidak boleh memakai runtime db secara langsung.' },
+              ...MODULE_PATH_BANS,
+              { name: 'react', message: 'Kode shared modul tidak boleh mengimpor React.' },
+              { name: '@tiptap/react', message: 'Kode shared modul tidak boleh mengimpor React.' },
+              { name: '@archlin/platform/server', message: 'Kode shared modul tidak boleh mengimpor server platform.' },
+            ],
+            patterns: [
               {
-                name: '@archlin/db/migrations',
-                allowTypeImports: true,
-                message: 'Modul hanya boleh mengimpor tipe dari migrasi db.',
+                group: ['../server/*', '../web/*', '**/src/server/**', '**/src/web/**', '@archlin/db/*'],
+                message: 'Kode shared modul tidak boleh mengimpor server, web, atau db.',
               },
             ],
           },
         ],
+      },
+    },
+    {
+      files: ['packages/modules/*/src/web/**/*.{ts,tsx,js,jsx}'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              ...MODULE_PATH_BANS,
+              { name: '@archlin/platform/server', message: 'Kode web modul tidak boleh mengimpor server platform.' },
+              { name: '@archlin/platform/migrations', message: 'Kode web modul tidak boleh mengimpor migrasi.' },
+            ],
+            patterns: [
+              {
+                group: ['../server/*', '**/src/server/**', '@archlin/db/*'],
+                message: 'Kode web modul tidak boleh mengimpor server atau db.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      // Module tests compose the kernel trusted issuer and db runtime; production files keep the bans above.
+      files: ['packages/modules/**/*.test.{ts,tsx}'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': 'off',
       },
     },
     {

@@ -24,6 +24,7 @@
   "devDependencies": {
     "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
+    "@archlin/modules-knowledge": "workspace:*",
     "@archlin/platform": "workspace:*",
     "@archlin/eslint-config": "workspace:*",
     "eslint": "catalog:",

@@ -30,4 +30,27 @@ describe('boundaries', () => {
   it('allows a platform test file importing testing', async () => {
     expect(await rulesFor('packages/platform/src/uses-testing.test.ts')).not.toContain('boundaries/dependencies');
   });
+  it('module shared code cannot import its web code', async () => {
+    expect(await rulesFor('packages/modules/alpha/src/shared/uses-web.ts')).toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+  });
+  it('module web code cannot import its server code', async () => {
+    expect(await rulesFor('packages/modules/alpha/src/web/uses-server.ts')).toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+  });
+  it('module web code cannot import db', async () => {
+    expect(await rulesFor('packages/modules/alpha/src/web/uses-db.ts')).toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+  });
+  it('module server and web code may import their own shared code', async () => {
+    expect(await rulesFor('packages/modules/alpha/src/server/ok.ts')).not.toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+    expect(await rulesFor('packages/modules/alpha/src/web/ok.ts')).not.toContain(
+      '@typescript-eslint/no-restricted-imports',
+    );
+  });
 });

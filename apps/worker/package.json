@@ -10,6 +10,7 @@
   "dependencies": {
     "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
+    "@archlin/modules-knowledge": "workspace:*",
     "@archlin/platform": "workspace:*",
     "kysely": "catalog:",
     "pg-boss": "catalog:",
