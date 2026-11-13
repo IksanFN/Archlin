@@ -19,7 +19,7 @@ function DropdownMenuContent({ className, sideOffset = 6, ...props }: ComponentP
         sideOffset={sideOffset}
         className={cn(
           'z-50 min-w-56 rounded-lg border border-line-subtle bg-surface-raised p-1.5 shadow-overlay',
-          'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=closed]:duration-150',
+          'origin-[var(--radix-dropdown-menu-content-transform-origin)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.97] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.97] data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:duration-150 data-[state=closed]:ease-in',
           className,
         )}
         {...props}

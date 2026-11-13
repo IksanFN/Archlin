@@ -20,13 +20,13 @@ function SheetContent({ className, children, ...props }: ComponentProps<typeof S
     <SheetPrimitive.Portal>
       <SheetPrimitive.Overlay
         data-slot="sheet-overlay"
-        className="fixed inset-0 z-50 bg-scrim data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[240ms] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[320ms]"
+        className="fixed inset-0 z-50 bg-scrim data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-[240ms] data-[state=closed]:ease-in data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-[320ms] data-[state=open]:ease-out"
       />
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[300px] max-w-[85vw] flex-col rounded-r-lg bg-surface shadow-overlay',
-          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=closed]:duration-[240ms] data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=open]:duration-[320ms]',
+          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=closed]:duration-[240ms] data-[state=closed]:ease-in data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=open]:duration-[320ms] data-[state=open]:ease-out',
           className,
         )}
         {...props}

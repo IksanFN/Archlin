@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
 export const fieldSurface =
-  'w-full rounded-md bg-overlay border border-line-subtle text-fg focus-within:border-focus focus-within:outline-1 focus-within:-outline-offset-1 focus-within:outline-focus has-[[aria-invalid=true]]:border-danger has-[[aria-invalid=true]]:focus-within:outline-danger has-[:disabled]:bg-disabled-bg has-[:disabled]:text-fg-disabled';
+  'w-full rounded-md bg-overlay border border-line-subtle text-fg transition-[border-color,outline-color] duration-[120ms] ease-out focus-within:border-focus focus-within:outline-1 focus-within:-outline-offset-1 focus-within:outline-focus has-[[aria-invalid=true]]:border-danger has-[[aria-invalid=true]]:focus-within:outline-danger has-[:disabled]:bg-disabled-bg has-[:disabled]:text-fg-disabled';
 
 const fieldSize = {
   default: 'h-10 pl-[14px] pr-3 text-small',
