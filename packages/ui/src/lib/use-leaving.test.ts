@@ -44,4 +44,18 @@ describe('useLeaving', () => {
     const { leave } = hookApi<string>();
     await expect(leave('row')).resolves.toBeUndefined();
   });
+
+  it('keeps isLeaving true after leave resolves until the caller drops the item', async () => {
+    vi.useFakeTimers();
+    const { isLeaving, leave } = hookApi<string>();
+    let items = ['row'];
+    const shown = (): boolean => items.includes('row') && isLeaving('row');
+    const done = leave('row');
+    expect(shown()).toBe(true);
+    await vi.advanceTimersByTimeAsync(150);
+    await done;
+    expect(shown()).toBe(true);
+    items = [];
+    expect(shown()).toBe(false);
+  });
 });

@@ -15,14 +15,16 @@ export interface InputProps extends Omit<ComponentProps<'input'>, 'size'> {
   trailing?: ReactNode;
   // className styles the field frame; inputClassName styles the bare element inside it.
   inputClassName?: string;
+  'data-shake'?: 'true';
 }
 
 // The frame owns border, fill and focus so an icon or a button can sit inside the same field. Focus thickens the border
 // to 2px inside the box (border plus inset outline) so nothing shifts and the field matches the mockup frames.
-function Input({ className, inputClassName, size = 'default', leadingIcon, trailing, ...props }: InputProps) {
+function Input({ className, inputClassName, size = 'default', leadingIcon, trailing, 'data-shake': dataShake, ...props }: InputProps) {
   return (
     <div
       data-slot="input"
+      {...(dataShake === undefined ? {} : { 'data-shake': dataShake })}
       className={cn(
         'flex items-center',
         fieldSurface,
