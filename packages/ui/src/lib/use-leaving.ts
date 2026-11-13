@@ -3,6 +3,7 @@ import { exitMs, MOTION_MS, prefersReducedMotion } from './motion';
 
 type LeavingStore<K> = {
   keys: Set<K>;
+  published: Set<K>;
   version: number;
   listeners: Set<() => void>;
 };
@@ -18,7 +19,7 @@ export function useLeaving<K>(): {
 } {
   const storeRef = useRef<LeavingStore<K> | null>(null);
   if (storeRef.current === null) {
-    storeRef.current = { keys: new Set<K>(), version: 0, listeners: new Set() };
+    storeRef.current = { keys: new Set<K>(), published: new Set<K>(), version: 0, listeners: new Set() };
   }
   const store = storeRef.current;
 
@@ -35,16 +36,24 @@ export function useLeaving<K>(): {
 
   return {
     isLeaving(key: K): boolean {
-      return store.keys.has(key);
+      return store.published.has(key);
     },
     leave(key: K): Promise<void> {
       const delay = prefersReducedMotion() ? 0 : exitMs(MOTION_MS.base);
-      if (delay === 0) return Promise.resolve();
       store.keys.add(key);
+      store.published.add(key);
       notify(store);
-      // Keys stay in the set: unmount is the caller's job; notifying a smaller set would snap the exit.
+      const finish = (resolve: () => void): void => {
+        store.keys.delete(key);
+        resolve();
+        queueMicrotask(() => {
+          // Release after the caller unmounts; do not notify or a still-painted row would snap back.
+          if (!store.keys.has(key)) store.published.delete(key);
+        });
+      };
+      if (delay === 0) return new Promise(finish);
       return new Promise((resolve) => {
-        setTimeout(resolve, delay);
+        setTimeout(() => finish(resolve), delay);
       });
     },
   };

@@ -45,19 +45,27 @@ describe('useLeaving', () => {
     await expect(leave('row')).resolves.toBeUndefined();
   });
 
-  it('keeps isLeaving true after leave resolves until the caller drops the item', async () => {
+  it('keeps isLeaving true after leave resolves until microtasks flush, including a later leave', async () => {
     vi.useFakeTimers();
     const { isLeaving, leave } = hookApi<string>();
     const done = leave('a');
-    expect(isLeaving('a')).toBe(true);
+    const afterLeave = done.then(() => {
+      expect(isLeaving('a')).toBe(true);
+      void leave('b');
+      expect(isLeaving('a')).toBe(true);
+      expect(isLeaving('b')).toBe(true);
+    });
+    await vi.advanceTimersByTimeAsync(150);
+    await afterLeave;
+  });
+
+  it('releases the mark after microtasks so a remount is not leaving', async () => {
+    vi.useFakeTimers();
+    const { isLeaving, leave } = hookApi<string>();
+    const done = leave('a');
     await vi.advanceTimersByTimeAsync(150);
     await done;
-    expect(isLeaving('a')).toBe(true);
-    const next = leave('b');
-    expect(isLeaving('a')).toBe(true);
-    expect(isLeaving('b')).toBe(true);
-    await vi.advanceTimersByTimeAsync(150);
-    await next;
-    expect(isLeaving('a')).toBe(true);
+    await Promise.resolve();
+    expect(isLeaving('a')).toBe(false);
   });
 });
