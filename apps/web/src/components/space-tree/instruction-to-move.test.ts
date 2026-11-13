@@ -107,6 +107,42 @@ describe('instructionToMove', () => {
     });
   });
 
+  it('reparent to the space root becomes newParentId null', () => {
+    const rootPage: DropTargetRow = {
+      kind: 'entity',
+      entityId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      spaceId: source.spaceId,
+      parentId: null,
+      level: 2,
+      ancestors: [],
+    };
+    expect(instructionToMove(instruction('reparent', { currentLevel: 2, desiredLevel: 1 }), source, rootPage)).toEqual({
+      entityId: source.entityId,
+      targetSpaceId: rootPage.spaceId,
+      newParentId: null,
+      beforeId: null,
+      afterId: null,
+    });
+    const nested: DropTargetRow = {
+      kind: 'entity',
+      entityId: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      spaceId: source.spaceId,
+      parentId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+      level: 4,
+      ancestors: [
+        { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', parentId: null },
+        { id: 'cccccccc-cccc-cccc-cccc-cccccccccccc', parentId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' },
+      ],
+    };
+    expect(instructionToMove(instruction('reparent', { currentLevel: 4, desiredLevel: 1 }), source, nested)).toEqual({
+      entityId: source.entityId,
+      targetSpaceId: nested.spaceId,
+      newParentId: null,
+      beforeId: null,
+      afterId: null,
+    });
+  });
+
   it('blocked instructions and self drops give null', () => {
     expect(instructionToMove(instruction('instruction-blocked'), source, target)).toBeNull();
     expect(

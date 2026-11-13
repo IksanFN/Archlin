@@ -26,6 +26,7 @@ function RenameInput({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(title);
+  const canceled = useRef(false);
   return (
     <input
       value={draft}
@@ -39,10 +40,13 @@ function RenameInput({
         }
         if (event.key === 'Escape') {
           event.preventDefault();
+          canceled.current = true;
           onCancel();
         }
       }}
-      onBlur={() => onCommit(draft)}
+      onBlur={() => {
+        if (!canceled.current) onCommit(draft);
+      }}
       className="min-w-0 flex-1 bg-transparent outline-none"
     />
   );
@@ -154,7 +158,7 @@ function EntityNode({
     onInstruction: (instruction) => tree.setDrop(instruction === null ? null : { id: node.id, instruction }),
     onDrop: (instruction, drag) => {
       const input = instructionToMove(instruction, drag, target);
-      if (input !== null) void tree.move(input, drag);
+      if (input !== null) void tree.move(input, drag, { spaceId: target.spaceId, parentId: target.parentId });
     },
     onDraggingChange: (dragging) => tree.setDraggingId(dragging ? node.id : null),
   });
@@ -237,10 +241,7 @@ function EntityNode({
                 <PlusIcon aria-hidden="true" size={16} />
               </RowIconButton>
             }
-            onCreated={() => {
-              tree.expand(node.id);
-              tree.store.invalidate([branchKey(space.id, node.id)]);
-            }}
+            onCreated={() => tree.createdPage(space.id, node.id, parentId)}
           />
           <RowMenu open={menuOpen} onOpenChange={(open) => tree.setMenuId(open ? node.id : null)} label={messages.tree.options}>
             <RowMenuItem onSelect={() => tree.setRenamingId(node.id)}>{messages.tree.rename}</RowMenuItem>

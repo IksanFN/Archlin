@@ -46,7 +46,12 @@ export function instructionToMove(
     return move(source, target.spaceId, target.entityId, null, null);
   }
   const firstAncestorLevel = target.level - target.ancestors.length;
-  const ancestor = target.ancestors[instruction.desiredLevel - firstAncestorLevel];
+  const index = instruction.desiredLevel - firstAncestorLevel;
+  // Indenting left of the root pages is a drop on the space itself.
+  if (index < 0 || instruction.desiredLevel <= 1) {
+    return move(source, target.spaceId, null, null, null);
+  }
+  const ancestor = target.ancestors[index];
   if (ancestor === undefined) return null;
   return move(source, target.spaceId, ancestor.parentId, null, ancestor.id);
 }

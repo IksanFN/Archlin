@@ -6,7 +6,6 @@ import { isSingleEmoji, type SpaceSummary } from '@archlin/platform/contracts';
 import { useRef, useState } from 'react';
 import { NewPageMenu } from '~/components/new-page-menu';
 import { messages } from '~/i18n/id';
-import { branchKey } from '~/lib/tree-store';
 import { updateSpaceFn } from '~/server/functions/spaces';
 import { instructionToMove } from './instruction-to-move';
 import { EntityList } from './entity-node';
@@ -100,11 +99,7 @@ export function SpaceNode({
                 <PlusIcon aria-hidden="true" size={16} />
               </RowIconButton>
             }
-            onCreated={() => {
-              tree.expand(space.id);
-              tree.store.invalidate([branchKey(space.id, null)]);
-              tree.reloadSpaces();
-            }}
+            onCreated={() => tree.createdPage(space.id, null, null)}
           />
           <RowMenu open={menuOpen} onOpenChange={(open) => tree.setMenuId(open ? space.id : null)} label={messages.tree.options}>
             <RowMenuItem onSelect={() => setNewPageOpen(true)}>{messages.tree.newPage}</RowMenuItem>

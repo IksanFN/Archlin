@@ -23,7 +23,6 @@ import { messageForError } from '~/lib/client-errors';
 import { readExpanded, subscribeExpanded, writeExpanded } from '~/lib/tree-expanded';
 import { branchKey, createTreeStore, type TreeStore } from '~/lib/tree-store';
 import { AppError } from '~/server/errors';
-import { pageFn } from '~/server/functions/pages';
 import { archiveSpaceFn, listSpacesFn, reorderSpaceFn } from '~/server/functions/spaces';
 import { restoreFn } from '~/server/functions/trash';
 import { moveEntityFn, setStarredFn, trashEntityFn, treeChildrenFn } from '~/server/functions/tree';
@@ -46,7 +45,12 @@ export interface TreeApi {
   setRenamingId: (id: string | null) => void;
   setDrop: (next: { id: string; instruction: Instruction } | null) => void;
   setDraggingId: (id: string | null) => void;
-  move: (input: MoveEntityInput, from?: { spaceId: string; parentId: string | null }) => Promise<void>;
+  move: (
+    input: MoveEntityInput,
+    from?: { spaceId: string; parentId: string | null },
+    destListing?: { spaceId: string; parentId: string | null },
+  ) => Promise<void>;
+  createdPage: (spaceId: string, parentId: string | null, listingParentId: string | null) => void;
   moveRelative: (
     entityId: string,
     spaceId: string,
@@ -108,7 +112,7 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
   const expanded = useSyncExternalStore(subscribeExpanded, readExpanded, readExpanded);
   const [store] = useState(() => createTreeStore((spaceId, parentId) => treeChildrenFn({ data: { spaceId, parentId } })));
   const spaceList = spaces ?? EMPTY_SPACES;
-  const { selectedId, spaceSlug, entityId } = selectionFromPath(pathname, spaceList);
+  const { selectedId, spaceSlug } = selectionFromPath(pathname, spaceList);
 
   const reloadSpaces = useCallback(() => {
     void listSpacesFn({ data: { includeArchived: false } }).then(
@@ -125,25 +129,13 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
   }, [reloadSpaces]);
 
   useEffect(() => {
-    if (spaceSlug !== null) {
-      const space = spaceList.find((row) => row.slug === spaceSlug);
-      if (space !== undefined && !readExpanded().has(space.id)) {
-        const next = new Set(readExpanded());
-        next.add(space.id);
-        writeExpanded(next);
-      }
-    }
-    if (entityId === null) return;
-    void pageFn({ data: { entityId } })
-      .then((screen) => {
-        const next = new Set(readExpanded());
-        for (const crumb of screen.breadcrumbs) next.add(crumb.id);
-        const space = spaceList.find((row) => row.slug === screen.page.spaceSlug);
-        if (space !== undefined) next.add(space.id);
-        writeExpanded(next);
-      })
-      .catch(() => undefined);
-  }, [entityId, spaceSlug, spaceList]);
+    if (spaceSlug === null) return;
+    const space = spaceList.find((row) => row.slug === spaceSlug);
+    if (space === undefined || readExpanded().has(space.id)) return;
+    const next = new Set(readExpanded());
+    next.add(space.id);
+    writeExpanded(next);
+  }, [spaceSlug, spaceList]);
 
   const isExpanded = useCallback((id: string) => expanded.has(id), [expanded]);
 
@@ -171,13 +163,30 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
     window.setTimeout(() => setFlashId((current) => (current === id ? null : current)), 320);
   }, []);
 
+  const createdPage = useCallback(
+    (spaceId: string, parentId: string | null, listingParentId: string | null) => {
+      if (parentId !== null) expand(parentId);
+      else expand(spaceId);
+      const keys = new Set([branchKey(spaceId, parentId)]);
+      if (parentId !== null) keys.add(branchKey(spaceId, listingParentId));
+      store.invalidate([...keys]);
+      reloadSpaces();
+    },
+    [expand, reloadSpaces, store],
+  );
+
   const move = useCallback(
-    async (input: MoveEntityInput, from?: { spaceId: string; parentId: string | null }) => {
+    async (
+      input: MoveEntityInput,
+      from?: { spaceId: string; parentId: string | null },
+      destListing?: { spaceId: string; parentId: string | null },
+    ) => {
       try {
         await moveEntityFn({ data: input });
-        const keys = [branchKey(input.targetSpaceId, input.newParentId)];
-        if (from !== undefined) keys.push(branchKey(from.spaceId, from.parentId));
-        store.invalidate(keys);
+        const keys = new Set([branchKey(input.targetSpaceId, input.newParentId)]);
+        if (from !== undefined) keys.add(branchKey(from.spaceId, from.parentId));
+        if (destListing !== undefined) keys.add(branchKey(destListing.spaceId, destListing.parentId));
+        store.invalidate([...keys]);
         if (input.newParentId !== null) expand(input.newParentId);
         else expand(input.targetSpaceId);
         flash(input.entityId);
@@ -209,6 +218,7 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       setDrop,
       setDraggingId,
       move,
+      createdPage,
       async moveRelative(entityId, spaceId, parentId, direction, prevId, nextId) {
         const sibling = direction === 'up' ? prevId : nextId;
         if (sibling === null) return;
@@ -296,6 +306,7 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       isExpanded,
       leaving,
       menuId,
+      createdPage,
       move,
       onFavoritesChange,
       reloadSpaces,
@@ -363,8 +374,10 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       }
       if (spaceId === null) return;
       const parentId = row.parentId === spaceId ? null : row.parentId;
-      const title = document.getElementById(action.id)?.textContent?.trim() ?? '';
-      void api.trash({ id: action.id, title, spaceId, parentId, animate: false });
+      const state = store.branch(branchKey(spaceId, parentId));
+      const nodes = state.status === 'idle' ? null : state.nodes;
+      const node = nodes?.find((item) => item.id === action.id);
+      void api.trash({ id: action.id, title: node?.title ?? '', spaceId, parentId, animate: false });
     }
   }
 
@@ -455,9 +468,10 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
           if (!open) setMoving(null);
         }}
         onMoved={(dest) => {
-          const keys = [branchKey(dest.spaceId, dest.parentId)];
-          if (moving !== null) keys.push(branchKey(moving.spaceId, moving.parentId));
-          store.invalidate(keys);
+          const keys = new Set([branchKey(dest.spaceId, dest.parentId)]);
+          if (dest.parentId !== null) keys.add(branchKey(dest.spaceId, dest.listingParentId));
+          if (moving !== null) keys.add(branchKey(moving.spaceId, moving.parentId));
+          store.invalidate([...keys]);
           if (dest.parentId !== null) expand(dest.parentId);
           else expand(dest.spaceId);
           if (moving !== null) flash(moving.id);

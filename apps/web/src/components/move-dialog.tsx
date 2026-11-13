@@ -41,15 +41,17 @@ function PickerBranch({
   onSelect,
   expanded,
   toggle,
+  ancestorBlocked = false,
 }: {
   spaceId: string;
   parentId: string | null;
   level: number;
   blocked: ReadonlySet<string>;
   selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string | null, listingParentId: string | null) => void;
   expanded: ReadonlySet<string>;
   toggle: (id: string) => void;
+  ancestorBlocked?: boolean;
 }) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
 
@@ -73,9 +75,8 @@ function PickerBranch({
   return (
     <>
       {nodes.map((node) => {
-        const disabled = blocked.has(node.id);
+        const disabled = ancestorBlocked || blocked.has(node.id);
         const open = expanded.has(node.id);
-        const nextBlocked = disabled ? new Set(blocked).add(node.id) : blocked;
         return (
           <div key={node.id}>
             <div
@@ -91,7 +92,7 @@ function PickerBranch({
               )}
               style={{ paddingLeft: 8 + 14 * (level - 1) }}
               onClick={() => {
-                if (!disabled) onSelect(node.id);
+                if (!disabled) onSelect(node.id, parentId);
               }}
             >
               {node.hasChildren ? (
@@ -124,11 +125,12 @@ function PickerBranch({
                 spaceId={spaceId}
                 parentId={node.id}
                 level={level + 1}
-                blocked={nextBlocked}
+                blocked={blocked}
                 selectedId={selectedId}
                 onSelect={onSelect}
                 expanded={expanded}
                 toggle={toggle}
+                ancestorBlocked={disabled}
               />
             ) : null}
           </div>
@@ -146,11 +148,12 @@ function MoveDialogForm({
 }: {
   entity: MoveEntity;
   spaces: readonly SpaceSummary[];
-  onMoved: (dest: { spaceId: string; parentId: string | null }) => void;
+  onMoved: (dest: { spaceId: string; parentId: string | null; listingParentId: string | null }) => void;
   onOpenChange: (open: boolean) => void;
 }) {
   const [spaceId, setSpaceId] = useState(entity.spaceId);
   const [parentId, setParentId] = useState<string | null>(null);
+  const [listingParentId, setListingParentId] = useState<string | null>(null);
   const [placement, setPlacement] = useState<'last' | 'first'>('last');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +188,7 @@ function MoveDialogForm({
           afterId: null,
         },
       });
-      onMoved({ spaceId, parentId });
+      onMoved({ spaceId, parentId, listingParentId });
       onOpenChange(false);
     } catch (err) {
       setError(treeError(err));
@@ -206,6 +209,7 @@ function MoveDialogForm({
               onChange={(event) => {
                 setSpaceId(event.target.value);
                 setParentId(null);
+                setListingParentId(null);
                 setExpanded(new Set());
               }}
             >
@@ -225,7 +229,10 @@ function MoveDialogForm({
                 'flex h-[30px] items-center gap-1 rounded-sm px-2 text-small',
                 parentId === null ? 'bg-selected text-fg' : 'text-fg-secondary',
               )}
-              onClick={() => setParentId(null)}
+              onClick={() => {
+                setParentId(null);
+                setListingParentId(null);
+              }}
             >
               <FolderSimpleIcon aria-hidden="true" size={14} />
               {messages.move.root}
@@ -238,7 +245,10 @@ function MoveDialogForm({
                 level={2}
                 blocked={blocked}
                 selectedId={parentId}
-                onSelect={setParentId}
+                onSelect={(id, listing) => {
+                  setParentId(id);
+                  setListingParentId(listing);
+                }}
                 expanded={expanded}
                 toggle={toggle}
               />
@@ -285,7 +295,7 @@ export function MoveDialog({
 }: {
   entity: MoveEntity | null;
   spaces: readonly SpaceSummary[];
-  onMoved: (dest: { spaceId: string; parentId: string | null }) => void;
+  onMoved: (dest: { spaceId: string; parentId: string | null; listingParentId: string | null }) => void;
   onOpenChange: (open: boolean) => void;
 }) {
   return (
