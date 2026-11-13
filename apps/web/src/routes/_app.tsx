@@ -1,7 +1,9 @@
+import { KnowledgeClientProvider } from '@archlin/modules-knowledge/web';
 import { AppShell } from '@archlin/ui/shell/app-shell';
 import { createFileRoute, Outlet, redirect, useLocation } from '@tanstack/react-router';
 import { AppSidebar } from '~/components/app-sidebar';
 import { messages } from '~/i18n/id';
+import { knowledgeClient } from '~/lib/knowledge-client';
 import { AppError } from '~/server/errors';
 import { authStateFn } from '~/server/functions/auth';
 import { viewerFn } from '~/server/functions/account';
@@ -27,16 +29,19 @@ function AppLayout() {
   const { pathname } = useLocation();
   const title = pathname.startsWith('/settings') ? messages.nav.settings : messages.nav.today;
   return (
-    <AppShell
-      title={title}
-      sidebar={<AppSidebar displayName={viewer.displayName} />}
-      labels={{
-        skipToContent: messages.common.skipToContent,
-        navigation: messages.nav.label,
-        openNavigation: messages.nav.openNavigation,
-      }}
-    >
-      <Outlet />
-    </AppShell>
+    // The provider also keeps knowledge server functions in the client graph so their stable ids are emitted.
+    <KnowledgeClientProvider client={knowledgeClient}>
+      <AppShell
+        title={title}
+        sidebar={<AppSidebar displayName={viewer.displayName} />}
+        labels={{
+          skipToContent: messages.common.skipToContent,
+          navigation: messages.nav.label,
+          openNavigation: messages.nav.openNavigation,
+        }}
+      >
+        <Outlet />
+      </AppShell>
+    </KnowledgeClientProvider>
   );
 }

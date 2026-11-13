@@ -28,12 +28,14 @@
     "@tiptap/starter-kit": "catalog:",
     "fractional-indexing": "catalog:",
     "kysely": "catalog:",
+    "react": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@archlin/testing": "workspace:*",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
+    "@types/react": "catalog:",
     "pg": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

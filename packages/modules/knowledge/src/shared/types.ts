@@ -1,7 +1,7 @@
-import type { TagRef } from '@archlin/platform/contracts';
+import type { Breadcrumb, TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
 import type { FieldDefinition } from './field-schema';
-import type { ContextFields, ReviewMode } from './inputs';
+import type { ContextFields, ReviewMode, SavePageInput } from './inputs';
 
 export interface NoteTypeRef {
   id: string;
@@ -33,7 +33,7 @@ export interface PageView {
   noteType: NoteTypeRef;
   content: JSONContent;
   context: ContextFields;
-  properties: Record<string, unknown>;
+  properties: SavePageInput['properties'];
   missingRequired: string[];
   legacyKeys: string[];
   tags: TagRef[];
@@ -46,3 +46,8 @@ export interface PageView {
 }
 
 export type SaveResult = { status: 'saved' | 'unchanged'; version: number; savedAt: string };
+
+export interface PageScreen {
+  page: PageView;
+  breadcrumbs: Breadcrumb[];
+}

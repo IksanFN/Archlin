@@ -55,4 +55,4 @@ export type {
   UpdateNoteTypeInput,
 } from './inputs';
 export { deriveTypeKey } from './type-key';
-export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageView, SaveResult } from './types';
+export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageScreen, PageView, SaveResult } from './types';

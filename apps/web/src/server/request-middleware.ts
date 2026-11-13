@@ -3,7 +3,7 @@ import { createCsrfMiddleware, createMiddleware, createServerOnlyFn } from '@tan
 import { getRequestProtocol, getResponseStatus, setResponseHeader } from '@tanstack/react-start/server';
 import { randomBytes } from 'node:crypto';
 import { getContainer } from './container';
-import { MAX_BODY_BYTES } from './limits';
+import { bodyLimitFor } from './limits';
 import { buildSecurityHeaders } from './security-headers';
 
 const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
@@ -35,7 +35,8 @@ export const requestContextMiddleware = createMiddleware({ type: 'request' }).se
 });
 
 export const bodyLimitMiddleware = createMiddleware({ type: 'request' }).server(({ request, next }) => {
-  if (!SAFE_METHODS.includes(request.method) && Number(request.headers.get('content-length')) > MAX_BODY_BYTES) {
+  const limit = bodyLimitFor(new URL(request.url).pathname);
+  if (!SAFE_METHODS.includes(request.method) && Number(request.headers.get('content-length')) > limit) {
     return new Response(null, { status: 413 });
   }
   return next();

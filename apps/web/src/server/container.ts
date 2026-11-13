@@ -3,6 +3,8 @@ import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
 import type { Clock, EventPublisher, Logger, ModuleRegistry, OwnerUnitOfWork } from '@archlin/kernel';
+import { createKnowledgeApi } from '@archlin/modules-knowledge/server';
+import type { KnowledgeApi } from '@archlin/modules-knowledge/server';
 import {
   createAccountService,
   createAuthService,
@@ -36,6 +38,7 @@ export interface WebContainer {
   spaces: SpaceService;
   tree: TreeService;
   tags: TagService;
+  knowledge: KnowledgeApi;
   auth: AuthService;
   account: AccountService;
   expectedMigrations: readonly string[];
@@ -58,6 +61,7 @@ function buildContainer(): WebContainer {
   const spaces = createSpaceService({ registry, ids: systemIds, clock });
   const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
   const tags = createTagService({ tree, ids: systemIds, clock });
+  const knowledge = createKnowledgeApi({ tree, tags, publisher, clock, ids: systemIds });
 
   const authDeps: AuthDeps = {
     db,
@@ -85,6 +89,7 @@ function buildContainer(): WebContainer {
     spaces,
     tree,
     tags,
+    knowledge,
     auth: createAuthService(authDeps),
     account: createAccountService(authDeps),
     expectedMigrations: qualifiedMigrationNames(migrationSets()),

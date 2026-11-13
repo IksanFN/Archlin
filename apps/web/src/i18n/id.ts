@@ -30,6 +30,9 @@ export const messages = {
     privacyFooter: 'Semua diproses di server ini.',
     greeting: (greeting: string, name: string) => `${greeting}, ${name}.`,
   },
+  page: {
+    untitled: 'Tanpa judul',
+  },
   auth: {
     footer: 'Self-hosted. Data tidak keluar dari server ini.',
     setup: {

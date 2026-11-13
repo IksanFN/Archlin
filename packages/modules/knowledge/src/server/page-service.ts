@@ -251,7 +251,7 @@ export function createPageService(deps: {
     if (!row) pageNotFound();
     const view = row as PageViewRow;
     const fieldSchema = parseFields(view.field_schema);
-    const properties = asRecord(view.properties);
+    const properties = asRecord(view.properties) as PageView['properties'];
     const context = contextOf(view);
     const tagsForPage = await tags.forEntity(tx, entityId);
     return {
