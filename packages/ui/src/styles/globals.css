@@ -3,7 +3,13 @@
 @import "./tokens.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-@custom-variant fine-hover (@media (hover: hover) and (pointer: fine));
+@custom-variant fine-hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 
 @theme {
   --breakpoint-sm: 640px; --breakpoint-nav: 768px; --breakpoint-md: 960px; --breakpoint-lg: 1280px; --breakpoint-xl: 1440px;

@@ -48,14 +48,16 @@ describe('useLeaving', () => {
   it('keeps isLeaving true after leave resolves until the caller drops the item', async () => {
     vi.useFakeTimers();
     const { isLeaving, leave } = hookApi<string>();
-    let items = ['row'];
-    const shown = (): boolean => items.includes('row') && isLeaving('row');
-    const done = leave('row');
-    expect(shown()).toBe(true);
+    const done = leave('a');
+    expect(isLeaving('a')).toBe(true);
     await vi.advanceTimersByTimeAsync(150);
     await done;
-    expect(shown()).toBe(true);
-    items = [];
-    expect(shown()).toBe(false);
+    expect(isLeaving('a')).toBe(true);
+    const next = leave('b');
+    expect(isLeaving('a')).toBe(true);
+    expect(isLeaving('b')).toBe(true);
+    await vi.advanceTimersByTimeAsync(150);
+    await next;
+    expect(isLeaving('a')).toBe(true);
   });
 });

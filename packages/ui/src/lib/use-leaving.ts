@@ -3,13 +3,11 @@ import { exitMs, MOTION_MS, prefersReducedMotion } from './motion';
 
 type LeavingStore<K> = {
   keys: Set<K>;
-  published: Set<K>;
   version: number;
   listeners: Set<() => void>;
 };
 
 function notify<K>(store: LeavingStore<K>): void {
-  store.published = new Set(store.keys);
   store.version += 1;
   for (const listener of store.listeners) listener();
 }
@@ -20,7 +18,7 @@ export function useLeaving<K>(): {
 } {
   const storeRef = useRef<LeavingStore<K> | null>(null);
   if (storeRef.current === null) {
-    storeRef.current = { keys: new Set<K>(), published: new Set<K>(), version: 0, listeners: new Set() };
+    storeRef.current = { keys: new Set<K>(), version: 0, listeners: new Set() };
   }
   const store = storeRef.current;
 
@@ -37,20 +35,16 @@ export function useLeaving<K>(): {
 
   return {
     isLeaving(key: K): boolean {
-      return store.published.has(key);
+      return store.keys.has(key);
     },
     leave(key: K): Promise<void> {
       const delay = prefersReducedMotion() ? 0 : exitMs(MOTION_MS.base);
       if (delay === 0) return Promise.resolve();
       store.keys.add(key);
       notify(store);
+      // Keys stay in the set: unmount is the caller's job; notifying a smaller set would snap the exit.
       return new Promise((resolve) => {
-        setTimeout(() => {
-          // Drop the live key for later reuse, but do not notify: a re-render here would
-          // clear data-leaving before the caller unmounts the row.
-          store.keys.delete(key);
-          resolve();
-        }, delay);
+        setTimeout(resolve, delay);
       });
     },
   };
