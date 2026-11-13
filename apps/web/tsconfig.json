@@ -7,6 +7,8 @@
       "DOM.Iterable"
     ],
     "jsx": "react-jsx",
+    // Vite config imports a .ts path so the native loader can resolve it.
+    "allowImportingTsExtensions": true,
     "types": [
       "node",
       "vite/client"

@@ -1,16 +1,21 @@
 import { NavItem } from '@archlin/ui/shell/nav-item';
-import { SectionLabel } from '@archlin/ui/shell/section-label';
 import { ShellContext, Sidebar, SidebarHeader } from '@archlin/ui/shell/sidebar';
 import { GearSixIcon, SunHorizonIcon } from '@phosphor-icons/react/ssr';
 import { useLocation } from '@tanstack/react-router';
-import { use } from 'react';
+import { use, useCallback } from 'react';
+import { FavoritesSection } from '~/components/favorites-section';
+import { SpaceTree } from '~/components/space-tree/space-tree';
 import { messages } from '~/i18n/id';
+import { useAsyncData } from '~/lib/use-async-data';
+import { favoritesFn } from '~/server/functions/tree';
 import { AccountMenu } from './account-menu';
 
-// Inbox, search and favourites are not rendered: they do not exist until M1 and later (no dead navigation).
 export function AppSidebar({ displayName }: { displayName: string }) {
   const { pathname } = useLocation();
   const { variant } = use(ShellContext);
+  const loadFavorites = useCallback(() => favoritesFn({ data: {} }), []);
+  const favorites = useAsyncData(loadFavorites);
+
   return (
     <Sidebar>
       <SidebarHeader name={messages.appName} hideLabel={messages.nav.hideSidebar} showLabel={messages.nav.showSidebar} />
@@ -18,8 +23,8 @@ export function AppSidebar({ displayName }: { displayName: string }) {
         <NavItem to="/" icon={SunHorizonIcon} label={messages.nav.today} selected={pathname === '/'} />
         {variant === 'rail' ? null : (
           <>
-            <SectionLabel>{messages.nav.spaces}</SectionLabel>
-            <p className="px-[14px] text-small text-fg-muted">{messages.nav.noSpaces}</p>
+            {favorites.state.status === 'ready' ? <FavoritesSection items={favorites.state.data} /> : null}
+            <SpaceTree onFavoritesChange={favorites.reload} />
           </>
         )}
         <div className="mt-auto flex flex-col gap-1 pt-6">
