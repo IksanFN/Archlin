@@ -8,6 +8,8 @@ export {
   saveStatusOf,
 } from './autosave/autosave-machine';
 export type { AutosaveEvent, AutosaveState, AutosaveStatus, PageDraftState } from './autosave/autosave-machine';
+export { flushActiveAutosaves } from './autosave/active-autosave';
+export { useDraftQueue } from './autosave/draft-queue';
 export { ConflictDialog } from './autosave/conflict-dialog';
 export type { ConflictDialogLabels } from './autosave/conflict-dialog';
 export { DraftBanner } from './autosave/draft-banner';
@@ -18,6 +20,7 @@ export {
   countDrafts,
   draftKey,
   pendingDraftsFor,
+  readDraft,
   readDrafts,
   removeAllDrafts,
   removeDraft,

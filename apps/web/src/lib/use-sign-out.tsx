@@ -1,4 +1,4 @@
-import { browserStorage, countDrafts, removeAllDrafts } from '@archlin/modules-knowledge/web';
+import { browserStorage, countDrafts, flushActiveAutosaves, removeAllDrafts } from '@archlin/modules-knowledge/web';
 import { Button } from '@archlin/ui/components/button';
 import {
   Dialog,
@@ -32,9 +32,10 @@ export function useSignOut(): { signOut: () => void; signingOut: boolean; dialog
     setSigningOut(true);
     try {
       await logoutFn({ data: {} });
+      await navigate({ to: '/login' });
+      // Cleared only after leaving the page: its unmount writes one last draft that must not outlive the session.
       const storage = browserStorage();
       if (storage !== null) removeAllDrafts(storage);
-      await navigate({ to: '/login' });
     } catch (error) {
       const presentation = messageForError(error);
       if (presentation.kind === 'redirect_login') await navigate({ to: '/login' });
@@ -45,10 +46,22 @@ export function useSignOut(): { signOut: () => void; signingOut: boolean; dialog
     }
   }
 
-  function signOut(): void {
+  async function startSignOut(): Promise<void> {
+    if (signingOut) return;
+    setSigningOut(true);
+    // Save while the session is still valid; what cannot be saved stays as a draft and is reported below.
+    await flushActiveAutosaves();
     const count = draftCount();
-    if (count > 0) setDraftWarning(count);
-    else void performSignOut();
+    if (count > 0) {
+      setSigningOut(false);
+      setDraftWarning(count);
+    } else {
+      await performSignOut();
+    }
+  }
+
+  function signOut(): void {
+    void startSignOut();
   }
 
   const dialog = (

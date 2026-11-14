@@ -17,7 +17,8 @@ import {
   type AutosaveState,
   type PageDraftState,
 } from './autosave-machine';
-import { browserStorage, readDrafts, removeDraft, TAB_ID, writeDraft, type StoredDraft } from './draft-store';
+import { registerAutosaveFlush } from './active-autosave';
+import { browserStorage, readDraft, removeDraft, TAB_ID, writeDraft, type StoredDraft } from './draft-store';
 
 const DRAFT_WRITE_MS = 300;
 
@@ -41,8 +42,8 @@ function eventFromError(error: unknown): AutosaveEvent {
 function dropDraftIfSent(entityId: string, sent: PageDraftState): void {
   const storage = browserStorage();
   if (storage === null) return;
-  const mine = readDrafts(storage, entityId).find((draft) => draft.tabId === TAB_ID);
-  if (mine !== undefined && canonicalJson(sent) === canonicalJson(mine.state)) {
+  const mine = readDraft(storage, entityId, TAB_ID);
+  if (mine !== null && canonicalJson(sent) === canonicalJson(mine.state)) {
     removeDraft(storage, entityId, TAB_ID);
   }
 }
@@ -171,9 +172,9 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
 
   const update = useCallback((patch: Partial<PageDraftState>): void => {
     const latest = stateRef.current.latest;
-    const next = { ...latest, ...patch };
-    if (canonicalJson(next) === canonicalJson(latest)) return;
-    apply({ type: 'edit', state: next });
+    // The editor reports only real document changes, so identity equality is enough and typing stays O(1).
+    if ((Object.keys(patch) as Array<keyof PageDraftState>).every((key) => Object.is(patch[key], latest[key]))) return;
+    apply({ type: 'edit', state: { ...latest, ...patch } });
   }, [apply]);
 
   const flush = useCallback(async (): Promise<AutosaveState> => {
@@ -183,6 +184,8 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     if (nextSave(stateRef.current) !== null) await saveNow();
     return stateRef.current;
   }, [apply, persistDraft, saveNow]);
+
+  useEffect(() => registerAutosaveFlush(flush), [flush]);
 
   const loadLatest = useCallback(async (): Promise<PageView> => {
     const current = stateRef.current;

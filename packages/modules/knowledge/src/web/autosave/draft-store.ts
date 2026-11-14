@@ -86,6 +86,15 @@ export function readDrafts(storage: Storage, entityId: string): StoredDraft[] {
   }
 }
 
+export function readDraft(storage: Storage, entityId: string, tabId: string): StoredDraft | null {
+  try {
+    const raw = storage.getItem(draftKey(entityId, tabId));
+    return raw === null ? null : parseDraft(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function removeDraft(storage: Storage, entityId: string, tabId: string): void {
   try {
     storage.removeItem(draftKey(entityId, tabId));
@@ -125,7 +134,16 @@ export function browserStorage(): Storage | null {
   }
 }
 
-export function pendingDraftsFor(storage: Storage, entityId: string, server: PageDraftState): StoredDraft[] {
+// A draft this tab wrote since its editor mounted belongs to the live editor, so offering it would restore the editor onto itself.
+export function pendingDraftsFor(
+  storage: Storage,
+  entityId: string,
+  server: PageDraftState,
+  live: { tabId: string; since: string },
+): StoredDraft[] {
   const snapshot = canonicalJson(server);
-  return readDrafts(storage, entityId).filter((draft) => canonicalJson(draft.state) !== snapshot);
+  return readDrafts(storage, entityId).filter(
+    (draft) =>
+      canonicalJson(draft.state) !== snapshot && !(draft.tabId === live.tabId && draft.updatedAt >= live.since),
+  );
 }

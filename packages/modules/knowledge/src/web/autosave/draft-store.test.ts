@@ -4,6 +4,7 @@ import {
   countDrafts,
   draftKey,
   pendingDraftsFor,
+  readDraft,
   readDrafts,
   removeAllDrafts,
   writeDraft,
@@ -11,6 +12,7 @@ import {
 } from './draft-store';
 
 const ENTITY = '11111111-1111-1111-1111-111111111111';
+const LIVE = { tabId: TAB_ID, since: '2026-11-14T12:00:00.000Z' };
 
 function sample(overrides: Partial<StoredDraft> = {}): StoredDraft {
   return {
@@ -105,13 +107,28 @@ describe('draft store', () => {
     expect(countDrafts(throwingStorage())).toBe(0);
   });
 
-  it('pendingDraftsFor includes this tab when state differs', () => {
+  it("pendingDraftsFor hides this tab's draft written since the editor mounted", () => {
     const storage = memoryStorage();
     const server = sample().state;
-    writeDraft(storage, sample({ tabId: TAB_ID, updatedAt: '2026-11-14T12:00:00.000Z', state: { ...server, title: 'Lokal' } }));
+    writeDraft(storage, sample({ tabId: TAB_ID, updatedAt: '2026-11-14T12:00:05.000Z', state: { ...server, title: 'Lokal' } }));
     writeDraft(storage, sample({ tabId: 'other', updatedAt: '2026-11-14T11:00:00.000Z', state: { ...server, title: 'Lain' } }));
     writeDraft(storage, sample({ tabId: 'same', updatedAt: '2026-11-14T13:00:00.000Z', state: server }));
-    const pending = pendingDraftsFor(storage, ENTITY, server);
-    expect(pending.map((draft) => draft.tabId)).toEqual([TAB_ID, 'other']);
+    const pending = pendingDraftsFor(storage, ENTITY, server, LIVE);
+    expect(pending.map((draft) => draft.tabId)).toEqual(['other']);
+  });
+
+  it("pendingDraftsFor offers this tab's draft from before a remount", () => {
+    const storage = memoryStorage();
+    const server = sample().state;
+    writeDraft(storage, sample({ tabId: TAB_ID, updatedAt: '2026-11-14T11:59:00.000Z', state: { ...server, title: 'Lokal' } }));
+    expect(pendingDraftsFor(storage, ENTITY, server, LIVE).map((draft) => draft.tabId)).toEqual([TAB_ID]);
+  });
+
+  it('readDraft returns only the requested tab', () => {
+    const storage = memoryStorage();
+    writeDraft(storage, sample({ tabId: 'tab-a' }));
+    writeDraft(storage, sample({ tabId: 'other' }));
+    expect(readDraft(storage, ENTITY, 'other')?.tabId).toBe('other');
+    expect(readDraft(storage, ENTITY, 'unknown')).toBeNull();
   });
 });
