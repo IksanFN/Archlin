@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
+import { createPage, createSpace as createSpaceNamed, waitSaved } from './helpers/knowledge';
 
 test.beforeEach(async () => {
   await resetAccount();
@@ -76,4 +77,17 @@ test('an archived space shows the notice and can be restored', async ({ page }) 
 
   await reloadSettled(page);
   await expect(page.getByRole('treeitem', { name: /Kerja/ })).toBeVisible();
+});
+
+test('space home shows the summary of a root page', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpaceNamed(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Runbook', title: 'Pulihkan tagihan' });
+  await page.getByLabel('Ringkasan', { exact: true }).fill('Langkah memulihkan layanan tagihan setelah gagal rilis');
+  await waitSaved(page);
+
+  await gotoSettled(page, `/s/${slug}`);
+  const roots = page.getByRole('region', { name: 'Halaman akar' });
+  const row = roots.getByRole('link', { name: /Pulihkan tagihan/ });
+  await expect(row).toContainText('Langkah memulihkan layanan tagihan setelah gagal rilis');
 });

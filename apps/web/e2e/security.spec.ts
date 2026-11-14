@@ -79,7 +79,7 @@ function distinct(calls: readonly RecordedCall[]): RecordedCall[] {
 
 test('server functions reject requests without a session', async ({ page, browser, request }) => {
   // Walks every screen action twice (once as a visitor, once signed in), which is slow in Firefox.
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
   const publicUrls = await learnPublicUrls(page);
   expect(publicUrls.size).toBe(4);
 
@@ -88,7 +88,7 @@ test('server functions reject requests without a session', async ({ page, browse
   await driveAuthedFlows(page, browser, request, { signOutAtEnd: true });
   const guarded = distinct(recorder.calls()).filter((call) => !publicUrls.has(call.url));
   // Every authenticated function the screens use was exercised; a smaller set means the walk-through stopped early.
-  expect(guarded.length).toBeGreaterThanOrEqual(12);
+  expect(guarded.length).toBeGreaterThanOrEqual(44);
 
   const visitor = await playwrightRequest.newContext({ baseURL: BASE_URL });
   try {
@@ -107,11 +107,11 @@ test('server functions reject requests without a session', async ({ page, browse
 });
 
 test('server functions reject a foreign origin', async ({ page, browser, request }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
   const recorder = recordServerFns(page);
   await driveAuthedFlows(page, browser, request, { signOutAtEnd: false });
   const calls = distinct(recorder.calls());
-  expect(calls.length).toBeGreaterThanOrEqual(12);
+  expect(calls.length).toBeGreaterThanOrEqual(44);
 
   for (const call of calls) {
     const response = await page.context().request.fetch(call.url, {

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { resetAccount } from './helpers/db';
-import { completeSetup, gotoSettled } from './helpers/flows';
+import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
 
 test.beforeEach(async () => {
   await resetAccount();
@@ -122,4 +122,94 @@ test('the type list and the type editor have no axe violations', async ({ page }
   await page.getByRole('link', { name: 'Runbook' }).click();
   await expect(page.getByLabel('Nama tipe', { exact: true })).toBeVisible();
   await expectNoA11yViolations(page);
+});
+
+async function createType(page: Page, name: string, fields: readonly { label: string; kind?: string }[]): Promise<void> {
+  await gotoSettled(page, '/settings/note-types');
+  await page.getByRole('button', { name: 'Tipe baru' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Tipe baru' });
+  await dialog.getByLabel('Nama').fill(name);
+  await dialog.getByRole('button', { name: 'Buat tipe' }).click();
+  await expect(page).toHaveURL(/\/settings\/note-types\/[0-9a-f-]{36}$/);
+  for (const [index, field] of fields.entries()) {
+    await page.getByRole('button', { name: 'Tambah field' }).click();
+    await page.getByLabel('Label', { exact: true }).nth(index).fill(field.label);
+    if (field.kind !== undefined) await page.getByLabel('Jenis', { exact: true }).nth(index).selectOption(field.kind);
+  }
+  await page.getByRole('button', { name: 'Simpan perubahan' }).click();
+  await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
+}
+
+test('creates a note type with fields and uses it for a page', async ({ page }) => {
+  await completeSetup(page);
+  await createSpace(page, 'Kerja');
+  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }, { label: 'Tanggal kelas', kind: 'date' }]);
+
+  await gotoSettled(page, '/settings/note-types');
+  await expect(page.getByRole('link', { name: 'Catatan Kelas' })).toBeVisible();
+  await expect(page.getByText('2 field').first()).toBeVisible();
+
+  await openNewPage(page, 'Catatan Kelas');
+  await page.getByLabel('Pengajar', { exact: true }).fill('Bu Ratna');
+  await expect(page.getByLabel('Tanggal kelas', { exact: true })).toHaveAttribute('type', 'date');
+  await expect(page.getByText('Tersimpan', { exact: true })).toBeVisible();
+  await reloadSettled(page);
+  await expect(page.getByLabel('Pengajar', { exact: true })).toHaveValue('Bu Ratna');
+});
+
+test('a saved field keeps its type', async ({ page }) => {
+  await completeSetup(page);
+  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
+
+  await reloadSettled(page);
+  const kind = page.getByLabel('Jenis', { exact: true }).first();
+  await expect(kind).toBeDisabled();
+  await expect(page.getByText('Jenis tidak bisa diubah setelah disimpan. Hapus field lalu buat yang baru.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Tambah field' }).click();
+  await expect(page.getByLabel('Jenis', { exact: true }).nth(1)).toBeEnabled();
+});
+
+test('deleting a used type moves its pages first', async ({ page }) => {
+  await completeSetup(page);
+  await createSpace(page, 'Kerja');
+  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
+  await openNewPage(page, 'Catatan Kelas');
+  await page.getByLabel('Pengajar', { exact: true }).fill('Pak Dedi');
+  await expect(page.getByText('Tersimpan', { exact: true })).toBeVisible();
+  const pageUrl = new URL(page.url()).pathname;
+
+  await gotoSettled(page, '/settings/note-types');
+  await page.getByRole('link', { name: 'Catatan Kelas' }).click();
+  await page.getByRole('button', { name: 'Hapus tipe' }).click();
+  const dialog = page.getByRole('dialog', { name: /Hapus tipe/ });
+  const confirm = dialog.getByRole('button', { name: 'Pindahkan dan hapus' });
+  await expect(dialog.getByText(/Dipakai 1 halaman/)).toBeVisible();
+  await dialog.getByLabel('Tipe tujuan').selectOption({ label: 'Referensi' });
+  await confirm.click();
+  await expect(page).toHaveURL(/\/settings\/note-types$/);
+
+  await gotoSettled(page, pageUrl);
+  await expect(page.getByText('Referensi', { exact: false }).first()).toBeVisible();
+  await expect(page.getByLabel('URL', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Pengajar', { exact: true })).toBeHidden();
+});
+
+test('changing a page type keeps values of shared keys', async ({ page }) => {
+  await completeSetup(page);
+  await createSpace(page, 'Kerja');
+  await createType(page, 'Catatan Kelas', [{ label: 'Peserta' }, { label: 'Materi' }]);
+  await createType(page, 'Catatan Rapat', [{ label: 'Peserta' }, { label: 'Keputusan' }]);
+  await openNewPage(page, 'Catatan Kelas');
+  await page.getByLabel('Peserta', { exact: true }).fill('Tim operasional');
+  await page.getByLabel('Materi', { exact: true }).fill('Pengantar');
+  await expect(page.getByText('Tersimpan', { exact: true })).toBeVisible();
+
+  await changeType(page, 'Catatan Rapat');
+  await expect(page.getByLabel('Peserta', { exact: true })).toHaveValue('Tim operasional');
+  await expect(page.getByLabel('Keputusan', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Materi', { exact: true })).toBeHidden();
+
+  await reloadSettled(page);
+  await expect(page.getByLabel('Peserta', { exact: true })).toHaveValue('Tim operasional');
 });
