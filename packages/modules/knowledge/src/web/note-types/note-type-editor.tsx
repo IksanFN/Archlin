@@ -18,7 +18,15 @@ import type { EditorLabels } from '../editor/labels';
 import { PageEditor } from '../editor/page-editor';
 import { DeleteTypeDialog } from './delete-type-dialog';
 import { FieldRow } from './field-row';
-import { newFieldRow, relabelRow, rowProblems, rowsFromSchema, rowsToSchema, serverProblems } from './field-rows';
+import {
+  newFieldRow,
+  relabelRow,
+  rowProblems,
+  rowsFromSchema,
+  rowsToSchema,
+  saveRejection,
+  serverProblems,
+} from './field-rows';
 import type { FieldRowState, RowProblems } from './field-rows';
 import type { NoteTypeLabels } from './labels';
 
@@ -169,7 +177,7 @@ export function NoteTypeEditor({
     } catch (error) {
       if (error instanceof KnowledgeClientError && error.code === 'note_type_conflict') {
         setConflict(true);
-      } else if (error instanceof KnowledgeClientError && error.status === 422 && issuesOf(error.details).length > 0) {
+      } else if (error instanceof KnowledgeClientError && error.status === 422 && saveRejection(issuesOf(error.details), rows).kind === 'rows') {
         setServerIssues(issuesOf(error.details));
         setAttempt((count) => count + 1);
       } else {

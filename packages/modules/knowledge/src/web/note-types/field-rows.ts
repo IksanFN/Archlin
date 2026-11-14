@@ -105,3 +105,11 @@ export function serverProblems(
   }
   return found;
 }
+
+// An issue that names no row (an invalid template, say) has nowhere to show, so the save must still report a failure.
+export function saveRejection(
+  issues: readonly { path: string; message: string }[],
+  rows: readonly FieldRowState[],
+): { kind: 'rows' } | { kind: 'failure' } {
+  return serverProblems(issues, rows).size > 0 ? { kind: 'rows' } : { kind: 'failure' };
+}

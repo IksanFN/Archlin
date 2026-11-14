@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { expectNoA11yViolations } from './helpers/a11y';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled } from './helpers/flows';
 
@@ -112,4 +113,13 @@ test('a type moves up and down the list', async ({ page }) => {
 
   await page.getByRole('button', { name: `Naikkan tipe ${second}` }).click();
   await expect(names.first()).toHaveText(second);
+});
+
+test('the type list and the type editor have no axe violations', async ({ page }) => {
+  await completeSetup(page);
+  await gotoSettled(page, '/settings/note-types');
+  await expectNoA11yViolations(page);
+  await page.getByRole('link', { name: 'Runbook' }).click();
+  await expect(page.getByLabel('Nama tipe', { exact: true })).toBeVisible();
+  await expectNoA11yViolations(page);
 });

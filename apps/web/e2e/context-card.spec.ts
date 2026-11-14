@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { expectNoA11yViolations } from './helpers/a11y';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
 
@@ -72,4 +73,13 @@ test('an existing tag is suggested on another page and the folded card stays fol
   await reloadSettled(page);
   await expect(page.getByRole('button', { name: 'Kartu Konteks' })).toBeVisible();
   await expect(page.getByLabel('Ringkasan', { exact: true })).toBeHidden();
+});
+
+test('the context card and its type fields have no axe violations', async ({ page }) => {
+  await completeSetup(page);
+  await createSpace(page, 'Kerja');
+  await openNewPage(page, 'Runbook');
+  await chipField(page, 'Alias').fill('tagihan');
+  await chipField(page, 'Alias').press('Enter');
+  await expectNoA11yViolations(page);
 });

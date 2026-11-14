@@ -1,6 +1,6 @@
 import type { FieldDefinition } from '@archlin/modules-knowledge/shared';
 import { describe, expect, it } from 'vitest';
-import { keyForNewField, newFieldRow, relabelRow, rowProblems, rowsFromSchema, rowsToSchema } from './field-rows';
+import { keyForNewField, newFieldRow, relabelRow, rowProblems, rowsFromSchema, rowsToSchema, saveRejection, serverProblems } from './field-rows';
 
 const RUNBOOK: FieldDefinition[] = [
   { key: 'system', label: 'Sistem/Layanan', type: 'text', searchWeight: 'B' },
@@ -43,5 +43,29 @@ describe('field rows', () => {
     expect(rowProblems({ ...base, label: 'Tenggat', type: 'date', remindDays: 400 })).toEqual({ remind: true });
     expect(rowProblems({ ...base, label: 'Tenggat', type: 'date', remindDays: 0 })).toEqual({});
     expect(rowProblems({ ...base, label: 'Teks', options: [], remindDays: 999 })).toEqual({});
+  });
+
+  it('maps server issues onto the row they name and ignores the rest', () => {
+    const rows = rowsFromSchema(RUNBOOK);
+    const mapped = serverProblems(
+      [
+        { path: 'fieldSchema.2.options', message: 'invalid' },
+        { path: 'fieldSchema.0.type', message: 'field_type_immutable' },
+        { path: 'template', message: 'invalid_document' },
+        { path: 'fieldSchema.9.label', message: 'invalid' },
+      ],
+      rows,
+    );
+    expect([...mapped.entries()]).toEqual([
+      ['persisted:risk', { options: true }],
+      ['persisted:system', { type: true }],
+    ]);
+  });
+
+  it('shows a rejected save on its rows only when an issue names one, otherwise as a failure', () => {
+    const rows = rowsFromSchema(RUNBOOK);
+    expect(saveRejection([{ path: 'fieldSchema.1.label', message: 'invalid' }], rows).kind).toBe('rows');
+    expect(saveRejection([{ path: 'template', message: 'invalid_document' }], rows).kind).toBe('failure');
+    expect(saveRejection([], rows).kind).toBe('failure');
   });
 });
