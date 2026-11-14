@@ -51,8 +51,11 @@ function pageCount(items: readonly TrashRoot[]): number {
   return items.reduce((sum, item) => sum + 1 + item.descendantCount, 0);
 }
 
-function restoreMessage(outcome: RestoreOutcome, spaceName: string): string {
-  const text = outcome.restoredToRoot ? copy.restoredToRoot(spaceName) : copy.restored(spaceName);
+function restoreMessage(outcome: RestoreOutcome, item: TrashRoot): string {
+  const text =
+    item.parentTitle !== null && outcome.restoredToRoot
+      ? copy.restoredToRoot(item.spaceName)
+      : copy.restored(item.spaceName);
   return outcome.spaceArchived ? `${text}${copy.spaceArchived}` : text;
 }
 
@@ -76,7 +79,7 @@ export function TrashList() {
       await leaving.leave(item.rootId);
       try {
         const outcome = await restoreFn({ data: { rootId: item.rootId } });
-        toast(restoreMessage(outcome, item.spaceName), {
+        toast(restoreMessage(outcome, item), {
           action: {
             label: copy.open,
             onClick: () => {

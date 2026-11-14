@@ -71,7 +71,8 @@ test('lists trashed roots with the days left and restores one', async ({ page })
 
   await page.getByRole('button', { name: 'Pulihkan' }).click();
   await expect(page.getByRole('heading', { name: 'Trash kosong' })).toBeVisible();
-  await expect(page.getByText(/Dipulihkan ke/)).toBeVisible();
+  await expect(page.getByText('Dipulihkan ke Kerja.')).toBeVisible();
+  await expect(page.getByText('induknya masih di Trash')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Buka' }).click();
   await expect(page).toHaveURL(/\/s\/kerja\/p\//);
