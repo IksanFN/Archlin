@@ -6,9 +6,10 @@ import { authedFn, strictInput } from '~/server/fn';
 
 export const trashListFn = authedFn
   .validator(strictInput(z.strictObject({})))
-  .handler(({ context }): Promise<TrashRoot[]> => {
-    const { uow, tree } = getContainer();
-    return uow.read(context.auth.scope, (tx) => tree.trashRoots(tx));
+  .handler(async ({ context }): Promise<{ items: TrashRoot[]; nowIso: string }> => {
+    const { uow, tree, clock } = getContainer();
+    const items = await uow.read(context.auth.scope, (tx) => tree.trashRoots(tx));
+    return { items, nowIso: clock.now().toISOString() };
   });
 
 export const restoreFn = authedFn

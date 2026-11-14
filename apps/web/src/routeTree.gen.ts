@@ -20,6 +20,7 @@ import { Route as LoginTotpRouteImport } from './routes/login.totp'
 import { Route as AppSSpaceSlugRouteImport } from './routes/_app/s/$spaceSlug'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
+import { Route as AppSettingsTrashRouteImport } from './routes/_app/settings/trash'
 import { Route as AppSSpaceSlugIndexRouteImport } from './routes/_app/s/$spaceSlug/index'
 import { Route as AppSSpaceSlugPEntityIdRouteImport } from './routes/_app/s/$spaceSlug/p/$entityId'
 
@@ -77,6 +78,11 @@ const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
   path: '/security',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsTrashRoute = AppSettingsTrashRouteImport.update({
+  id: '/trash',
+  path: '/trash',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSSpaceSlugIndexRoute = AppSSpaceSlugIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/login/': typeof LoginIndexRoute
   '/s/$spaceSlug': typeof AppSSpaceSlugRouteWithChildren
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/trash': typeof AppSettingsTrashRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
   '/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/login': typeof LoginIndexRoute
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/settings/trash': typeof AppSettingsTrashRoute
   '/settings': typeof AppSettingsIndexRoute
   '/s/$spaceSlug': typeof AppSSpaceSlugIndexRoute
   '/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/login/': typeof LoginIndexRoute
   '/_app/s/$spaceSlug': typeof AppSSpaceSlugRouteWithChildren
   '/_app/settings/security': typeof AppSettingsSecurityRoute
+  '/_app/settings/trash': typeof AppSettingsTrashRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
   '/_app/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/login/'
     | '/s/$spaceSlug'
     | '/settings/security'
+    | '/settings/trash'
     | '/settings/'
     | '/s/$spaceSlug/'
     | '/s/$spaceSlug/p/$entityId'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/settings/security'
+    | '/settings/trash'
     | '/settings'
     | '/s/$spaceSlug'
     | '/s/$spaceSlug/p/$entityId'
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | '/login/'
     | '/_app/s/$spaceSlug'
     | '/_app/settings/security'
+    | '/_app/settings/trash'
     | '/_app/settings/'
     | '/_app/s/$spaceSlug/'
     | '/_app/s/$spaceSlug/p/$entityId'
@@ -258,6 +270,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/settings/trash': {
+      id: '/_app/settings/trash'
+      path: '/trash'
+      fullPath: '/settings/trash'
+      preLoaderRoute: typeof AppSettingsTrashRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/s/$spaceSlug/': {
       id: '/_app/s/$spaceSlug/'
       path: '/'
@@ -277,11 +296,13 @@ declare module '@tanstack/react-router' {
 
 interface AppSettingsRouteChildren {
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
+  AppSettingsTrashRoute: typeof AppSettingsTrashRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
+  AppSettingsTrashRoute: AppSettingsTrashRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
