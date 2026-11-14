@@ -17,7 +17,8 @@ export function moveBlock(state: EditorState, blockPos: number, direction: 'up' 
     if (index === 0) return null;
     const prev = state.doc.child(index - 1);
     const prevPos = blockPos - prev.nodeSize;
-    return state.tr.delete(blockPos, blockPos + node.nodeSize).insert(prevPos, node);
+    // Delete the neighbour, not the moved node, so a caret inside the node maps with it.
+    return state.tr.delete(prevPos, blockPos).insert(prevPos + node.nodeSize, prev);
   }
   if (index === state.doc.childCount - 1) return null;
   const next = state.doc.child(index + 1);

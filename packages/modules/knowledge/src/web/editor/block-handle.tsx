@@ -13,6 +13,7 @@ import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useEditorState } from '@tiptap/react';
 import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { currentBlockPos, deleteBlock, duplicateBlock, moveBlock } from './block-commands';
 import type { EditorLabels } from './labels';
 
@@ -23,6 +24,14 @@ function blockElement(view: EditorView, pos: number): HTMLElement | null {
   if (dom instanceof HTMLElement) return dom;
   if (dom instanceof Text) return dom.parentElement;
   return null;
+}
+
+const DRAG_THRESHOLD_PX = 4;
+
+function movedPastThreshold(fromX: number, fromY: number, toX: number, toY: number): boolean {
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  return dx * dx + dy * dy >= DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX;
 }
 
 function beginBlockDrag(view: EditorView, blockPos: number, dataTransfer: DataTransfer): void {
@@ -100,6 +109,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
   });
   const handleRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const gesture = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
   const visible = editor.isEditable && (blockPos !== null || menuOpen);
 
   useEffect(() => {
@@ -131,6 +141,34 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
     editor.view.dispatch(tr);
   }
 
+  function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>): void {
+    if (event.button !== 0) return;
+    gesture.current = { x: event.clientX, y: event.clientY, dragged: false };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLButtonElement>): void {
+    const current = gesture.current;
+    if (current === null || current.dragged) return;
+    if (movedPastThreshold(current.x, current.y, event.clientX, event.clientY)) {
+      current.dragged = true;
+    }
+  }
+
+  function onDragStart(event: ReactDragEvent<HTMLButtonElement>): void {
+    if (gesture.current !== null) gesture.current.dragged = true;
+    setMenuOpen(false);
+    if (blockPos === null || event.dataTransfer === null) return;
+    beginBlockDrag(editor.view, blockPos, event.dataTransfer);
+  }
+
+  function onClick(event: ReactMouseEvent<HTMLButtonElement>): void {
+    const current = gesture.current;
+    gesture.current = null;
+    if (current?.dragged === true) return;
+    event.preventDefault();
+    setMenuOpen((open) => !open);
+  }
+
   return (
     <div
       ref={handleRef}
@@ -144,22 +182,27 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
       }}
     >
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-        <DropdownMenuTrigger asChild>
+        <div className="relative">
+          <DropdownMenuTrigger asChild>
+            <span className="pointer-events-none absolute inset-0" aria-hidden="true" />
+          </DropdownMenuTrigger>
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             draggable={true}
             aria-label={labels.block.handle}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             className="size-6 cursor-grab px-0 text-fg-muted active:cursor-grabbing"
-            onDragStart={(event) => {
-              if (blockPos === null) return;
-              beginBlockDrag(editor.view, blockPos, event.dataTransfer);
-            }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onDragStart={onDragStart}
+            onClick={onClick}
           >
             <DotsSixVerticalIcon aria-hidden="true" size={24} />
           </Button>
-        </DropdownMenuTrigger>
+        </div>
         <DropdownMenuContent align="start" side="right">
           <DropdownMenuItem
             disabled={isFirst}
