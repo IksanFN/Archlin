@@ -15,7 +15,9 @@ export interface NoteTypeRef {
 export interface NoteTypeSummary extends NoteTypeRef {
   isSystem: boolean;
   defaultReviewMode: ReviewMode;
+  revision: number;
   pageCount: number;
+  trashedPageCount: number;
 }
 
 export interface NoteTypeDetail extends NoteTypeSummary {

@@ -12,6 +12,7 @@ export interface KbNoteTypesTable {
   template: ColumnType<unknown, string, string>;
   field_schema: ColumnType<unknown, string, string>;
   schema_version: Generated<number>;
+  revision: Generated<number>;
   default_review_mode: ReviewMode;
   is_system: Generated<boolean>;
   position: string;

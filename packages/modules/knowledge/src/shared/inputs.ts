@@ -65,7 +65,7 @@ export type CreateNoteTypeInput = z.infer<typeof createNoteTypeInputSchema>;
 
 export const updateNoteTypeInputSchema = z.strictObject({
   id: z.uuid(),
-  baseSchemaVersion: z.int().min(1),
+  baseRevision: z.int().min(1),
   name: noteTypeNameSchema.optional(),
   icon: emojiIconSchema.optional(),
   fieldSchema: fieldSchemaSchema.optional(),

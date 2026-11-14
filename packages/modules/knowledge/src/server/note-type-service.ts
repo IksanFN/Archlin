@@ -36,12 +36,23 @@ function noteTypeNotFound(): never {
   throw new NotFoundError('note_type_not_found', 'Tipe catatan tidak ditemukan');
 }
 
+function invalidSibling(): never {
+  throw new ValidationError('invalid_sibling', 'Saudara tidak valid');
+}
+
 function parseFields(value: unknown): FieldDefinition[] {
   // Zod optional keys include `| undefined`; FieldDefinition omits the property instead.
   return fieldSchemaSchema.parse(value) as FieldDefinition[];
 }
 
-function toSummary(row: NoteTypeRow, pageCount: number): NoteTypeSummary {
+const NO_PAGES: PageCount = { alive: 0, trashed: 0 };
+
+interface PageCount {
+  alive: number;
+  trashed: number;
+}
+
+function toSummary(row: NoteTypeRow, counts: PageCount): NoteTypeSummary {
   return {
     id: row.id,
     key: row.key,
@@ -51,12 +62,14 @@ function toSummary(row: NoteTypeRow, pageCount: number): NoteTypeSummary {
     schemaVersion: row.schema_version,
     isSystem: row.is_system,
     defaultReviewMode: row.default_review_mode,
-    pageCount,
+    revision: row.revision,
+    pageCount: counts.alive,
+    trashedPageCount: counts.trashed,
   };
 }
 
-function toDetail(row: NoteTypeRow, pageCount: number): NoteTypeDetail {
-  return { ...toSummary(row, pageCount), template: asContent(row.template) };
+function toDetail(row: NoteTypeRow, counts: PageCount): NoteTypeDetail {
+  return { ...toSummary(row, counts), template: asContent(row.template) };
 }
 
 function assertFieldTypesImmutable(previous: readonly FieldDefinition[], next: readonly FieldDefinition[]): void {
@@ -84,8 +97,8 @@ export function createNoteTypeService(deps: {
   const { tree, publisher, clock, ids } = deps;
   const writer = createPageWriter({ tree, clock });
 
-  async function livingPageCounts(tx: ReadTx, typeIds: readonly string[]): Promise<Map<string, number>> {
-    const counts = new Map<string, number>(typeIds.map((id) => [id, 0]));
+  async function pageCounts(tx: ReadTx, typeIds: readonly string[]): Promise<Map<string, PageCount>> {
+    const counts = new Map<string, PageCount>(typeIds.map((id) => [id, { alive: 0, trashed: 0 }]));
     if (typeIds.length === 0) return counts;
     const rows = await dbOf(tx)
       .selectFrom('kb_pages as p')
@@ -93,12 +106,12 @@ export function createNoteTypeService(deps: {
         join.onRef('e.id', '=', 'p.entity_id').onRef('e.owner_id', '=', 'p.owner_id'),
       )
       .select('p.note_type_id')
-      .select(sql<number>`count(*)::int`.as('n'))
-      .where('e.deleted_at', 'is', null)
+      .select(sql<number>`(count(*) filter (where e.deleted_at is null))::int`.as('alive'))
+      .select(sql<number>`(count(*) filter (where e.deleted_at is not null))::int`.as('trashed'))
       .where('p.note_type_id', 'in', [...typeIds])
       .groupBy('p.note_type_id')
       .execute();
-    for (const row of rows) counts.set(row.note_type_id, row.n);
+    for (const row of rows) counts.set(row.note_type_id, { alive: row.alive, trashed: row.trashed });
     return counts;
   }
 
@@ -110,18 +123,18 @@ export function createNoteTypeService(deps: {
   }
 
   async function detailOf(tx: ReadTx, row: NoteTypeRow): Promise<NoteTypeDetail> {
-    const counts = await livingPageCounts(tx, [row.id]);
-    return toDetail(row, counts.get(row.id) ?? 0);
+    const counts = await pageCounts(tx, [row.id]);
+    return toDetail(row, counts.get(row.id) ?? NO_PAGES);
   }
 
   return {
     async list(tx) {
       const rows = await dbOf(tx).selectFrom('kb_note_types').selectAll().orderBy('position').execute();
-      const counts = await livingPageCounts(
+      const counts = await pageCounts(
         tx,
         rows.map((row) => row.id),
       );
-      return rows.map((row) => toSummary(row, counts.get(row.id) ?? 0));
+      return rows.map((row) => toSummary(row, counts.get(row.id) ?? NO_PAGES));
     },
 
     async get(tx, id) {
@@ -157,14 +170,14 @@ export function createNoteTypeService(deps: {
         .returningAll()
         .executeTakeFirst();
       if (!row) throw new Error('insert into kb_note_types returned no row');
-      return toDetail(row, 0);
+      return toDetail(row, NO_PAGES);
     },
 
     async update(tx, input) {
       const current = await loadById(tx, input.id, 'write');
-      if (input.baseSchemaVersion !== current.schema_version) {
+      if (input.baseRevision !== current.revision) {
         throw new ConflictError('note_type_conflict', 'Tipe catatan ini berubah di tab atau perangkat lain', {
-          currentSchemaVersion: current.schema_version,
+          currentRevision: current.revision,
         });
       }
       const currentFields = parseFields(current.field_schema);
@@ -181,6 +194,7 @@ export function createNoteTypeService(deps: {
           template: jsonbValue(template !== undefined ? template : current.template),
           field_schema: jsonbValue(nextFields),
           schema_version: schemaVersion,
+          revision: sql`revision + 1`,
           default_review_mode:
             input.defaultReviewMode !== undefined ? input.defaultReviewMode : current.default_review_mode,
           updated_at: clock.now(),
@@ -193,7 +207,7 @@ export function createNoteTypeService(deps: {
         {
           definition: noteTypeUpdated,
           aggregateId: row.id,
-          aggregateRevision: row.schema_version,
+          aggregateRevision: row.revision,
           payload: { fieldsChanged },
         },
         tx,
@@ -216,13 +230,13 @@ export function createNoteTypeService(deps: {
       if (input.afterId !== null) {
         const afterIndex = others.findIndex((row) => row.id === input.afterId);
         const after = others[afterIndex];
-        if (afterIndex < 0 || after === undefined) noteTypeNotFound();
+        if (afterIndex < 0 || after === undefined) throw invalidSibling();
         const next = others[afterIndex + 1];
         position = generateKeyBetween(after.position, next?.position ?? null);
       } else if (input.beforeId !== null) {
         const beforeIndex = others.findIndex((row) => row.id === input.beforeId);
         const before = others[beforeIndex];
-        if (beforeIndex < 0 || before === undefined) noteTypeNotFound();
+        if (beforeIndex < 0 || before === undefined) throw invalidSibling();
         const prev = others[beforeIndex - 1];
         position = generateKeyBetween(prev?.position ?? null, before.position);
       } else {
@@ -260,7 +274,11 @@ export function createNoteTypeService(deps: {
         .orderBy('entity_id')
         .execute();
       if (pages.length > 0 && input.reassignTo === null) {
-        throw new ConflictError('note_type_in_use', 'Tipe catatan masih dipakai halaman', { pageCount: pages.length });
+        const counts = (await pageCounts(tx, [input.id])).get(input.id) ?? NO_PAGES;
+        throw new ConflictError('note_type_in_use', 'Tipe catatan masih dipakai halaman', {
+          pageCount: counts.alive,
+          trashedPageCount: counts.trashed,
+        });
       }
       if (input.reassignTo !== null) {
         for (const page of pages) {

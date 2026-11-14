@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { sqlFor } from '@archlin/db/scoped';
 import { buildRegistry, defineHandler, defineModule, systemIds } from '@archlin/kernel';
@@ -193,31 +194,31 @@ describe('NoteTypeService', () => {
   it('update bumps schemaVersion only when fields change and publishes kb.noteType.updated', async () => {
     const created = await createCustom('Kustom');
     const renamed = await uow.write(scopeA(), (tx) =>
-      api.noteTypes.update(tx, { id: created.id, baseSchemaVersion: 1, name: 'Nama baru' }),
+      api.noteTypes.update(tx, { id: created.id, baseRevision: 1, name: 'Nama baru' }),
     );
-    expect(renamed).toMatchObject({ name: 'Nama baru', schemaVersion: 1 });
+    expect(renamed).toMatchObject({ name: 'Nama baru', schemaVersion: 1, revision: 2 });
 
     const withFields = await uow.write(scopeA(), (tx) =>
       api.noteTypes.update(tx, {
         id: created.id,
-        baseSchemaVersion: 1,
+        baseRevision: 2,
         fieldSchema: [{ key: 'system', label: 'Sistem', type: 'text' }],
       }),
     );
-    expect(withFields.schemaVersion).toBe(2);
+    expect(withFields).toMatchObject({ schemaVersion: 2, revision: 3 });
     expect(withFields.fieldSchema).toEqual([{ key: 'system', label: 'Sistem', type: 'text' }]);
 
     expect(captured).toEqual([
       expect.objectContaining({
         type: 'kb.noteType.updated',
         aggregateId: created.id,
-        aggregateRevision: 1,
+        aggregateRevision: 2,
         payload: { fieldsChanged: false },
       }),
       expect.objectContaining({
         type: 'kb.noteType.updated',
         aggregateId: created.id,
-        aggregateRevision: 2,
+        aggregateRevision: 3,
         payload: { fieldsChanged: true },
       }),
     ]);
@@ -229,7 +230,7 @@ describe('NoteTypeService', () => {
       uow.write(scopeA(), (tx) =>
         api.noteTypes.update(tx, {
           id: created.id,
-          baseSchemaVersion: 1,
+          baseRevision: 1,
           fieldSchema: [{ key: 'system', label: 'Sistem', type: 'longtext' }],
         }),
       ),
@@ -239,23 +240,59 @@ describe('NoteTypeService', () => {
     });
   });
 
-  it('a stale schema version is rejected with note_type_conflict', async () => {
+  it('a stale revision is rejected with note_type_conflict', async () => {
     const created = await createCustom('Kustom');
     await uow.write(scopeA(), (tx) =>
       api.noteTypes.update(tx, {
         id: created.id,
-        baseSchemaVersion: 1,
+        baseRevision: 1,
         fieldSchema: [{ key: 'system', label: 'Sistem', type: 'text' }],
       }),
     );
     await expect(
-      uow.write(scopeA(), (tx) =>
-        api.noteTypes.update(tx, { id: created.id, baseSchemaVersion: 1, name: 'Stale' }),
-      ),
+      uow.write(scopeA(), (tx) => api.noteTypes.update(tx, { id: created.id, baseRevision: 1, name: 'Stale' })),
     ).rejects.toMatchObject({
       code: 'note_type_conflict',
-      details: { currentSchemaVersion: 2 },
+      details: { currentRevision: 2 },
     });
+  });
+
+  it('update with a stale revision is rejected even when only the name changed', async () => {
+    const created = await createCustom('Resep');
+    expect(created.revision).toBe(1);
+    const renamed = await uow.write(scopeA(), (tx) =>
+      api.noteTypes.update(tx, { id: created.id, baseRevision: created.revision, name: 'Resep A' }),
+    );
+    expect(renamed).toMatchObject({ revision: 2, schemaVersion: 1 });
+    await expect(
+      uow.write(scopeA(), (tx) =>
+        api.noteTypes.update(tx, { id: created.id, baseRevision: 1, template: emptyDocument() }),
+      ),
+    ).rejects.toMatchObject({ code: 'note_type_conflict', details: { currentRevision: 2 } });
+  });
+
+  it('a type used only by pages in trash reports them and needs a reassign target', async () => {
+    const custom = await createCustom('Kustom');
+    const quickNote = await noteTypeId('quick_note');
+    const space = await makeSpace();
+    const page = await createPage(space.id, custom.id);
+    await uow.write(scopeA(), (tx) => tree.trash(tx, page.entityId));
+
+    const listed = await uow.read(scopeA(), (tx) => api.noteTypes.list(tx));
+    expect(listed.find((type) => type.id === custom.id)).toMatchObject({ pageCount: 0, trashedPageCount: 1 });
+    await expect(
+      uow.write(scopeA(), (tx) => api.noteTypes.remove(tx, { id: custom.id, reassignTo: null })),
+    ).rejects.toMatchObject({ code: 'note_type_in_use', details: { pageCount: 0, trashedPageCount: 1 } });
+    await expect(
+      uow.write(scopeA(), (tx) => api.noteTypes.remove(tx, { id: custom.id, reassignTo: quickNote })),
+    ).resolves.toEqual({ reassigned: 1 });
+  });
+
+  it('reorder with an unknown sibling is rejected with invalid_sibling', async () => {
+    const custom = await createCustom('Kustom');
+    await expect(
+      uow.write(scopeA(), (tx) => api.noteTypes.reorder(tx, { id: custom.id, beforeId: randomUUID(), afterId: null })),
+    ).rejects.toMatchObject({ code: 'invalid_sibling' });
   });
 
   it('a system type cannot be deleted', async () => {
@@ -276,7 +313,7 @@ describe('NoteTypeService', () => {
       uow.write(scopeA(), (tx) => api.noteTypes.remove(tx, { id: custom.id, reassignTo: null })),
     ).rejects.toMatchObject({
       code: 'note_type_in_use',
-      details: { pageCount: 2 },
+      details: { pageCount: 1, trashedPageCount: 1 },
     });
   });
 
