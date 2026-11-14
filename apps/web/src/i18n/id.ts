@@ -38,6 +38,7 @@ export const messages = {
     breadcrumb: 'Jalur halaman',
     options: 'Opsi halaman',
     changeType: 'Ubah tipe catatan',
+    changeTypeBlocked: 'Perubahan belum tersimpan. Selesaikan dulu, lalu ubah tipe.',
     restore: 'Pulihkan',
     restored: 'Dipulihkan.',
     trashBanner: 'Halaman ini ada di Trash. Isinya hanya bisa dibaca.',

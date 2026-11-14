@@ -26,7 +26,7 @@ import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
 import { formatRelative } from '~/lib/format-time';
 import { readExpanded, writeExpanded } from '~/lib/tree-expanded';
-import { notifyTreeMutation } from '~/lib/tree-sync';
+import { notifyTreeMutation, subscribePageChanged } from '~/lib/tree-sync';
 import { AppError } from '~/server/errors';
 import { pageFn } from '~/server/functions/pages';
 import { listSpacesFn } from '~/server/functions/spaces';
@@ -189,6 +189,20 @@ function PageBody({
     void router.invalidate();
   }, [autosave.state.status, page.deletedAt, router]);
 
+  useEffect(
+    () =>
+      subscribePageChanged((entityId) => {
+        if (entityId === page.entityId) void router.invalidate();
+      }),
+    [page.entityId, router],
+  );
+
+  const flush = autosave.flush;
+  const prepareTypeChange = useCallback(async (): Promise<number | null> => {
+    const settled = await flush();
+    return settled.status === 'idle' || settled.status === 'saved' ? settled.baseVersion : null;
+  }, [flush]);
+
   const shouldBlockFn = useCallback(async () => {
     await flushRef.current();
     return false;
@@ -274,7 +288,7 @@ function PageBody({
         menu={
           <PageMenu
             entityId={page.entityId}
-            version={autosave.state.baseVersion}
+            prepareTypeChange={prepareTypeChange}
             noteTypeId={page.noteType.id}
             onMove={() => setMoving(true)}
             onTrash={trash}

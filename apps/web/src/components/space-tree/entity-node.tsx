@@ -8,6 +8,7 @@ import { isSingleEmoji, type SpaceSummary, type TreeNode } from '@archlin/platfo
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { NewPageMenu } from '~/components/new-page-menu';
 import { messages } from '~/i18n/id';
+import { notifyPageChanged, notifyTreeMutation } from '~/lib/tree-sync';
 import { branchKey, useBranch } from '~/lib/tree-store';
 import { renamePageFn } from '~/server/functions/pages';
 import { setIconFn } from '~/server/functions/tree';
@@ -170,6 +171,8 @@ function EntityNode({
     try {
       await renamePageFn({ data: { entityId: node.id, title } });
       tree.store.invalidate([branchKey(space.id, parentId)]);
+      notifyPageChanged(node.id);
+      notifyTreeMutation();
     } catch {
       // Keep the previous title; the branch still has it.
     }

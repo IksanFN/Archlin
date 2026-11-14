@@ -21,14 +21,15 @@ import { changeNoteTypeFn } from '~/server/functions/pages';
 
 export function PageMenu({
   entityId,
-  version,
+  prepareTypeChange,
   noteTypeId,
   onMove,
   onTrash,
   onTypeChanged,
 }: {
   entityId: string;
-  version: number;
+  // Resolves to the saved base version, or null while unsaved edits would make the change conflict with itself.
+  prepareTypeChange: () => Promise<number | null>;
   noteTypeId: string;
   onMove: () => void;
   onTrash: () => void;
@@ -49,7 +50,12 @@ export function PageMenu({
   async function chooseType(nextId: string): Promise<void> {
     if (nextId === noteTypeId) return;
     try {
-      await changeNoteTypeFn({ data: { entityId, baseVersion: version, noteTypeId: nextId } });
+      const baseVersion = await prepareTypeChange();
+      if (baseVersion === null) {
+        toast.error(messages.page.changeTypeBlocked);
+        return;
+      }
+      await changeNoteTypeFn({ data: { entityId, baseVersion, noteTypeId: nextId } });
       onTypeChanged();
     } catch (error) {
       const presentation = messageForError(error);

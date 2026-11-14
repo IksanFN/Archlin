@@ -51,7 +51,7 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
   state: AutosaveState;
   saveStatus: SaveStatusState;
   update(patch: Partial<PageDraftState>): void;
-  flush(): Promise<void>;
+  flush(): Promise<AutosaveState>;
   loadLatest(): Promise<PageView>;
   overwrite(): Promise<void>;
   adoptServer(next: PageView): boolean;
@@ -176,11 +176,12 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     apply({ type: 'edit', state: next });
   }, [apply]);
 
-  const flush = useCallback(async (): Promise<void> => {
+  const flush = useCallback(async (): Promise<AutosaveState> => {
     persistDraft();
     apply({ type: 'flush' });
     await saveNow();
     if (nextSave(stateRef.current) !== null) await saveNow();
+    return stateRef.current;
   }, [apply, persistDraft, saveNow]);
 
   const loadLatest = useCallback(async (): Promise<PageView> => {
