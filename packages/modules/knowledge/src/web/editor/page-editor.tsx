@@ -32,6 +32,7 @@ export function PageEditor({
     editable,
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
+    editorProps: { attributes: { 'aria-label': labels.body } },
     onUpdate: ({ editor: instance }) => {
       onChange(instance.getJSON());
     },

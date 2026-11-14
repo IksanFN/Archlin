@@ -47,3 +47,30 @@ test('navigation rows are at least 44px tall', async ({ page }) => {
     expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(44);
   }
 });
+
+test('the block handle follows the tapped block and moves it', async ({ page }) => {
+  await completeSetup(page);
+  await page.getByRole('button', { name: 'Buka navigasi' }).click();
+  await page.getByRole('dialog', { name: 'Navigasi utama' }).getByRole('button', { name: 'Buat space' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Buat space' });
+  await dialog.getByLabel('Nama').fill('Kerja');
+  await dialog.getByRole('button', { name: 'Buat space' }).click();
+  await expect(dialog).toBeHidden();
+  await gotoSettled(page, '/s/kerja');
+  await page.getByRole('main').getByRole('button', { name: 'Halaman baru' }).first().click();
+  await page.getByRole('menuitem', { name: 'Quick Note' }).click();
+  await expect(page).toHaveURL(/\/s\/kerja\/p\//);
+
+  const editor = page.getByRole('textbox', { name: 'Isi halaman' });
+  await editor.click();
+  await page.keyboard.type('satu');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('dua');
+  await editor.getByText('satu').tap();
+
+  const handle = page.getByRole('button', { name: 'Opsi blok' });
+  await expect(handle).toBeVisible();
+  await handle.tap();
+  await page.getByRole('menuitem', { name: /Pindah ke bawah/ }).tap();
+  await expect(editor.locator('p').first()).toHaveText('dua');
+});

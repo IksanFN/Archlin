@@ -37,24 +37,41 @@ function SavedCheck() {
   );
 }
 
+// Saving and saved happen on every autosave; only a problem is worth interrupting a screen reader for.
+function announcementFor(state: SaveStatusState, labels: SaveStatusProps['labels']): string {
+  switch (state) {
+    case 'error':
+    case 'offline':
+    case 'conflict':
+    case 'invalid':
+    case 'signedOut':
+    case 'tooLarge':
+      return labels[state];
+    case 'idle':
+    case 'saving':
+    case 'saved':
+      return '';
+  }
+}
+
 function SaveStatus({ state, labels, action, className }: SaveStatusProps) {
   return (
-    <div
-      data-slot="save-status"
-      role="status"
-      aria-live="polite"
-      className={cn('flex items-center gap-2 text-small text-fg-muted', className)}
-    >
+    <div data-slot="save-status" className={cn('flex items-center gap-2 text-small text-fg-muted', className)}>
+      <span className="sr-only" role="status" aria-live="polite">
+        {announcementFor(state, labels)}
+      </span>
       {state === 'idle' ? null : (
         <span key={state} className="inline-flex items-center gap-2 animate-[fade-in-only_150ms_var(--ease-out)]">
-          {state === 'saved' ? <SavedCheck /> : null}
-          {state === 'error' || state === 'tooLarge' ? (
-            <WarningIcon aria-hidden="true" size={14} className="text-danger" />
-          ) : null}
-          {state === 'offline' || state === 'conflict' || state === 'invalid' || state === 'signedOut' ? (
-            <WarningIcon aria-hidden="true" size={14} className="text-attention" />
-          ) : null}
-          <span>{labels[state]}</span>
+          <span aria-hidden="true" className="inline-flex items-center gap-2">
+            {state === 'saved' ? <SavedCheck /> : null}
+            {state === 'error' || state === 'tooLarge' ? (
+              <WarningIcon size={14} className="text-danger" />
+            ) : null}
+            {state === 'offline' || state === 'conflict' || state === 'invalid' || state === 'signedOut' ? (
+              <WarningIcon size={14} className="text-attention" />
+            ) : null}
+            <span>{labels[state]}</span>
+          </span>
           {action === undefined ? null : action}
         </span>
       )}
@@ -62,4 +79,4 @@ function SaveStatus({ state, labels, action, className }: SaveStatusProps) {
   );
 }
 
-export { SaveStatus };
+export { SaveStatus, announcementFor };

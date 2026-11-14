@@ -5,6 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@archlin/ui/components/dropdown-menu';
+import { Kbd } from '@archlin/ui/components/kbd';
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 import { DotsSixVerticalIcon } from '@phosphor-icons/react/ssr';
 import { Extension } from '@tiptap/core';
@@ -12,7 +13,7 @@ import type { Editor } from '@tiptap/core';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import { useEditorState } from '@tiptap/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { PointerEvent as ReactPointerEvent, DragEvent as ReactDragEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { currentBlockPos, deleteBlock, duplicateBlock, moveBlock } from './block-commands';
 import type { EditorLabels } from './labels';
@@ -102,6 +103,23 @@ export const BlockHandleExtension = Extension.create({
   },
 });
 
+function usePrimaryPointerIsCoarse(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia('(pointer: coarse)');
+      query.addEventListener('change', onChange);
+      return () => query.removeEventListener('change', onChange);
+    },
+    () => window.matchMedia('(pointer: coarse)').matches,
+    () => false,
+  );
+}
+
+function setHandleBlock(editor: Editor, blockPos: number | null): void {
+  if ((blockHandleKey.getState(editor.state)?.blockPos ?? null) === blockPos) return;
+  editor.view.dispatch(editor.state.tr.setMeta(blockHandleKey, { blockPos }));
+}
+
 export function BlockHandle({ editor, labels }: { editor: Editor; labels: EditorLabels }) {
   const blockPos = useEditorState({
     editor,
@@ -110,6 +128,8 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
   const handleRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const gesture = useRef<{ x: number; y: number; dragged: boolean } | null>(null);
+  const pressing = useRef(false);
+  const coarse = usePrimaryPointerIsCoarse();
   const visible = editor.isEditable && (blockPos !== null || menuOpen);
 
   useEffect(() => {
@@ -132,6 +152,24 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
     });
   }, [blockPos, editor]);
 
+  // Touch has no hover: the handle follows the caret block and stays while it or its menu is being used.
+  useEffect(() => {
+    if (!coarse) return undefined;
+    const follow = (): void => setHandleBlock(editor, editor.isFocused ? currentBlockPos(editor.state) : null);
+    const hide = (): void => {
+      if (pressing.current || menuOpen) return;
+      setHandleBlock(editor, null);
+    };
+    editor.on('selectionUpdate', follow);
+    editor.on('focus', follow);
+    editor.on('blur', hide);
+    return () => {
+      editor.off('selectionUpdate', follow);
+      editor.off('focus', follow);
+      editor.off('blur', hide);
+    };
+  }, [coarse, editor, menuOpen]);
+
   const node = blockPos === null ? null : editor.state.doc.nodeAt(blockPos);
   const isFirst = blockPos === 0;
   const isLast = blockPos !== null && node !== null && blockPos + node.nodeSize >= editor.state.doc.content.size;
@@ -143,6 +181,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
 
   function onPointerDown(event: ReactPointerEvent<HTMLButtonElement>): void {
     if (event.button !== 0) return;
+    pressing.current = true;
     gesture.current = { x: event.clientX, y: event.clientY, dragged: false };
   }
 
@@ -155,6 +194,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
   }
 
   function onDragStart(event: ReactDragEvent<HTMLButtonElement>): void {
+    pressing.current = false;
     if (gesture.current !== null) gesture.current.dragged = true;
     setMenuOpen(false);
     if (blockPos === null || event.dataTransfer === null) return;
@@ -162,6 +202,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
   }
 
   function onClick(event: ReactMouseEvent<HTMLButtonElement>): void {
+    pressing.current = false;
     const current = gesture.current;
     gesture.current = null;
     if (current?.dragged === true) return;
@@ -198,6 +239,9 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onDragStart={onDragStart}
+            onPointerCancel={() => {
+              pressing.current = false;
+            }}
             onClick={onClick}
           >
             <DotsSixVerticalIcon aria-hidden="true" size={24} />
@@ -212,6 +256,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
             }}
           >
             {labels.block.moveUp}
+            <Kbd className="ml-auto">{labels.block.moveUpShortcut}</Kbd>
           </DropdownMenuItem>
           <DropdownMenuItem
             disabled={isLast}
@@ -221,6 +266,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
             }}
           >
             {labels.block.moveDown}
+            <Kbd className="ml-auto">{labels.block.moveDownShortcut}</Kbd>
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => {

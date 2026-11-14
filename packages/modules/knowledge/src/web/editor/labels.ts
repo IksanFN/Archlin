@@ -1,5 +1,6 @@
 export interface EditorLabels {
   title: string;
+  body: string;
   untitled: string;
   placeholder: string;
   headingPlaceholder: string;
@@ -64,7 +65,9 @@ export interface EditorLabels {
   block: {
     handle: string;
     moveUp: string;
+    moveUpShortcut: string;
     moveDown: string;
+    moveDownShortcut: string;
     duplicate: string;
     delete: string;
   };

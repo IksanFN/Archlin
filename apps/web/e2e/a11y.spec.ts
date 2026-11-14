@@ -68,3 +68,23 @@ test('theme choice persists across reloads', async ({ page }) => {
   await reloadSettled(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
+
+test('the page screen has exactly one h1 that names the page', async ({ page }) => {
+  await resetAccount();
+  await completeSetup(page);
+  await page.getByRole('button', { name: 'Buat space' }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Buat space' });
+  await dialog.getByLabel('Nama').fill('Kerja');
+  await dialog.getByRole('button', { name: 'Buat space' }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByRole('main').getByRole('button', { name: 'Halaman baru' }).first().click();
+  await page.getByRole('menuitem', { name: 'Quick Note' }).click();
+  await expect(page).toHaveURL(/\/s\/kerja\/p\//);
+
+  const headings = page.getByRole('heading', { level: 1 });
+  await expect(headings).toHaveCount(1);
+  await expect(headings).toHaveText('Tanpa judul');
+  await page.getByRole('textbox', { name: 'Judul' }).fill('Rencana rilis');
+  await expect(headings).toHaveText('Rencana rilis');
+  await expectNoA11yViolations(page);
+});

@@ -71,7 +71,7 @@ function TreeRow({
         className={cn(
           'min-w-0 flex-1 truncate',
           space ? 'text-ui' : 'text-small',
-          muted ? 'text-fg-muted' : selected ? 'text-fg' : 'text-fg-secondary',
+          selected ? 'text-fg' : muted ? 'text-fg-muted' : 'text-fg-secondary',
         )}
       >
         {label}

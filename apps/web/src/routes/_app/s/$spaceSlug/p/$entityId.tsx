@@ -279,6 +279,7 @@ function PageBody({
               }}
             />
           )}
+          <h1 className="sr-only">{autosave.state.latest.title || messages.page.untitled}</h1>
           <TitleInput
             value={autosave.state.latest.title}
             onChange={(title) => autosave.update({ title })}

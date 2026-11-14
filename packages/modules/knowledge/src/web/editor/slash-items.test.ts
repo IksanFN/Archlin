@@ -4,6 +4,7 @@ import { filterSlashItems, slashItems } from './slash-items';
 
 const testLabels: EditorLabels = {
   title: 'Judul',
+  body: 'Isi halaman',
   untitled: 'Tanpa judul',
   placeholder: 'Ketik / untuk menyisipkan blok',
   headingPlaceholder: 'Judul bagian',
@@ -63,7 +64,9 @@ const testLabels: EditorLabels = {
   block: {
     handle: 'Opsi blok',
     moveUp: 'Pindah ke atas',
+    moveUpShortcut: 'Alt+Shift+↑',
     moveDown: 'Pindah ke bawah',
+    moveDownShortcut: 'Alt+Shift+↓',
     duplicate: 'Duplikat',
     delete: 'Hapus',
   },

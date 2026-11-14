@@ -253,7 +253,7 @@
   display: none;
 }
 
-@media (hover: hover) {
+@media (hover: hover), (pointer: coarse) {
   .kb-block-handle {
     display: flex;
     opacity: 0;

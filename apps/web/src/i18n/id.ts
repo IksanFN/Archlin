@@ -58,7 +58,7 @@ export const messages = {
     signInAgain: 'Masuk lagi',
     conflictTitle: 'Halaman ini berubah di tab atau perangkat lain',
     conflictBody:
-      'Perubahan Anda belum tersimpan. Apa pun pilihan Anda, versi yang tidak dipakai tetap disimpan di server sebagai salinan konflik.',
+      'Perubahan Anda belum tersimpan. Versi yang tidak dipakai tetap disimpan di server sebagai salinan konflik, tetapi belum bisa dibuka dari aplikasi.',
     loadLatest: 'Muat versi terbaru',
     overwrite: 'Timpa',
     conflictAgain: 'Halaman berubah lagi. Pilih sekali lagi.',
@@ -293,6 +293,7 @@ export const messages = {
   },
   editor: {
     title: 'Judul',
+    body: 'Isi halaman',
     untitled: 'Tanpa judul',
     placeholder: 'Ketik / untuk menyisipkan blok',
     headingPlaceholder: 'Judul bagian',
@@ -357,7 +358,9 @@ export const messages = {
     block: {
       handle: 'Opsi blok',
       moveUp: 'Pindah ke atas',
+      moveUpShortcut: 'Alt+Shift+↑',
       moveDown: 'Pindah ke bawah',
+      moveDownShortcut: 'Alt+Shift+↓',
       duplicate: 'Duplikat',
       delete: 'Hapus',
     },
