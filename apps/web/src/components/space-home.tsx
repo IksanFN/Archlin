@@ -98,9 +98,9 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
           />
         ) : (
           <>
-            <section className="mt-10" aria-labelledby="space-home-roots">
+            <section className="mt-10" aria-label={messages.spaceHome.roots}>
               <div className="rise flex items-baseline justify-between pb-2" style={rise(afterHeader)}>
-                <h2 id="space-home-roots" className="text-micro font-medium text-fg-muted">
+                <h2 className="text-micro font-medium text-fg-muted">
                   {messages.spaceHome.roots}
                 </h2>
                 <span className="font-mono text-micro text-fg-muted">{rootPages.length}</span>
@@ -134,8 +134,8 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
             </section>
 
             {recent.length === 0 ? null : (
-              <section className="mt-10" aria-labelledby="space-home-recent">
-                <h2 id="space-home-recent" className="rise pb-2 text-micro font-medium text-fg-muted" style={rise(recentStart)}>
+              <section className="mt-10" aria-label={messages.spaceHome.recent}>
+                <h2 className="rise pb-2 text-micro font-medium text-fg-muted" style={rise(recentStart)}>
                   {messages.spaceHome.recent}
                 </h2>
                 <ul>

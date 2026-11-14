@@ -12,11 +12,38 @@ import { NativeSelect } from '@archlin/ui/components/native-select';
 import { CaretRightIcon, FileTextIcon, FolderSimpleIcon } from '@phosphor-icons/react/ssr';
 import type { SpaceSummary, TreeNode } from '@archlin/platform/contracts';
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import { messages } from '~/i18n/id';
 import { AppError } from '~/server/errors';
 import { moveEntityFn, treeChildrenFn } from '~/server/functions/tree';
 import { cn } from '@archlin/ui/lib/utils';
+
+const ROOT_ROW = 'root';
+
+// Arrow keys walk the rendered rows; selecting and expanding reuse the click handlers so the keyboard cannot drift from the pointer.
+function onPickerKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+  const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+  const index = rows.findIndex((row) => row === document.activeElement);
+  const row = rows[index];
+  if (row === undefined) return;
+  const level = Number(row.getAttribute('aria-level'));
+  const expanded = row.getAttribute('aria-expanded');
+  let next: HTMLElement | undefined;
+  if (event.key === 'ArrowDown') next = rows[index + 1];
+  else if (event.key === 'ArrowUp') next = rows[index - 1];
+  else if (event.key === 'Home') next = rows[0];
+  else if (event.key === 'End') next = rows.at(-1);
+  else if (event.key === 'Enter' || event.key === ' ') row.click();
+  else if (event.key === 'ArrowRight') {
+    if (expanded === 'false') row.querySelector('button')?.click();
+    else if (expanded === 'true') next = rows[index + 1];
+  } else if (event.key === 'ArrowLeft') {
+    if (expanded === 'true') row.querySelector('button')?.click();
+    else next = rows.slice(0, index).reverse().find((candidate) => Number(candidate.getAttribute('aria-level')) === level - 1);
+  } else return;
+  event.preventDefault();
+  next?.focus();
+}
 
 export interface MoveEntity {
   id: string;
@@ -41,6 +68,8 @@ function PickerBranch({
   onSelect,
   expanded,
   toggle,
+  activeId,
+  onActivate,
   ancestorBlocked = false,
 }: {
   spaceId: string;
@@ -51,6 +80,8 @@ function PickerBranch({
   onSelect: (id: string | null, listingParentId: string | null) => void;
   expanded: ReadonlySet<string>;
   toggle: (id: string) => void;
+  activeId: string;
+  onActivate: (id: string) => void;
   ancestorBlocked?: boolean;
 }) {
   const [nodes, setNodes] = useState<TreeNode[] | null>(null);
@@ -85,6 +116,8 @@ function PickerBranch({
               aria-selected={selectedId === node.id}
               aria-disabled={disabled || undefined}
               aria-expanded={node.hasChildren ? open : undefined}
+              tabIndex={activeId === node.id ? 0 : -1}
+              onFocus={() => onActivate(node.id)}
               className={cn(
                 'flex h-[30px] items-center gap-1 rounded-sm pr-2 text-small',
                 selectedId === node.id && !disabled ? 'bg-selected text-fg' : 'text-fg-secondary',
@@ -130,6 +163,8 @@ function PickerBranch({
                 onSelect={onSelect}
                 expanded={expanded}
                 toggle={toggle}
+                activeId={activeId}
+                onActivate={onActivate}
                 ancestorBlocked={disabled}
               />
             ) : null}
@@ -156,6 +191,7 @@ function MoveDialogForm({
   const [listingParentId, setListingParentId] = useState<string | null>(null);
   const [placement, setPlacement] = useState<'last' | 'first'>('last');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [activeId, setActiveId] = useState(ROOT_ROW);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -163,6 +199,7 @@ function MoveDialogForm({
   const title = entity.title === '' ? messages.tree.untitled : entity.title;
 
   function toggle(id: string): void {
+    setActiveId(id);
     setExpanded((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
@@ -211,6 +248,7 @@ function MoveDialogForm({
                 setParentId(null);
                 setListingParentId(null);
                 setExpanded(new Set());
+                setActiveId(ROOT_ROW);
               }}
             >
               {spaces.map((space) => (
@@ -220,11 +258,13 @@ function MoveDialogForm({
               ))}
             </NativeSelect>
           </label>
-          <div role="tree" aria-label={messages.tree.label} className="max-h-56 overflow-y-auto rounded-md border border-line-subtle p-1">
+          <div role="tree" aria-label={messages.tree.label} className="max-h-56 overflow-y-auto rounded-md border border-line-subtle p-1" onKeyDown={onPickerKeyDown}>
             <div
               role="treeitem"
               aria-level={1}
               aria-selected={parentId === null}
+              tabIndex={activeId === ROOT_ROW ? 0 : -1}
+              onFocus={() => setActiveId(ROOT_ROW)}
               className={cn(
                 'flex h-[30px] items-center gap-1 rounded-sm px-2 text-small',
                 parentId === null ? 'bg-selected text-fg' : 'text-fg-secondary',
@@ -251,6 +291,8 @@ function MoveDialogForm({
                 }}
                 expanded={expanded}
                 toggle={toggle}
+                activeId={activeId}
+                onActivate={setActiveId}
               />
             )}
           </div>

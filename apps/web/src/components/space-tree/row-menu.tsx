@@ -6,27 +6,21 @@ import {
   DropdownMenuTrigger,
 } from '@archlin/ui/components/dropdown-menu';
 import { DotsThreeIcon } from '@phosphor-icons/react/ssr';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@archlin/ui/lib/utils';
 
-export function RowIconButton({
-  label,
-  children,
-  onClick,
-}: {
-  label: string;
-  children: ReactNode;
-  onClick?: () => void;
-}) {
+// Radix triggers hand their handlers and ref to this button through `asChild`; dropping them leaves the menu unopenable by pointer.
+export function RowIconButton({ label, children, onClick, ...rest }: { label: string } & ComponentProps<'button'>) {
   return (
     <button
       type="button"
+      {...rest}
       aria-label={label}
       className="flex size-7 items-center justify-center rounded-sm text-fg-muted fine-hover:bg-overlay"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onClick?.();
+        onClick?.(event);
       }}
     >
       {children}
