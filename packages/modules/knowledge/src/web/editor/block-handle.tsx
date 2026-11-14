@@ -143,7 +143,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
       void computePosition(reference, handle, {
         placement: 'left-start',
         strategy: 'fixed',
-        middleware: [offset(-32), flip(), shift({ padding: 8 })],
+        middleware: [offset(8), flip(), shift({ padding: 8 })],
       }).then(({ x, y }) => {
         handle.style.left = `${x}px`;
         handle.style.top = `${y}px`;

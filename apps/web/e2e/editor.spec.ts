@@ -188,3 +188,25 @@ test('a javascript link is refused', async ({ page }) => {
   await page.getByRole('button', { name: 'Simpan', exact: true }).click();
   await expect(editorOf(page).locator('a[href="https://contoh.id"]')).toHaveCount(1);
 });
+
+test('the block handle does not cover the callout variant button', async ({ page }) => {
+  await openEditor(page);
+  await page.keyboard.type('/info');
+  await page.getByRole('option', { name: 'Callout info', exact: true }).click();
+  await page.keyboard.type('Teks callout');
+
+  // The handle follows the caret block, so it is showing next to the callout while the button is used.
+  const handle = await page.getByRole('button', { name: 'Opsi blok' }).boundingBox();
+  const variant = await page.getByRole('button', { name: 'Jenis callout' }).boundingBox();
+  if (handle === null || variant === null) throw new Error('the handle and the variant button must both be on screen');
+  const overlaps =
+    handle.x < variant.x + variant.width &&
+    handle.x + handle.width > variant.x &&
+    handle.y < variant.y + variant.height &&
+    handle.y + handle.height > variant.y;
+  expect(overlaps, 'the block handle sits on top of the callout variant button').toBe(false);
+
+  await page.getByRole('button', { name: 'Jenis callout' }).click({ timeout: 5000 });
+  await page.getByRole('menuitemradio', { name: 'Peringatan' }).click();
+  await expect(editorOf(page).locator('[data-callout]')).toHaveAttribute('data-variant', 'warning');
+});
