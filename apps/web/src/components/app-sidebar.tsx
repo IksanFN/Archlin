@@ -2,10 +2,11 @@ import { NavItem } from '@archlin/ui/shell/nav-item';
 import { ShellContext, Sidebar, SidebarHeader } from '@archlin/ui/shell/sidebar';
 import { GearSixIcon, SunHorizonIcon } from '@phosphor-icons/react/ssr';
 import { useLocation } from '@tanstack/react-router';
-import { use, useCallback } from 'react';
+import { use, useCallback, useEffect } from 'react';
 import { FavoritesSection } from '~/components/favorites-section';
 import { SpaceTree } from '~/components/space-tree/space-tree';
 import { messages } from '~/i18n/id';
+import { subscribeTreeMutation } from '~/lib/tree-sync';
 import { useAsyncData } from '~/lib/use-async-data';
 import { favoritesFn } from '~/server/functions/tree';
 import { AccountMenu } from './account-menu';
@@ -16,6 +17,8 @@ export function AppSidebar({ displayName }: { displayName: string }) {
   const loadFavorites = useCallback(() => favoritesFn({ data: {} }), []);
   const favorites = useAsyncData(loadFavorites);
 
+  useEffect(() => subscribeTreeMutation(favorites.reload), [favorites.reload]);
+
   return (
     <Sidebar>
       <SidebarHeader name={messages.appName} hideLabel={messages.nav.hideSidebar} showLabel={messages.nav.showSidebar} />
@@ -24,7 +27,7 @@ export function AppSidebar({ displayName }: { displayName: string }) {
         {variant === 'rail' ? null : (
           <>
             {favorites.state.status === 'ready' ? <FavoritesSection items={favorites.state.data} /> : null}
-            <SpaceTree onFavoritesChange={favorites.reload} />
+            <SpaceTree />
           </>
         )}
         <div className="mt-auto flex flex-col gap-1 pt-6">

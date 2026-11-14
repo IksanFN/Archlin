@@ -17,6 +17,8 @@ export interface TreeStore {
   branch(key: BranchKey): BranchState;
   ensure(key: BranchKey): void;
   invalidate(keys: readonly BranchKey[]): void;
+  loadedKeys(): BranchKey[];
+  drop(key: BranchKey, id: string): void;
   subscribe(listener: () => void): () => void;
 }
 
@@ -70,6 +72,18 @@ export function createTreeStore(load: (spaceId: string, parentId: string | null)
         const current = states.get(key) ?? IDLE;
         start(key, current.status === 'idle' ? null : current.nodes);
       }
+    },
+    loadedKeys() {
+      return [...states.keys()];
+    },
+    drop(key, id) {
+      const current = states.get(key);
+      if (current === undefined || current.status === 'idle' || current.nodes === null) return;
+      const nodes = current.nodes.filter((node) => node.id !== id);
+      if (nodes.length === current.nodes.length) return;
+      if (current.status === 'ready') states.set(key, { status: 'ready', nodes });
+      else states.set(key, { status: current.status, nodes });
+      notify();
     },
     subscribe(listener) {
       listeners.add(listener);

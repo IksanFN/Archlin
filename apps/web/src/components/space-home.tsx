@@ -11,6 +11,7 @@ import { NewPageMenu } from '~/components/new-page-menu';
 import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
 import { formatRelative } from '~/lib/format-time';
+import { notifyTreeMutation } from '~/lib/tree-sync';
 import type { SpaceHome as SpaceHomeData } from '~/server/functions/spaces';
 import { unarchiveSpaceFn } from '~/server/functions/spaces';
 
@@ -41,6 +42,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
     setRestoring(true);
     try {
       await unarchiveSpaceFn({ data: { id: space.id } });
+      notifyTreeMutation();
       await router.invalidate();
     } catch (error) {
       const presentation = messageForError(error);
@@ -69,6 +71,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
             spaceId={space.id}
             parentId={null}
             trigger={<Button>{messages.tree.newPage}</Button>}
+            onCreated={() => notifyTreeMutation()}
           />
         </header>
 
@@ -93,6 +96,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
                 spaceId={space.id}
                 parentId={null}
                 trigger={<Button>{messages.tree.newPage}</Button>}
+                onCreated={() => notifyTreeMutation()}
               />
             }
           />

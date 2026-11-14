@@ -9,6 +9,7 @@ import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
 import { formatRelative } from '~/lib/format-time';
 import { readExpanded, writeExpanded } from '~/lib/tree-expanded';
+import { notifyTreeMutation } from '~/lib/tree-sync';
 import { AppError } from '~/server/errors';
 import { pageFn } from '~/server/functions/pages';
 import { listSpacesFn } from '~/server/functions/spaces';
@@ -88,6 +89,7 @@ function PageScreen() {
   function toggleStar(): void {
     void run(async () => {
       await setStarredFn({ data: { entityId: page.entityId, starred: !page.isStarred } });
+      notifyTreeMutation();
       await router.invalidate();
     });
   }
@@ -95,6 +97,7 @@ function PageScreen() {
   function trash(): void {
     void run(async () => {
       await trashEntityFn({ data: { entityId: page.entityId } });
+      notifyTreeMutation();
       await router.invalidate();
     });
   }
@@ -105,6 +108,7 @@ function PageScreen() {
     setRestoring(true);
     void run(async () => {
       await restoreFn({ data: { rootId } });
+      notifyTreeMutation();
       await router.invalidate();
       toast(messages.page.restored);
     }).finally(() => setRestoring(false));
@@ -148,6 +152,7 @@ function PageScreen() {
         }}
         onMoved={() => {
           setMoving(false);
+          notifyTreeMutation();
           void router.invalidate();
         }}
       />

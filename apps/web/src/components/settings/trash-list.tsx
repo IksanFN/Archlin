@@ -21,6 +21,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
+import { notifyTreeMutation } from '~/lib/tree-sync';
 import { useAsyncData } from '~/lib/use-async-data';
 import { emptyTrashFn, purgeFn, restoreFn, trashListFn } from '~/server/functions/trash';
 
@@ -70,13 +71,19 @@ export function TrashList() {
   const leaving = useLeaving<string>();
   const [confirm, setConfirm] = useState<Confirm>({ kind: 'closed' });
   const [pending, setPending] = useState(false);
-  const items = state.status === 'ready' ? state.data.items : [];
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
+  const items = (state.status === 'ready' ? state.data.items : []).filter((item) => !hiddenIds.has(item.rootId));
   const now = state.status === 'ready' ? new Date(state.data.nowIso) : new Date();
   const empty = items.length === 0;
 
   const restore = useCallback(
     async (item: TrashRoot) => {
       await leaving.leave(item.rootId);
+      setHiddenIds((current) => {
+        const next = new Set(current);
+        next.add(item.rootId);
+        return next;
+      });
       try {
         const outcome = await restoreFn({ data: { rootId: item.rootId } });
         toast(restoreMessage(outcome, item), {
@@ -87,8 +94,15 @@ export function TrashList() {
             },
           },
         });
+        notifyTreeMutation();
+        void router.invalidate();
         reload();
       } catch (failure) {
+        setHiddenIds((current) => {
+          const next = new Set(current);
+          next.delete(item.rootId);
+          return next;
+        });
         reportFailure(failure);
         reload();
       }
@@ -101,6 +115,8 @@ export function TrashList() {
     try {
       await purgeFn({ data: { rootId: item.rootId } });
       setConfirm({ kind: 'closed' });
+      notifyTreeMutation();
+      void router.invalidate();
       reload();
     } catch (failure) {
       reportFailure(failure);
@@ -114,6 +130,8 @@ export function TrashList() {
     try {
       await emptyTrashFn({ data: {} });
       setConfirm({ kind: 'closed' });
+      notifyTreeMutation();
+      void router.invalidate();
       reload();
     } catch (failure) {
       reportFailure(failure);

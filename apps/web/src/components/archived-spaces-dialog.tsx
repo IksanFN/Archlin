@@ -5,9 +5,10 @@ import { toast } from '@archlin/ui/components/sonner';
 import { useLeaving } from '@archlin/ui/lib/use-leaving';
 import type { SpaceSummary } from '@archlin/platform/contracts';
 import { FolderSimpleIcon } from '@phosphor-icons/react/ssr';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
+import { notifyTreeMutation } from '~/lib/tree-sync';
 import { useAsyncData } from '~/lib/use-async-data';
 import { listSpacesFn, unarchiveSpaceFn } from '~/server/functions/spaces';
 
@@ -18,14 +19,26 @@ function ArchivedList({ onRestored }: { onRestored: () => void }) {
   }, []);
   const { state, reload } = useAsyncData(load);
   const leaving = useLeaving<string>();
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set());
 
   async function restore(space: SpaceSummary): Promise<void> {
     await leaving.leave(space.id);
+    setHiddenIds((current) => {
+      const next = new Set(current);
+      next.add(space.id);
+      return next;
+    });
     try {
       await unarchiveSpaceFn({ data: { id: space.id } });
+      notifyTreeMutation();
       onRestored();
       reload();
     } catch (error) {
+      setHiddenIds((current) => {
+        const next = new Set(current);
+        next.delete(space.id);
+        return next;
+      });
       const presentation = messageForError(error);
       if (presentation.kind === 'toast') toast.error(presentation.text);
       reload();
@@ -43,12 +56,13 @@ function ArchivedList({ onRestored }: { onRestored: () => void }) {
       </div>
     );
   }
-  if (state.data.length === 0) {
+  const rows = state.data.filter((space) => !hiddenIds.has(space.id));
+  if (rows.length === 0) {
     return <p className="text-small text-fg-muted">{messages.spaces.noArchived}</p>;
   }
   return (
     <ul className="flex flex-col gap-1">
-      {state.data.map((space) => (
+      {rows.map((space) => (
         <li
           key={space.id}
           data-leaving={leaving.isLeaving(space.id) ? 'true' : undefined}

@@ -74,6 +74,25 @@ describe('createTreeStore', () => {
     expect(store.branch(key)).toEqual({ status: 'ready', nodes: [node('fresh')] });
   });
 
+  it('drop removes a node from a ready branch immediately', async () => {
+    const first = deferred<TreeNode[]>();
+    const store = createTreeStore(() => first.promise);
+    store.ensure(key);
+    first.resolve([node('a'), node('b')]);
+    await first.promise;
+    await Promise.resolve();
+    store.drop(key, 'a');
+    expect(store.branch(key)).toEqual({ status: 'ready', nodes: [node('b')] });
+    expect(store.loadedKeys()).toEqual([key]);
+  });
+
+  it('drop on an idle branch is a no-op', () => {
+    const store = createTreeStore(() => Promise.resolve([]));
+    store.drop(key, 'a');
+    expect(store.branch(key)).toEqual({ status: 'idle' });
+    expect(store.loadedKeys()).toEqual([]);
+  });
+
   it('a failed load keeps the previous nodes with status error', async () => {
     const first = deferred<TreeNode[]>();
     const second = deferred<TreeNode[]>();

@@ -21,6 +21,7 @@ import { SpaceDialog } from '~/components/space-dialog';
 import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
 import { readExpanded, subscribeExpanded, writeExpanded } from '~/lib/tree-expanded';
+import { notifyTreeMutation, subscribeTreeMutation } from '~/lib/tree-sync';
 import { branchKey, createTreeStore, type TreeStore } from '~/lib/tree-store';
 import { AppError } from '~/server/errors';
 import { archiveSpaceFn, listSpacesFn, reorderSpaceFn } from '~/server/functions/spaces';
@@ -93,7 +94,7 @@ function selectionFromPath(pathname: string, spaces: readonly SpaceSummary[]): {
   return { selectedId: space?.id ?? null, spaceSlug: slug, entityId: null };
 }
 
-export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void }) {
+export function SpaceTree() {
   const { pathname } = useLocation();
   const router = useRouter();
   const leaving = useLeaving<string>();
@@ -127,6 +128,13 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
   useEffect(() => {
     reloadSpaces();
   }, [reloadSpaces]);
+
+  useEffect(() => {
+    return subscribeTreeMutation(() => {
+      reloadSpaces();
+      store.invalidate(store.loadedKeys());
+    });
+  }, [reloadSpaces, store]);
 
   useEffect(() => {
     if (spaceSlug === null) return;
@@ -170,9 +178,9 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       const keys = new Set([branchKey(spaceId, parentId)]);
       if (parentId !== null) keys.add(branchKey(spaceId, listingParentId));
       store.invalidate([...keys]);
-      reloadSpaces();
+      notifyTreeMutation();
     },
-    [expand, reloadSpaces, store],
+    [expand, store],
   );
 
   const move = useCallback(
@@ -190,13 +198,13 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
         if (input.newParentId !== null) expand(input.newParentId);
         else expand(input.targetSpaceId);
         flash(input.entityId);
-        onFavoritesChange();
-        reloadSpaces();
+        notifyTreeMutation();
+        void router.invalidate();
       } catch (error) {
         toast.error(treeError(error));
       }
     },
-    [expand, flash, onFavoritesChange, reloadSpaces, store],
+    [expand, flash, router, store],
   );
 
   const api = useMemo<TreeApi>(
@@ -247,11 +255,11 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       },
       async trash({ id, title, spaceId, parentId, animate }) {
         if (animate) await leaving.leave(id);
+        store.drop(branchKey(spaceId, parentId), id);
         try {
           const result = await trashEntityFn({ data: { entityId: id } });
-          store.invalidate([branchKey(spaceId, parentId)]);
-          onFavoritesChange();
-          reloadSpaces();
+          notifyTreeMutation();
+          void router.invalidate();
           const label = title === '' ? messages.tree.untitled : title;
           toast(messages.tree.movedToTrash(label), {
             action: {
@@ -259,9 +267,8 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
               onClick: () => {
                 void restoreFn({ data: { rootId: result.rootId } }).then(
                   () => {
-                    store.invalidate([branchKey(spaceId, parentId)]);
-                    onFavoritesChange();
-                    reloadSpaces();
+                    notifyTreeMutation();
+                    void router.invalidate();
                   },
                   (error: unknown) => toast.error(treeError(error)),
                 );
@@ -269,28 +276,31 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
             },
           });
         } catch (error) {
-          store.invalidate([branchKey(spaceId, parentId)]);
+          notifyTreeMutation();
           toast.error(treeError(error));
         }
       },
       async setStarred(id, starred, spaceId, parentId) {
         try {
           await setStarredFn({ data: { entityId: id, starred } });
-          onFavoritesChange();
           store.invalidate([branchKey(spaceId, parentId)]);
+          notifyTreeMutation();
+          void router.invalidate();
         } catch (error) {
           toast.error(treeError(error));
         }
       },
       async archive(space) {
         await leaving.leave(space.id);
+        setSpaces((rows) => (rows === null ? rows : rows.filter((row) => row.id !== space.id)));
         try {
           await archiveSpaceFn({ data: { id: space.id } });
           toast(messages.spaces.archivedToast(space.name));
-          reloadSpaces();
+          notifyTreeMutation();
+          void router.invalidate();
         } catch (error) {
           toast.error(treeError(error));
-          reloadSpaces();
+          notifyTreeMutation();
         }
       },
       openMove: setMoving,
@@ -308,8 +318,8 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
       menuId,
       createdPage,
       move,
-      onFavoritesChange,
       reloadSpaces,
+      router,
       renamingId,
       selectedId,
       store,
@@ -475,8 +485,8 @@ export function SpaceTree({ onFavoritesChange }: { onFavoritesChange: () => void
           if (dest.parentId !== null) expand(dest.parentId);
           else expand(dest.spaceId);
           if (moving !== null) flash(moving.id);
-          onFavoritesChange();
-          reloadSpaces();
+          notifyTreeMutation();
+          void router.invalidate();
         }}
       />
     </TreeContext>
