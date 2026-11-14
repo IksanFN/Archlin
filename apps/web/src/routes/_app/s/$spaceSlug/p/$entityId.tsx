@@ -1,4 +1,3 @@
-import { canonicalJson } from '@archlin/modules-knowledge/shared';
 import type { PageView } from '@archlin/modules-knowledge/shared';
 import {
   browserStorage,
@@ -6,9 +5,8 @@ import {
   DraftBanner,
   draftFromPage,
   PageEditor,
-  readDrafts,
+  pendingDraftsFor,
   removeDraft,
-  TAB_ID,
   TitleInput,
   useKnowledgeClient,
   usePageAutosave,
@@ -18,7 +16,7 @@ import type { Breadcrumb, SpaceSummary } from '@archlin/platform/contracts';
 import { Button } from '@archlin/ui/components/button';
 import { toast } from '@archlin/ui/components/sonner';
 import { createFileRoute, notFound, redirect, useBlocker, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { MoveDialog } from '~/components/move-dialog';
 import { PageMenu } from '~/components/page-menu';
 import { PageTopBar } from '~/components/page-top-bar';
@@ -35,6 +33,31 @@ import { restoreFn } from '~/server/functions/trash';
 import { setStarredFn, trashEntityFn } from '~/server/functions/tree';
 
 const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'invalid']);
+const EMPTY_DRAFTS: StoredDraft[] = [];
+const draftListeners = new Set<() => void>();
+let draftSnapshot: { key: string; drafts: StoredDraft[] } | null = null;
+
+function subscribeDrafts(onChange: () => void): () => void {
+  draftListeners.add(onChange);
+  window.addEventListener('storage', onChange);
+  return () => {
+    draftListeners.delete(onChange);
+    window.removeEventListener('storage', onChange);
+  };
+}
+
+function notifyDrafts(): void {
+  draftSnapshot = null;
+  for (const listener of draftListeners) listener();
+}
+
+function snapshotDrafts(page: PageView): StoredDraft[] {
+  const drafts = loadPendingDrafts(page);
+  const key = `${page.entityId}:${page.version}:${drafts.map((draft) => `${draft.tabId}:${draft.updatedAt}`).join('|')}`;
+  if (draftSnapshot?.key === key) return draftSnapshot.drafts;
+  draftSnapshot = { key, drafts };
+  return drafts;
+}
 
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   loader: async ({ params }) => {
@@ -76,13 +99,10 @@ export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   component: PageScreen,
 });
 
-function pendingDraftsFor(page: PageView): StoredDraft[] {
+function loadPendingDrafts(page: PageView): StoredDraft[] {
   const storage = browserStorage();
-  if (storage === null) return [];
-  const server = canonicalJson(draftFromPage(page));
-  return readDrafts(storage, page.entityId).filter(
-    (draft) => draft.tabId !== TAB_ID && canonicalJson(draft.state) !== server,
-  );
+  if (storage === null) return EMPTY_DRAFTS;
+  return pendingDraftsFor(storage, page.entityId, draftFromPage(page));
 }
 
 function PageScreen() {
@@ -111,7 +131,7 @@ function PageBody({
   const [dismissedConflict, setDismissedConflict] = useState(false);
   const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [draftQueue, setDraftQueue] = useState(() => pendingDraftsFor(page));
+  const draftQueue = useSyncExternalStore(subscribeDrafts, () => snapshotDrafts(page), () => EMPTY_DRAFTS);
   const lastTreeTitle = useRef(page.title);
   const focusEditor = useRef<(() => void) | null>(null);
   const flushRef = useRef(autosave.flush);
@@ -213,7 +233,7 @@ function PageBody({
     autosave.restoreDraft(pendingDraft);
     const storage = browserStorage();
     if (storage !== null) removeDraft(storage, pendingDraft.entityId, pendingDraft.tabId);
-    setDraftQueue((queue) => queue.slice(1));
+    notifyDrafts();
     setEditorKey((key) => key + 1);
   }
 
@@ -221,7 +241,7 @@ function PageBody({
     if (pendingDraft === undefined) return;
     const storage = browserStorage();
     if (storage !== null) removeDraft(storage, pendingDraft.entityId, pendingDraft.tabId);
-    setDraftQueue((queue) => queue.slice(1));
+    notifyDrafts();
   }
 
   return (

@@ -1,14 +1,3 @@
-import { browserStorage, countDrafts } from '@archlin/modules-knowledge/web';
-import { Button } from '@archlin/ui/components/button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@archlin/ui/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +15,7 @@ import type { ThemePreference } from '@archlin/ui/lib/theme';
 import { cn } from '@archlin/ui/lib/utils';
 import { ShellContext } from '@archlin/ui/shell/sidebar';
 import { DesktopIcon, MoonIcon, SignOutIcon, SunIcon } from '@phosphor-icons/react/ssr';
-import { use, useState } from 'react';
+import { use } from 'react';
 import { messages } from '~/i18n/id';
 import { useSignOut } from '~/lib/use-sign-out';
 
@@ -40,25 +29,13 @@ function isThemePreference(value: string): value is ThemePreference {
   return THEME_OPTIONS.some((option) => option.value === value);
 }
 
-function draftCount(): number {
-  const storage = browserStorage();
-  return storage === null ? 0 : countDrafts(storage);
-}
-
 // Theme and sign-out live here because they must be reachable from every screen (spec 11).
 export function AccountMenu({ displayName }: { displayName: string }) {
   const { preference, setPreference } = useTheme();
-  const { signOut, signingOut } = useSignOut();
-  const [draftWarning, setDraftWarning] = useState<number | null>(null);
+  const { signOut, signingOut, dialog } = useSignOut();
 
   const { variant } = use(ShellContext);
   const rail = variant === 'rail';
-
-  function requestSignOut(): void {
-    const count = draftCount();
-    if (count > 0) setDraftWarning(count);
-    else void signOut();
-  }
 
   const trigger = (
     <DropdownMenuTrigger asChild>
@@ -109,39 +86,13 @@ export function AccountMenu({ displayName }: { displayName: string }) {
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={signingOut} onSelect={requestSignOut}>
+          <DropdownMenuItem disabled={signingOut} onSelect={signOut}>
             <SignOutIcon aria-hidden="true" size={16} className="text-fg-muted" />
             {messages.account.signOut}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <Dialog
-        open={draftWarning !== null}
-        onOpenChange={(open) => {
-          if (!open) setDraftWarning(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{messages.account.signOutDraftTitle(draftWarning ?? 0)}</DialogTitle>
-            <DialogDescription>{messages.account.signOutDraftBody}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">{messages.common.cancel}</Button>
-            </DialogClose>
-            <Button
-              variant="danger"
-              loading={signingOut}
-              onClick={() => {
-                void signOut().finally(() => setDraftWarning(null));
-              }}
-            >
-              {messages.account.signOutAndDelete}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {dialog}
     </>
   );
 }

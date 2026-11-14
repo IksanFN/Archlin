@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  TAB_ID,
   countDrafts,
   draftKey,
+  pendingDraftsFor,
   readDrafts,
   removeAllDrafts,
   writeDraft,
@@ -101,5 +103,15 @@ describe('draft store', () => {
   it('a storage that throws on write does not break the editor', () => {
     expect(() => writeDraft(throwingStorage(), sample())).not.toThrow();
     expect(countDrafts(throwingStorage())).toBe(0);
+  });
+
+  it('pendingDraftsFor includes this tab when state differs', () => {
+    const storage = memoryStorage();
+    const server = sample().state;
+    writeDraft(storage, sample({ tabId: TAB_ID, updatedAt: '2026-11-14T12:00:00.000Z', state: { ...server, title: 'Lokal' } }));
+    writeDraft(storage, sample({ tabId: 'other', updatedAt: '2026-11-14T11:00:00.000Z', state: { ...server, title: 'Lain' } }));
+    writeDraft(storage, sample({ tabId: 'same', updatedAt: '2026-11-14T13:00:00.000Z', state: server }));
+    const pending = pendingDraftsFor(storage, ENTITY, server);
+    expect(pending.map((draft) => draft.tabId)).toEqual([TAB_ID, 'other']);
   });
 });

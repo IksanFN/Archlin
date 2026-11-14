@@ -101,12 +101,27 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     dispatch(event);
   }, []);
 
+  const persistDraft = useCallback((): void => {
+    const storage = browserStorage();
+    if (storage === null) return;
+    const current = stateRef.current;
+    if (current.status === 'idle' || current.status === 'saved') return;
+    writeDraft(storage, {
+      entityId: pageRef.current.entityId,
+      tabId: TAB_ID,
+      baseVersion: current.baseVersion,
+      state: current.latest,
+      updatedAt: new Date().toISOString(),
+    });
+  }, []);
+
   useEffect(() => {
     cancelledRef.current = false;
     return () => {
+      persistDraft();
       cancelledRef.current = true;
     };
-  }, []);
+  }, [persistDraft]);
 
   const saveNow = useCallback(async (): Promise<void> => {
     const run = async (): Promise<void> => {
@@ -135,6 +150,7 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
   }, [apply]);
 
   useEffect(() => {
+    // Latest is a dep so each edit while dirty restarts the 1000ms trailing timer.
     if (state.status === 'dirty') {
       const timer = globalThis.setTimeout(() => {
         void saveNow();
@@ -148,7 +164,7 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
       return () => globalThis.clearTimeout(timer);
     }
     return undefined;
-  }, [state.status, state.attempt, saveNow]);
+  }, [state.status, state.latest, state.attempt, saveNow]);
 
   useEffect(() => {
     function onOnline(): void {
@@ -183,10 +199,11 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
   }, [apply]);
 
   const flush = useCallback(async (): Promise<void> => {
+    persistDraft();
     apply({ type: 'flush' });
     await saveNow();
     if (needsSave(stateRef.current.status)) await saveNow();
-  }, [apply, saveNow]);
+  }, [apply, persistDraft, saveNow]);
 
   const loadLatest = useCallback(async (): Promise<PageView> => {
     const current = stateRef.current;

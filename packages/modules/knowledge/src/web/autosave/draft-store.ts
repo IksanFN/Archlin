@@ -1,3 +1,4 @@
+import { canonicalJson } from '@archlin/modules-knowledge/shared';
 import type { PageDraftState } from './autosave-machine';
 
 const DRAFT_PREFIX = 'archlin.draft.';
@@ -122,4 +123,9 @@ export function browserStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+export function pendingDraftsFor(storage: Storage, entityId: string, server: PageDraftState): StoredDraft[] {
+  const snapshot = canonicalJson(server);
+  return readDrafts(storage, entityId).filter((draft) => canonicalJson(draft.state) !== snapshot);
 }
