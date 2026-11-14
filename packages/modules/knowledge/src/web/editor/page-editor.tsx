@@ -33,7 +33,9 @@ export function PageEditor({
     immediatelyRender: false,
     shouldRerenderOnTransaction: false,
     editorProps: { attributes: { 'aria-label': labels.body } },
-    onUpdate: ({ editor: instance }) => {
+    // Tiptap also emits update while loading content, with no steps; reporting that would mark an untouched page dirty.
+    onUpdate: ({ editor: instance, transaction }) => {
+      if (!transaction.docChanged) return;
       onChange(instance.getJSON());
     },
     onCreate: ({ editor: instance }) => {
