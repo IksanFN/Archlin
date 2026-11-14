@@ -1,7 +1,24 @@
-import { PageEditor, TitleInput } from '@archlin/modules-knowledge/web';
+import { canonicalJson } from '@archlin/modules-knowledge/shared';
+import type { PageView } from '@archlin/modules-knowledge/shared';
+import {
+  browserStorage,
+  ConflictDialog,
+  DraftBanner,
+  draftFromPage,
+  PageEditor,
+  readDrafts,
+  removeDraft,
+  TAB_ID,
+  TitleInput,
+  useKnowledgeClient,
+  usePageAutosave,
+  type StoredDraft,
+} from '@archlin/modules-knowledge/web';
+import type { Breadcrumb, SpaceSummary } from '@archlin/platform/contracts';
+import { Button } from '@archlin/ui/components/button';
 import { toast } from '@archlin/ui/components/sonner';
-import { createFileRoute, notFound, redirect, useRouter } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { createFileRoute, notFound, redirect, useBlocker, useRouter } from '@tanstack/react-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MoveDialog } from '~/components/move-dialog';
 import { PageMenu } from '~/components/page-menu';
 import { PageTopBar } from '~/components/page-top-bar';
@@ -16,6 +33,8 @@ import { pageFn } from '~/server/functions/pages';
 import { listSpacesFn } from '~/server/functions/spaces';
 import { restoreFn } from '~/server/functions/trash';
 import { setStarredFn, trashEntityFn } from '~/server/functions/tree';
+
+const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'invalid']);
 
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   loader: async ({ params }) => {
@@ -57,17 +76,64 @@ export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   component: PageScreen,
 });
 
+function pendingDraftsFor(page: PageView): StoredDraft[] {
+  const storage = browserStorage();
+  if (storage === null) return [];
+  const server = canonicalJson(draftFromPage(page));
+  return readDrafts(storage, page.entityId).filter(
+    (draft) => draft.tabId !== TAB_ID && canonicalJson(draft.state) !== server,
+  );
+}
+
 function PageScreen() {
-  const { page, breadcrumbs, spaces, spaceName, nowIso } = Route.useLoaderData();
+  const data = Route.useLoaderData();
+  return <PageBody key={data.page.entityId} {...data} />;
+}
+
+function PageBody({
+  page,
+  breadcrumbs,
+  spaces,
+  spaceName,
+  nowIso,
+}: {
+  page: PageView;
+  breadcrumbs: readonly Breadcrumb[];
+  spaces: readonly SpaceSummary[];
+  spaceName: string;
+  nowIso: string;
+}) {
   const router = useRouter();
+  const client = useKnowledgeClient();
+  const autosave = usePageAutosave({ page, client });
   const [moving, setMoving] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [title, setTitle] = useState(page.title);
+  const [dismissedConflict, setDismissedConflict] = useState(false);
+  const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [draftQueue, setDraftQueue] = useState(() => pendingDraftsFor(page));
+  const lastTreeTitle = useRef(page.title);
   const focusEditor = useRef<(() => void) | null>(null);
+  const flushRef = useRef(autosave.flush);
+  const statusRef = useRef(autosave.state.status);
   const now = new Date(nowIso);
-  const readOnly = page.deletedAt !== null;
+  const inConflict = autosave.state.status === 'conflict';
+  const conflictVersion = autosave.state.conflictVersion;
+  const trashed = page.deletedAt !== null || autosave.state.status === 'trashed';
+  const readOnly = trashed;
   const parentId = breadcrumbs.at(-1)?.id ?? null;
   const moveSpaces = spaces.filter((row) => row.archivedAt === null || row.id === page.spaceId);
+  const pendingDraft = draftQueue[0];
+
+  if (inConflict) {
+    if (seenConflictVersion === null && conflictVersion !== null) setSeenConflictVersion(conflictVersion);
+  } else if (dismissedConflict || seenConflictVersion !== null) {
+    setDismissedConflict(false);
+    setSeenConflictVersion(null);
+  }
+
+  const conflictOpen = inConflict && !dismissedConflict;
+  const changedAgain = inConflict && seenConflictVersion !== null && conflictVersion !== seenConflictVersion;
 
   useEffect(() => {
     const next = new Set(readExpanded());
@@ -79,6 +145,30 @@ function PageScreen() {
     }
     if (changed) writeExpanded(next);
   }, [breadcrumbs]);
+
+  useEffect(() => {
+    flushRef.current = autosave.flush;
+    statusRef.current = autosave.state.status;
+  }, [autosave.flush, autosave.state.status]);
+
+  useEffect(() => {
+    if (autosave.state.status !== 'saved') return;
+    if (autosave.state.latest.title === lastTreeTitle.current) return;
+    lastTreeTitle.current = autosave.state.latest.title;
+    notifyTreeMutation();
+  }, [autosave.state.status, autosave.state.latest.title]);
+
+  useEffect(() => {
+    if (autosave.state.status !== 'trashed' || page.deletedAt !== null) return;
+    void router.invalidate();
+  }, [autosave.state.status, page.deletedAt, router]);
+
+  const shouldBlockFn = useCallback(async () => {
+    await flushRef.current();
+    return false;
+  }, []);
+  const enableBeforeUnload = useCallback(() => UNSAVED.has(statusRef.current), []);
+  useBlocker({ shouldBlockFn, enableBeforeUnload });
 
   async function run(action: () => Promise<void>): Promise<void> {
     try {
@@ -114,7 +204,24 @@ function PageScreen() {
       notifyTreeMutation();
       await router.invalidate();
       toast(messages.page.restored);
+      autosave.markRestored();
     }).finally(() => setRestoring(false));
+  }
+
+  function restorePending(): void {
+    if (pendingDraft === undefined) return;
+    autosave.restoreDraft(pendingDraft);
+    const storage = browserStorage();
+    if (storage !== null) removeDraft(storage, pendingDraft.entityId, pendingDraft.tabId);
+    setDraftQueue((queue) => queue.slice(1));
+    setEditorKey((key) => key + 1);
+  }
+
+  function discardPending(): void {
+    if (pendingDraft === undefined) return;
+    const storage = browserStorage();
+    if (storage !== null) removeDraft(storage, pendingDraft.entityId, pendingDraft.tabId);
+    setDraftQueue((queue) => queue.slice(1));
   }
 
   return (
@@ -123,14 +230,21 @@ function PageScreen() {
         breadcrumbs={breadcrumbs}
         spaceName={spaceName}
         spaceSlug={page.spaceSlug}
-        title={page.title}
-        saveState="idle"
+        title={autosave.state.latest.title}
+        saveState={autosave.saveStatus}
+        saveAction={
+          autosave.saveStatus === 'conflict' ? (
+            <Button variant="ghost" size="row" onClick={() => setDismissedConflict(false)}>
+              {messages.page.resolveConflict}
+            </Button>
+          ) : null
+        }
         isStarred={page.isStarred}
         onToggleStar={toggleStar}
         menu={
           <PageMenu
             entityId={page.entityId}
-            version={page.version}
+            version={autosave.state.baseVersion}
             noteTypeId={page.noteType.id}
             onMove={() => setMoving(true)}
             onTrash={trash}
@@ -138,12 +252,24 @@ function PageScreen() {
           />
         }
       />
-      <div key={page.entityId} className="page-enter flex flex-1 flex-col px-4 pt-10 pb-10 nav:pt-14">
+      <div className="page-enter flex flex-1 flex-col px-4 pt-10 pb-10 nav:pt-14">
         <div className="mx-auto w-full max-w-[720px]">
-          {page.deletedAt === null ? null : <TrashBanner busy={restoring} onRestore={restore} />}
+          {trashed ? <TrashBanner busy={restoring} onRestore={restore} /> : null}
+          {pendingDraft === undefined ? null : (
+            <DraftBanner
+              relativeTime={formatRelative(new Date(pendingDraft.updatedAt), now)}
+              onRestore={restorePending}
+              onDiscard={discardPending}
+              labels={{
+                message: messages.page.draftBanner,
+                restore: messages.page.restoreDraft,
+                discard: messages.page.discardDraft,
+              }}
+            />
+          )}
           <TitleInput
-            value={title}
-            onChange={setTitle}
+            value={autosave.state.latest.title}
+            onChange={(title) => autosave.update({ title })}
             onEnter={() => focusEditor.current?.()}
             labels={messages.editor}
             readOnly={readOnly}
@@ -153,12 +279,11 @@ function PageScreen() {
           </p>
           <div className="mt-8">
             <PageEditor
-              content={page.content}
+              key={editorKey}
+              content={autosave.state.latest.content}
               editable={!readOnly}
               labels={messages.editor}
-              onChange={() => {
-                // Body edits live in the editor until save is connected.
-              }}
+              onChange={(content) => autosave.update({ content })}
               onEditorReady={(editor) => {
                 focusEditor.current = () => {
                   editor.commands.focus('start');
@@ -169,7 +294,7 @@ function PageScreen() {
         </div>
       </div>
       <MoveDialog
-        entity={moving ? { id: page.entityId, title: page.title, spaceId: page.spaceId, parentId } : null}
+        entity={moving ? { id: page.entityId, title: autosave.state.latest.title, spaceId: page.spaceId, parentId } : null}
         spaces={moveSpaces}
         onOpenChange={(open) => {
           if (!open) setMoving(false);
@@ -178,6 +303,23 @@ function PageScreen() {
           setMoving(false);
           notifyTreeMutation();
           void router.invalidate();
+        }}
+      />
+      <ConflictDialog
+        open={conflictOpen}
+        onOpenChange={(open) => setDismissedConflict(!open)}
+        changedAgain={changedAgain}
+        onLoadLatest={async () => {
+          await autosave.loadLatest();
+          setEditorKey((key) => key + 1);
+        }}
+        onOverwrite={() => autosave.overwrite()}
+        labels={{
+          title: messages.page.conflictTitle,
+          body: messages.page.conflictBody,
+          loadLatest: messages.page.loadLatest,
+          overwrite: messages.page.overwrite,
+          changedAgain: messages.page.conflictAgain,
         }}
       />
     </div>

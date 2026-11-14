@@ -23,6 +23,9 @@ export const messages = {
     themeLight: 'Terang',
     themeDark: 'Gelap',
     signOut: 'Keluar',
+    signOutDraftTitle: (count: number) => `Ada ${count} perubahan yang belum tersimpan di perangkat ini`,
+    signOutDraftBody: 'Keluar akan menghapusnya dari perangkat ini.',
+    signOutAndDelete: 'Keluar dan hapus',
   },
   today: {
     emptyTitle: 'Belum ada yang perlu dilihat hari ini',
@@ -47,6 +50,16 @@ export const messages = {
       conflict: 'Konflik',
       invalid: 'Ada field yang belum valid',
     },
+    resolveConflict: 'Selesaikan',
+    conflictTitle: 'Halaman ini berubah di tab atau perangkat lain',
+    conflictBody:
+      'Perubahan Anda belum tersimpan. Apa pun pilihan Anda, versi yang tidak dipakai tetap disimpan di server sebagai salinan konflik.',
+    loadLatest: 'Muat versi terbaru',
+    overwrite: 'Timpa',
+    conflictAgain: 'Halaman berubah lagi. Pilih sekali lagi.',
+    draftBanner: (relative: string) => `Ada perubahan yang belum tersimpan dari ${relative}.`,
+    restoreDraft: 'Pulihkan',
+    discardDraft: 'Buang',
   },
   auth: {
     footer: 'Self-hosted. Data tidak keluar dari server ini.',

@@ -17,6 +17,7 @@ export function PageTopBar({
   spaceSlug,
   title,
   saveState,
+  saveAction = null,
   isStarred,
   onToggleStar,
   menu,
@@ -26,6 +27,7 @@ export function PageTopBar({
   spaceSlug: string;
   title: string;
   saveState: SaveStatusState;
+  saveAction?: ReactNode;
   isStarred: boolean;
   onToggleStar: () => void;
   menu: ReactNode;
@@ -48,7 +50,7 @@ export function PageTopBar({
         <Breadcrumb className="sm:hidden" items={compactItems} current={current} label={messages.page.breadcrumb} />
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <SaveStatus state={saveState} labels={messages.page.save} />
+        <SaveStatus state={saveState} labels={messages.page.save} action={saveAction} />
         <Button
           variant="icon"
           size="icon-sm"

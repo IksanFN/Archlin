@@ -1,3 +1,4 @@
+import { browserStorage, removeAllDrafts } from '@archlin/modules-knowledge/web';
 import { toast } from '@archlin/ui/components/sonner';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -13,6 +14,8 @@ export function useSignOut(): { signOut: () => Promise<void>; signingOut: boolea
     setSigningOut(true);
     try {
       await logoutFn({ data: {} });
+      const storage = browserStorage();
+      if (storage !== null) removeAllDrafts(storage);
       await navigate({ to: '/login' });
     } catch (error) {
       const presentation = messageForError(error);
