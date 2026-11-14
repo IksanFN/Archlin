@@ -332,6 +332,33 @@ describe('NoteTypeService', () => {
     });
   });
 
+  it('create stores the template without unknown keys', async () => {
+    const created = await uow.write(scopeA(), (tx) =>
+      api.noteTypes.create(tx, {
+        name: 'Bersih',
+        icon: null,
+        fieldSchema: [],
+        template: { type: 'doc', junk: true, content: [{ type: 'paragraph' }] },
+        defaultReviewMode: 'none',
+      }),
+    );
+    expect(created.template).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] });
+  });
+
+  it('create rejects a template whose root is not doc', async () => {
+    await expect(
+      uow.write(scopeA(), (tx) =>
+        api.noteTypes.create(tx, {
+          name: 'Akar salah',
+          icon: null,
+          fieldSchema: [],
+          template: { type: 'paragraph' },
+          defaultReviewMode: 'none',
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid_document' });
+  });
+
   it('owner B never sees the types of owner A', async () => {
     const custom = await createCustom('Milik A');
     const listB = await uow.read(scopeB(), (tx) => api.noteTypes.list(tx));

@@ -15,7 +15,7 @@ import type {
   SavePageInput,
 } from '../shared/inputs';
 import type { PageView, SaveResult } from '../shared/types';
-import { documentText, parseDocument } from './document';
+import { documentText, normalizeDocument, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
 import { PAGE_KIND } from './module';
 import {
@@ -122,17 +122,11 @@ function parseFields(value: unknown): FieldDefinition[] {
   return fieldSchemaSchema.parse(value) as FieldDefinition[];
 }
 
-function asPageContent(value: SavePageInput['content']): JSONContent {
-  return value as JSONContent;
-}
-
-function validateBody(
-  content: unknown,
+function requireValidProperties(
   properties: Record<string, unknown>,
   previous: Record<string, unknown>,
   fieldSchema: FieldDefinition[],
 ): void {
-  parseDocument(content);
   const issues = validateProperties(fieldSchema, properties, previous);
   if (issues.length > 0) {
     throw new ValidationError('invalid_input', 'Properti tidak valid', { issues });
@@ -299,7 +293,7 @@ export function createPageService(deps: {
         icon: null,
         placement: input.placement,
       });
-      const content = asContent(noteType.template);
+      const content = normalizeDocument(noteType.template);
       const context: ContextFields = { summary: null, whenToUse: null, source: null, aliases: [] };
       const properties: Record<string, unknown> = {};
       const now = clock.now();
@@ -341,11 +335,12 @@ export function createPageService(deps: {
       requireAlive(locked);
       const noteType = await loadNoteType(tx, locked.noteTypeId);
       const title = normalizeTitle(input.title);
+      const content = normalizeDocument(input.content);
       const properties = asProperties(input.properties);
-      validateBody(input.content, properties, locked.properties, noteType.fieldSchema);
+      requireValidProperties(properties, locked.properties, noteType.fieldSchema);
       const next: PageState = {
         title,
-        content: asPageContent(input.content),
+        content,
         context: input.context,
         properties,
         noteTypeId: locked.noteTypeId,
@@ -395,9 +390,9 @@ export function createPageService(deps: {
       const locked = await writer.lockPage(tx, input.entityId);
       const noteType = await loadNoteType(tx, locked.noteTypeId);
       const title = normalizeTitle(input.title);
+      const content = normalizeDocument(input.content);
       const properties = asProperties(input.properties);
-      validateBody(input.content, properties, locked.properties, noteType.fieldSchema);
-      const content = asPageContent(input.content);
+      requireValidProperties(properties, locked.properties, noteType.fieldSchema);
       const next: PageState = {
         title,
         content,
@@ -426,8 +421,9 @@ export function createPageService(deps: {
       if (locked.version !== input.seenVersion) pageConflict(locked.version);
       const noteType = await loadNoteType(tx, locked.noteTypeId);
       const title = normalizeTitle(input.title);
+      const content = normalizeDocument(input.content);
       const properties = asProperties(input.properties);
-      validateBody(input.content, properties, locked.properties, noteType.fieldSchema);
+      requireValidProperties(properties, locked.properties, noteType.fieldSchema);
       await insertConflictVersion(tx, {
         entityId: locked.entityId,
         version: locked.version,
@@ -442,7 +438,7 @@ export function createPageService(deps: {
       });
       const next: PageState = {
         title,
-        content: asPageContent(input.content),
+        content,
         context: input.context,
         properties,
         noteTypeId: locked.noteTypeId,

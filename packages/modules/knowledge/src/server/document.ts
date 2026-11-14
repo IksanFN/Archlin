@@ -1,4 +1,5 @@
 import { ValidationError } from '@archlin/kernel';
+import type { JSONContent } from '@tiptap/core';
 import { Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model';
 import { CALLOUT_VARIANTS, getDocumentSchema, isAllowedImageSrc, isAllowedLink } from '../shared/document-schema';
 
@@ -44,6 +45,8 @@ export function parseDocument(json: unknown): ProseMirrorNode {
   } catch {
     invalidDocument();
   }
+  // fromJSON accepts any node type, but only a doc root is a page body.
+  if (node.type !== schema.topNodeType) invalidDocument();
   rejectUnknownAttrs(json, schema);
 
   node.descendants((child) => {
@@ -60,6 +63,11 @@ export function parseDocument(json: unknown): ProseMirrorNode {
   });
 
   return node;
+}
+
+// The only shape that is stored and hashed: unknown keys are gone and key order is the schema's.
+export function normalizeDocument(json: unknown): JSONContent {
+  return parseDocument(json).toJSON() as JSONContent;
 }
 
 export function documentText(doc: ProseMirrorNode): string {

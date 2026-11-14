@@ -1,7 +1,7 @@
 import { ValidationError } from '@archlin/kernel';
 import { describe, expect, it } from 'vitest';
 import { emptyDocument, headingDocument } from '../shared/document-schema';
-import { documentText, parseDocument } from './document';
+import { documentText, normalizeDocument, parseDocument } from './document';
 
 function expectRejected(json: unknown, code: 'invalid_document' | 'unsafe_url') {
   try {
@@ -21,6 +21,10 @@ describe('parseDocument', () => {
     const doc = parseDocument(headingDocument(['Tujuan']));
     expect(doc.type.name).toBe('doc');
     expect(parseDocument(emptyDocument()).childCount).toBe(1);
+  });
+
+  it('rejects a root that is not doc', () => {
+    expectRejected({ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }, 'invalid_document');
   });
 
   it('rejects an unknown node type with invalid_document', () => {
@@ -151,5 +155,12 @@ describe('parseDocument', () => {
       ],
     });
     expect(documentText(doc)).toBe('Tujuan\nisi\ncek\nA\nB');
+  });
+});
+
+describe('normalizeDocument', () => {
+  it('drops keys the schema does not know', () => {
+    const json = normalizeDocument({ type: 'doc', junk: { a: 1 }, content: [{ type: 'paragraph' }] });
+    expect(json).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] });
   });
 });

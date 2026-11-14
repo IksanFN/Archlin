@@ -220,6 +220,51 @@ describe('PageService', () => {
     expect(page).toMatchObject({ version: 2, title: 'Rollback Postgres 16' });
   });
 
+  it('save stores the normalized document without unknown keys', async () => {
+    const space = await makeSpace();
+    const created = await createPage(space.id);
+    const raw = { type: 'doc', junk: { a: 1 }, content: paragraph('isi').content };
+    const save = () =>
+      uow.write(scopeA(), (tx) =>
+        api.pages.savePage(tx, {
+          entityId: created.entityId,
+          baseVersion: 1,
+          title: 'Judul',
+          content: raw,
+          context: EMPTY_CONTEXT,
+          properties: {},
+        }),
+      );
+    await expect(save()).resolves.toMatchObject({ status: 'saved', version: 2 });
+    const stored = await uow.read(scopeA(), async (tx) => {
+      const row = await kb()(tx)
+        .selectFrom('kb_pages')
+        .select('content')
+        .where('entity_id', '=', created.entityId)
+        .executeTakeFirst();
+      return row?.content;
+    });
+    expect(stored).toEqual(paragraph('isi'));
+    await expect(save()).resolves.toMatchObject({ status: 'unchanged', version: 2 });
+  });
+
+  it('saving a new page back from getPage returns unchanged', async () => {
+    const space = await makeSpace();
+    const created = await createPage(space.id);
+    const page = await uow.read(scopeA(), (tx) => api.pages.getPage(tx, created.entityId));
+    const result = await uow.write(scopeA(), (tx) =>
+      api.pages.savePage(tx, {
+        entityId: created.entityId,
+        baseVersion: 1,
+        title: page.title,
+        content: page.content,
+        context: page.context,
+        properties: page.properties,
+      }),
+    );
+    expect(result).toMatchObject({ status: 'unchanged', version: 1 });
+  });
+
   it('save with a stale base version is rejected with page_conflict and currentVersion', async () => {
     const space = await makeSpace();
     const created = await createPage(space.id);

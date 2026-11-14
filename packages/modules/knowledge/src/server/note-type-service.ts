@@ -11,7 +11,7 @@ import type { FieldDefinition } from '../shared/field-schema';
 import type { CreateNoteTypeInput, DeleteNoteTypeInput, UpdateNoteTypeInput } from '../shared/inputs';
 import type { NoteTypeDetail, NoteTypeSummary } from '../shared/types';
 import { deriveTypeKey } from '../shared/type-key';
-import { parseDocument } from './document';
+import { normalizeDocument } from './document';
 import { noteTypeUpdated } from './module';
 import { asContent, createPageWriter, jsonbValue } from './page-writer';
 import type { KnowledgeDatabase } from './schema';
@@ -129,7 +129,7 @@ export function createNoteTypeService(deps: {
     },
 
     async create(tx, input) {
-      parseDocument(input.template);
+      const template = normalizeDocument(input.template);
       const fieldSchema = parseFields(input.fieldSchema);
       const name = input.name.trim();
       const db = dbOf(tx);
@@ -145,7 +145,7 @@ export function createNoteTypeService(deps: {
           key: deriveTypeKey(name, taken),
           name,
           icon: input.icon,
-          template: jsonbValue(input.template),
+          template: jsonbValue(template),
           field_schema: jsonbValue(fieldSchema),
           schema_version: 1,
           default_review_mode: input.defaultReviewMode,
@@ -170,7 +170,7 @@ export function createNoteTypeService(deps: {
       const currentFields = parseFields(current.field_schema);
       const nextFields = input.fieldSchema !== undefined ? parseFields(input.fieldSchema) : currentFields;
       if (input.fieldSchema !== undefined) assertFieldTypesImmutable(currentFields, nextFields);
-      if (input.template !== undefined) parseDocument(input.template);
+      const template = input.template !== undefined ? normalizeDocument(input.template) : undefined;
       const fieldsChanged = canonicalJson(nextFields) !== canonicalJson(currentFields);
       const schemaVersion = fieldsChanged ? current.schema_version + 1 : current.schema_version;
       const row = await dbOf(tx)
@@ -178,7 +178,7 @@ export function createNoteTypeService(deps: {
         .set({
           name: input.name !== undefined ? input.name.trim() : current.name,
           icon: input.icon !== undefined ? input.icon : current.icon,
-          template: jsonbValue(input.template !== undefined ? input.template : current.template),
+          template: jsonbValue(template !== undefined ? template : current.template),
           field_schema: jsonbValue(nextFields),
           schema_version: schemaVersion,
           default_review_mode:
