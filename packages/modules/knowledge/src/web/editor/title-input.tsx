@@ -4,6 +4,10 @@ import type { EditorLabels } from './labels';
 
 const TITLE_MAX = 500;
 
+export function singleLineTitle(value: string, max = TITLE_MAX): string {
+  return value.replace(/[\r\n]+/g, '').slice(0, max);
+}
+
 export function TitleInput({
   value,
   onChange,
@@ -27,7 +31,7 @@ export function TitleInput({
   }, [value]);
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>): void {
-    onChange(event.target.value.slice(0, TITLE_MAX));
+    onChange(singleLineTitle(event.target.value));
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {

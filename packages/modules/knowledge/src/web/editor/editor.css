@@ -240,11 +240,7 @@
   outline: 1px solid var(--grok-color-attention);
 }
 
+/* Opacity is set in playBubbleFadeIn so the plugin's inline opacity does not skip the 120ms fade. */
 .kb-bubble-menu {
-  opacity: 0;
   transition: opacity 120ms var(--grok-motion-ease-out);
-}
-
-.kb-bubble-menu:not([style*='visibility: hidden']) {
-  opacity: 1;
 }

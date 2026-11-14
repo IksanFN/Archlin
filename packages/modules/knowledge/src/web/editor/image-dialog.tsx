@@ -96,10 +96,13 @@ function ImageDialogForm({
         {(control) => (
           <Input
             {...control}
-            type="url"
+            type="text"
+            inputMode="url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
           />
         )}

@@ -2,7 +2,6 @@ import { isAllowedLink } from '@archlin/modules-knowledge/shared';
 import { Button } from '@archlin/ui/components/button';
 import { FormField } from '@archlin/ui/components/form-field';
 import { Input } from '@archlin/ui/components/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@archlin/ui/components/popover';
 import type { Editor } from '@tiptap/core';
 import { useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
@@ -45,10 +44,13 @@ function LinkPopoverForm({
         {(control) => (
           <Input
             {...control}
-            type="url"
+            type="text"
+            inputMode="url"
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
           />
         )}
@@ -77,16 +79,19 @@ export function LinkPopover({
   const [open, setOpen] = useState(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[min(100vw-2rem,20rem)]"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => event.preventDefault()}
+    <div className="relative">
+      <div
+        onClick={() => {
+          setOpen((current) => !current);
+        }}
       >
-        {open ? <LinkPopoverForm editor={editor} labels={labels} onClose={() => setOpen(false)} /> : null}
-      </PopoverContent>
-    </Popover>
+        {children}
+      </div>
+      {open ? (
+        <div className="absolute top-full left-0 z-50 mt-1.5 w-[min(100vw-2rem,20rem)] rounded-lg border border-line-subtle bg-surface-raised p-3 shadow-overlay">
+          <LinkPopoverForm editor={editor} labels={labels} onClose={() => setOpen(false)} />
+        </div>
+      ) : null}
+    </div>
   );
 }
