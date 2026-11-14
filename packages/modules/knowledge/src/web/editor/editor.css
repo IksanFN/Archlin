@@ -1,0 +1,250 @@
+.kb-editor .ProseMirror {
+  min-height: 12rem;
+  outline: none;
+}
+
+.kb-editor .ProseMirror p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--grok-color-text-secondary);
+}
+
+.kb-editor .ProseMirror p + p {
+  margin-top: 0.5em;
+}
+
+.kb-editor .ProseMirror h2 {
+  margin: 32px 0 0;
+  color: var(--grok-color-text);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.33;
+}
+
+.kb-editor .ProseMirror h3 {
+  margin: 24px 0 0;
+  color: var(--grok-color-text);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.kb-editor .ProseMirror h4 {
+  margin: 20px 0 0;
+  color: var(--grok-color-text);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.kb-editor .ProseMirror blockquote {
+  margin: 12px 0 0;
+  padding-left: 24px;
+  border-left: 4px solid var(--grok-color-border-strong);
+  color: var(--grok-color-text-secondary);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.kb-editor .ProseMirror code {
+  border: 1px solid var(--grok-color-border-subtle);
+  border-radius: var(--grok-radius-xs);
+  background: var(--grok-color-overlay);
+  padding: 0.1em 0.35em;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.kb-editor .kb-code-block-body,
+.kb-editor .kb-code-block-body code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--grok-color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.kb-editor .hljs-keyword,
+.kb-editor .hljs-built_in,
+.kb-editor .hljs-type {
+  color: var(--grok-color-code-keyword);
+}
+
+.kb-editor .hljs-comment {
+  color: var(--grok-color-text-muted);
+}
+
+.kb-editor .ProseMirror table {
+  width: 100%;
+  margin: 12px 0 0;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid var(--grok-color-border);
+  border-radius: var(--grok-radius-lg);
+}
+
+.kb-editor .ProseMirror th,
+.kb-editor .ProseMirror td {
+  border: 1px solid var(--grok-color-border);
+  padding: 14px 16px;
+  color: var(--grok-color-text-secondary);
+  font-size: 16px;
+  line-height: 1.625;
+  vertical-align: top;
+}
+
+.kb-editor .ProseMirror th {
+  background: var(--grok-color-overlay);
+  color: var(--grok-color-text);
+  font-weight: 500;
+}
+
+.kb-editor .ProseMirror hr {
+  margin: 24px 0;
+  border: 0;
+  border-top: 1px solid var(--grok-color-border);
+}
+
+.kb-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+.kb-editor .ProseMirror ul,
+.kb-editor .ProseMirror ol {
+  margin: 8px 0 0;
+  padding-left: 1.5em;
+}
+
+.kb-editor .ProseMirror li + li {
+  margin-top: 0.25em;
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li > label {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li > label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  appearance: none;
+  border: 1.5px solid var(--grok-color-border-strong);
+  border-radius: 5px;
+  background: transparent;
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li > label input[type='checkbox']:checked {
+  border-color: var(--grok-color-inverse-bg);
+  background: var(--grok-color-inverse-bg);
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li > label input[type='checkbox']:checked + span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 5px;
+  height: 9px;
+  border-right: 1.5px solid var(--grok-color-inverse-text);
+  border-bottom: 1.5px solid var(--grok-color-inverse-text);
+  transform: rotate(45deg);
+}
+
+.kb-editor .ProseMirror ul[data-type='taskList'] li > label input[type='checkbox']:checked + span {
+  position: relative;
+}
+
+.kb-editor [data-type='details'] {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+
+.kb-editor [data-type='details'] > button {
+  display: inline-flex;
+  grid-column: 1;
+  grid-row: 1;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--grok-color-text-muted);
+}
+
+.kb-editor [data-type='details'] > button::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 200ms var(--grok-motion-ease-out);
+}
+
+.kb-editor [data-type='details'].is-open > button::before {
+  transform: rotate(45deg);
+}
+
+.kb-editor [data-type='details'] > div {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.kb-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--grok-color-focus);
+}
+
+.kb-editor .ProseMirror ::selection {
+  background: var(--grok-color-selected);
+}
+
+.kb-editor .ProseMirror .is-empty::before {
+  height: 0;
+  color: var(--grok-color-text-muted);
+  pointer-events: none;
+  content: attr(data-placeholder);
+  float: left;
+}
+
+.kb-editor .find-match {
+  background-color: var(--grok-color-attention-soft);
+}
+
+.kb-editor .find-active {
+  background-color: var(--grok-color-attention-soft);
+  outline: 1px solid var(--grok-color-attention);
+}
+
+.kb-bubble-menu {
+  opacity: 0;
+  transition: opacity 120ms var(--grok-motion-ease-out);
+}
+
+.kb-bubble-menu:not([style*='visibility: hidden']) {
+  opacity: 1;
+}

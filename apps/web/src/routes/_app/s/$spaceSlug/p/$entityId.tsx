@@ -1,6 +1,7 @@
+import { PageEditor, TitleInput } from '@archlin/modules-knowledge/web';
 import { toast } from '@archlin/ui/components/sonner';
 import { createFileRoute, notFound, redirect, useRouter } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MoveDialog } from '~/components/move-dialog';
 import { PageMenu } from '~/components/page-menu';
 import { PageTopBar } from '~/components/page-top-bar';
@@ -61,8 +62,10 @@ function PageScreen() {
   const router = useRouter();
   const [moving, setMoving] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const title = page.title === '' ? messages.page.untitled : page.title;
+  const [title, setTitle] = useState(page.title);
+  const focusEditor = useRef<(() => void) | null>(null);
   const now = new Date(nowIso);
+  const readOnly = page.deletedAt !== null;
   const parentId = breadcrumbs.at(-1)?.id ?? null;
   const moveSpaces = spaces.filter((row) => row.archivedAt === null || row.id === page.spaceId);
 
@@ -138,10 +141,31 @@ function PageScreen() {
       <div key={page.entityId} className="page-enter flex flex-1 flex-col px-4 pt-10 pb-10 nav:pt-14">
         <div className="mx-auto w-full max-w-[720px]">
           {page.deletedAt === null ? null : <TrashBanner busy={restoring} onRestore={restore} />}
-          <h1 className="text-h1 text-fg">{title}</h1>
+          <TitleInput
+            value={title}
+            onChange={setTitle}
+            onEnter={() => focusEditor.current?.()}
+            labels={messages.editor}
+            readOnly={readOnly}
+          />
           <p className="mt-1.5 text-small text-fg-muted">
             {page.noteType.name} · {messages.page.edited(formatRelative(new Date(page.updatedAt), now))}
           </p>
+          <div className="mt-8">
+            <PageEditor
+              content={page.content}
+              editable={!readOnly}
+              labels={messages.editor}
+              onChange={() => {
+                // Body edits live in the editor until save is connected.
+              }}
+              onEditorReady={(editor) => {
+                focusEditor.current = () => {
+                  editor.commands.focus('start');
+                };
+              }}
+            />
+          </div>
         </div>
       </div>
       <MoveDialog
