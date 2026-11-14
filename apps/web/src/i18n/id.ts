@@ -50,8 +50,11 @@ export const messages = {
       conflict: 'Konflik',
       invalid: 'Ada field yang belum valid',
       invalidContent: 'Ada tautan atau gambar yang tidak bisa disimpan. Periksa isi halaman.',
+      signedOut: 'Sesi berakhir. Perubahan disimpan di perangkat ini.',
+      tooLarge: 'Halaman terlalu besar untuk disimpan. Kurangi isinya.',
     },
     resolveConflict: 'Selesaikan',
+    signInAgain: 'Masuk lagi',
     conflictTitle: 'Halaman ini berubah di tab atau perangkat lain',
     conflictBody:
       'Perubahan Anda belum tersimpan. Apa pun pilihan Anda, versi yang tidak dipakai tetap disimpan di server sebagai salinan konflik.',

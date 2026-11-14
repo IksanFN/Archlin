@@ -1,5 +1,5 @@
-import { canonicalJson } from '@archlin/modules-knowledge/shared';
-import type { ContextFields, PageView, SaveResult } from '@archlin/modules-knowledge/shared';
+import { PAGE_SAVE_CLIENT_MAX_BYTES, canonicalJson } from '@archlin/modules-knowledge/shared';
+import type { ContextFields, PageView, SavePageInput, SaveResult } from '@archlin/modules-knowledge/shared';
 import type { SaveStatusState } from '@archlin/ui/components/save-status';
 import type { JSONContent } from '@tiptap/core';
 
@@ -15,7 +15,18 @@ export interface PageDraftState {
   properties: Record<string, unknown>;
 }
 
-export type AutosaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'offline' | 'conflict' | 'trashed' | 'invalid';
+export type AutosaveStatus =
+  | 'idle'
+  | 'dirty'
+  | 'saving'
+  | 'saved'
+  | 'error'
+  | 'offline'
+  | 'conflict'
+  | 'trashed'
+  | 'invalid'
+  | 'signedOut'
+  | 'tooLarge';
 
 export interface AutosaveState {
   status: AutosaveStatus;
@@ -26,21 +37,76 @@ export interface AutosaveState {
   savedAt: string | null;
   conflictVersion: number | null;
   issues: readonly { path: string; message: string }[];
+  // A draft whose response was lost: it may have committed, so it is confirmed before newer edits are sent.
+  unconfirmed: PageDraftState | null;
 }
 
 export type AutosaveEvent =
   | { type: 'edit'; state: PageDraftState }
   | { type: 'flush' }
-  | { type: 'saveStarted' }
+  | { type: 'saveStarted'; draft: PageDraftState }
   | { type: 'saved'; result: SaveResult; sent: PageDraftState }
   | { type: 'failed'; kind: 'network' | 'offline' | 'server' }
   | { type: 'conflict'; currentVersion: number }
   | { type: 'trashed' }
   | { type: 'invalid'; issues: readonly { path: string; message: string }[] }
+  | { type: 'signedOut' }
+  | { type: 'tooLarge' }
   | { type: 'rebased'; version: number; state: PageDraftState }
-  | { type: 'restored' };
+  | { type: 'serverState'; version: number; state: PageDraftState; trashed: boolean };
 
-const STOPPED: ReadonlySet<AutosaveStatus> = new Set(['conflict', 'trashed', 'invalid']);
+const STOPPED: ReadonlySet<AutosaveStatus> = new Set(['conflict', 'trashed', 'invalid', 'signedOut', 'tooLarge']);
+// These only collect edits; invalid and tooLarge instead try again on the next edit.
+const HOLDING: ReadonlySet<AutosaveStatus> = new Set(['conflict', 'trashed', 'saving', 'signedOut']);
+
+export interface SaveErrorShape {
+  status: number;
+  code: string;
+  details: unknown;
+}
+
+function currentVersionOf(details: unknown): number | null {
+  if (typeof details !== 'object' || details === null || !('currentVersion' in details)) return null;
+  return typeof details.currentVersion === 'number' ? details.currentVersion : null;
+}
+
+function issuesOf(details: unknown): readonly { path: string; message: string }[] {
+  if (typeof details !== 'object' || details === null || !('issues' in details) || !Array.isArray(details.issues)) {
+    return [];
+  }
+  return details.issues.filter(
+    (issue): issue is { path: string; message: string } =>
+      typeof issue === 'object' &&
+      issue !== null &&
+      typeof (issue as { path: unknown }).path === 'string' &&
+      typeof (issue as { message: unknown }).message === 'string',
+  );
+}
+
+// A null error is a transport failure that never produced a server answer.
+export function classifySaveError(error: SaveErrorShape | null, online: boolean): AutosaveEvent {
+  if (error === null) return { type: 'failed', kind: online ? 'network' : 'offline' };
+  if (error.status === 401) return { type: 'signedOut' };
+  if (error.status === 413) return { type: 'tooLarge' };
+  if (error.status === 409 && (error.code === 'page_in_trash' || error.code === 'entity_in_trash')) {
+    return { type: 'trashed' };
+  }
+  if (error.status === 409 && error.code === 'page_conflict') {
+    const currentVersion = currentVersionOf(error.details);
+    if (currentVersion !== null) return { type: 'conflict', currentVersion };
+  }
+  if (error.status === 422) return { type: 'invalid', issues: issuesOf(error.details) };
+  return { type: 'failed', kind: 'server' };
+}
+
+export function exceedsSaveLimit(input: SavePageInput): boolean {
+  return new TextEncoder().encode(JSON.stringify(input)).byteLength > PAGE_SAVE_CLIENT_MAX_BYTES;
+}
+
+export function nextSave(state: AutosaveState): { draft: PageDraftState; baseVersion: number } | null {
+  if (state.status !== 'dirty' && state.status !== 'error' && state.status !== 'offline') return null;
+  return { draft: state.unconfirmed ?? state.latest, baseVersion: state.baseVersion };
+}
 
 export function invalidReason(issues: readonly { path: string; message: string }[]): 'content' | 'properties' {
   return issues.some((issue) => issue.path === 'content') ? 'content' : 'properties';
@@ -70,6 +136,7 @@ export function autosaveStateFromPage(page: PageView): AutosaveState {
     savedAt: page.lastSavedAt,
     conflictVersion: null,
     issues: [],
+    unconfirmed: null,
   };
 }
 
@@ -86,9 +153,7 @@ function sameDraft(left: PageDraftState, right: PageDraftState): boolean {
 export function autosaveReducer(state: AutosaveState, event: AutosaveEvent): AutosaveState {
   switch (event.type) {
     case 'edit':
-      if (state.status === 'conflict') return { ...state, latest: event.state };
-      if (state.status === 'trashed') return { ...state, latest: event.state };
-      if (state.status === 'saving') return { ...state, latest: event.state };
+      if (HOLDING.has(state.status)) return { ...state, latest: event.state };
       return { ...state, status: 'dirty', latest: event.state, issues: [], attempt: 0 };
     case 'flush':
       return state;
@@ -96,8 +161,10 @@ export function autosaveReducer(state: AutosaveState, event: AutosaveEvent): Aut
       if (STOPPED.has(state.status) || state.status === 'saving' || state.status === 'idle' || state.status === 'saved') {
         return state;
       }
-      return { ...state, status: 'saving', inFlight: state.latest };
+      return { ...state, status: 'saving', inFlight: event.draft };
     case 'saved': {
+      const unconfirmed =
+        state.unconfirmed !== null && sameDraft(event.sent, state.unconfirmed) ? null : state.unconfirmed;
       const next: AutosaveState = {
         ...state,
         baseVersion: event.result.version,
@@ -106,8 +173,9 @@ export function autosaveReducer(state: AutosaveState, event: AutosaveEvent): Aut
         attempt: 0,
         conflictVersion: null,
         issues: [],
+        unconfirmed,
       };
-      if (sameDraft(event.sent, state.latest)) return { ...next, status: 'saved' };
+      if (unconfirmed === null && sameDraft(event.sent, state.latest)) return { ...next, status: 'saved' };
       return { ...next, status: 'dirty' };
     }
     case 'failed':
@@ -117,13 +185,18 @@ export function autosaveReducer(state: AutosaveState, event: AutosaveEvent): Aut
         status: event.kind === 'offline' ? 'offline' : 'error',
         attempt: state.attempt + 1,
         inFlight: null,
+        unconfirmed: event.kind === 'server' ? state.unconfirmed : (state.inFlight ?? state.unconfirmed),
       };
     case 'conflict':
-      return { ...state, status: 'conflict', conflictVersion: event.currentVersion, inFlight: null };
+      return { ...state, status: 'conflict', conflictVersion: event.currentVersion, inFlight: null, unconfirmed: null };
     case 'trashed':
       return { ...state, status: 'trashed', inFlight: null };
     case 'invalid':
-      return { ...state, status: 'invalid', issues: event.issues, inFlight: null };
+      return { ...state, status: 'invalid', issues: event.issues, inFlight: null, unconfirmed: null };
+    case 'signedOut':
+      return { ...state, status: 'signedOut', inFlight: null };
+    case 'tooLarge':
+      return { ...state, status: 'tooLarge', inFlight: null, unconfirmed: null };
     case 'rebased':
       return {
         ...state,
@@ -134,9 +207,15 @@ export function autosaveReducer(state: AutosaveState, event: AutosaveEvent): Aut
         attempt: 0,
         conflictVersion: null,
         issues: [],
+        unconfirmed: null,
       };
-    case 'restored':
-      if (state.status !== 'trashed') return state;
-      return { ...state, status: 'dirty', attempt: 0 };
+    case 'serverState':
+      if (state.status === 'trashed' && !event.trashed) {
+        return { ...state, status: sameDraft(state.latest, event.state) ? 'idle' : 'dirty', attempt: 0 };
+      }
+      if ((state.status === 'idle' || state.status === 'saved') && event.version > state.baseVersion && !event.trashed) {
+        return { ...state, baseVersion: event.version, latest: event.state };
+      }
+      return state;
   }
 }

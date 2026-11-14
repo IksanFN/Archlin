@@ -1,18 +1,20 @@
 import { canonicalJson } from '@archlin/modules-knowledge/shared';
 import type { PageView, SavePageInput } from '@archlin/modules-knowledge/shared';
 import type { SaveStatusState } from '@archlin/ui/components/save-status';
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { KnowledgeClientError, type KnowledgeClient } from '../client';
 import {
   AUTOSAVE_DEBOUNCE_MS,
   autosaveReducer,
   autosaveStateFromPage,
+  classifySaveError,
   draftFromPage,
+  exceedsSaveLimit,
+  nextSave,
   retryDelayMs,
   saveStatusOf,
   type AutosaveEvent,
   type AutosaveState,
-  type AutosaveStatus,
   type PageDraftState,
 } from './autosave-machine';
 import { browserStorage, readDrafts, removeDraft, TAB_ID, writeDraft, type StoredDraft } from './draft-store';
@@ -31,40 +33,9 @@ function toSaveInput(entityId: string, baseVersion: number, draft: PageDraftStat
   };
 }
 
-function currentVersionOf(details: unknown): number | null {
-  if (typeof details !== 'object' || details === null || !('currentVersion' in details)) return null;
-  return typeof details.currentVersion === 'number' ? details.currentVersion : null;
-}
-
-function issuesOf(details: unknown): readonly { path: string; message: string }[] {
-  if (typeof details !== 'object' || details === null || !('issues' in details) || !Array.isArray(details.issues)) {
-    return [];
-  }
-  return details.issues.filter(
-    (issue): issue is { path: string; message: string } =>
-      typeof issue === 'object' &&
-      issue !== null &&
-      typeof (issue as { path: unknown }).path === 'string' &&
-      typeof (issue as { message: unknown }).message === 'string',
-  );
-}
-
-function eventFromError(error: unknown, fallbackVersion: number): AutosaveEvent {
-  if (error instanceof KnowledgeClientError) {
-    if (error.status === 409 && error.code === 'page_conflict') {
-      return { type: 'conflict', currentVersion: currentVersionOf(error.details) ?? fallbackVersion };
-    }
-    if (error.status === 409 && error.code === 'page_in_trash') return { type: 'trashed' };
-    if (error.status === 422) return { type: 'invalid', issues: issuesOf(error.details) };
-    if (error.status >= 500) return { type: 'failed', kind: 'server' };
-    return { type: 'failed', kind: 'server' };
-  }
+function eventFromError(error: unknown): AutosaveEvent {
   const online = typeof navigator === 'undefined' || navigator.onLine;
-  return { type: 'failed', kind: online ? 'network' : 'offline' };
-}
-
-function needsSave(status: AutosaveStatus): boolean {
-  return status === 'dirty' || status === 'error' || status === 'offline';
+  return classifySaveError(error instanceof KnowledgeClientError ? error : null, online);
 }
 
 function dropDraftIfSent(entityId: string, sent: PageDraftState): void {
@@ -83,7 +54,8 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
   flush(): Promise<void>;
   loadLatest(): Promise<PageView>;
   overwrite(): Promise<void>;
-  markRestored(): void;
+  adoptServer(next: PageView): boolean;
+  adoptedCount: number;
   restoreDraft(draft: StoredDraft): void;
 } {
   const [state, dispatch] = useReducer(autosaveReducer, page, autosaveStateFromPage);
@@ -93,6 +65,8 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
   pageRef.current = page;
   const clientRef = useRef(client);
   clientRef.current = client;
+  // Counts server states that replaced the editor content, so the editor can remount from the new latest.
+  const [adoptedCount, setAdoptedCount] = useState(0);
   const cancelledRef = useRef(false);
   const lockRef = useRef(Promise.resolve());
 
@@ -125,20 +99,24 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
 
   const saveNow = useCallback(async (): Promise<void> => {
     const run = async (): Promise<void> => {
-      const current = stateRef.current;
-      if (!needsSave(current.status)) return;
-      apply({ type: 'saveStarted' });
-      const sent = stateRef.current.latest;
-      const baseVersion = stateRef.current.baseVersion;
+      const due = nextSave(stateRef.current);
+      if (due === null) return;
+      const sent = due.draft;
       const entityId = pageRef.current.entityId;
+      const input = toSaveInput(entityId, due.baseVersion, sent);
+      if (exceedsSaveLimit(input)) {
+        apply({ type: 'tooLarge' });
+        return;
+      }
+      apply({ type: 'saveStarted', draft: sent });
       try {
-        const result = await clientRef.current.savePage(toSaveInput(entityId, baseVersion, sent));
+        const result = await clientRef.current.savePage(input);
         if (cancelledRef.current) return;
         apply({ type: 'saved', result, sent });
         dropDraftIfSent(entityId, sent);
       } catch (error) {
         if (cancelledRef.current) return;
-        apply(eventFromError(error, stateRef.current.baseVersion));
+        apply(eventFromError(error));
       }
     };
     const pending = lockRef.current.then(run, run);
@@ -202,7 +180,7 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     persistDraft();
     apply({ type: 'flush' });
     await saveNow();
-    if (needsSave(stateRef.current.status)) await saveNow();
+    if (nextSave(stateRef.current) !== null) await saveNow();
   }, [apply, persistDraft, saveNow]);
 
   const loadLatest = useCallback(async (): Promise<PageView> => {
@@ -218,7 +196,7 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
       }
       return screen.page;
     } catch (error) {
-      if (!cancelledRef.current) apply(eventFromError(error, stateRef.current.baseVersion));
+      if (!cancelledRef.current) apply(eventFromError(error));
       throw error;
     }
   }, [apply]);
@@ -228,22 +206,28 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     if (current.conflictVersion === null) return;
     const sent = current.latest;
     const entityId = pageRef.current.entityId;
+    const input = { ...toSaveInput(entityId, current.baseVersion, sent), seenVersion: current.conflictVersion };
+    if (exceedsSaveLimit(input)) {
+      apply({ type: 'tooLarge' });
+      return;
+    }
     try {
-      const result = await clientRef.current.overwritePage({
-        ...toSaveInput(entityId, current.baseVersion, sent),
-        seenVersion: current.conflictVersion,
-      });
+      const result = await clientRef.current.overwritePage(input);
       if (cancelledRef.current) return;
       apply({ type: 'saved', result, sent });
       dropDraftIfSent(entityId, sent);
     } catch (error) {
       if (cancelledRef.current) return;
-      apply(eventFromError(error, stateRef.current.baseVersion));
+      apply(eventFromError(error));
     }
   }, [apply]);
 
-  const markRestored = useCallback((): void => {
-    apply({ type: 'restored' });
+  const adoptServer = useCallback((next: PageView): boolean => {
+    const before = stateRef.current.latest;
+    apply({ type: 'serverState', version: next.version, state: draftFromPage(next), trashed: next.deletedAt !== null });
+    const replaced = stateRef.current.latest !== before;
+    if (replaced) setAdoptedCount((count) => count + 1);
+    return replaced;
   }, [apply]);
 
   const restoreDraft = useCallback((draft: StoredDraft): void => {
@@ -258,7 +242,8 @@ export function usePageAutosave({ page, client }: { page: PageView; client: Know
     flush,
     loadLatest,
     overwrite,
-    markRestored,
+    adoptServer,
+    adoptedCount,
     restoreDraft,
   };
 }

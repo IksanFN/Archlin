@@ -33,7 +33,7 @@ import { listSpacesFn } from '~/server/functions/spaces';
 import { restoreFn } from '~/server/functions/trash';
 import { setStarredFn, trashEntityFn } from '~/server/functions/tree';
 
-const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'invalid']);
+const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'invalid', 'signedOut', 'tooLarge']);
 const EMPTY_DRAFTS: StoredDraft[] = [];
 const draftListeners = new Set<() => void>();
 let draftSnapshot: { key: string; drafts: StoredDraft[] } | null = null;
@@ -127,6 +127,7 @@ function PageBody({
   const router = useRouter();
   const client = useKnowledgeClient();
   const autosave = usePageAutosave({ page, client });
+  const { adoptServer } = autosave;
   const [moving, setMoving] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [dismissedConflict, setDismissedConflict] = useState(false);
@@ -180,6 +181,10 @@ function PageBody({
   }, [autosave.state.status, autosave.state.latest.title]);
 
   useEffect(() => {
+    adoptServer(page);
+  }, [adoptServer, page]);
+
+  useEffect(() => {
     if (autosave.state.status !== 'trashed' || page.deletedAt !== null) return;
     void router.invalidate();
   }, [autosave.state.status, page.deletedAt, router]);
@@ -225,7 +230,6 @@ function PageBody({
       notifyTreeMutation();
       await router.invalidate();
       toast(messages.page.restored);
-      autosave.markRestored();
     }).finally(() => setRestoring(false));
   }
 
@@ -258,6 +262,10 @@ function PageBody({
           autosave.saveStatus === 'conflict' ? (
             <Button variant="ghost" size="row" onClick={() => setDismissedConflict(false)}>
               {messages.page.resolveConflict}
+            </Button>
+          ) : autosave.saveStatus === 'signedOut' ? (
+            <Button variant="ghost" size="row" onClick={() => void router.navigate({ to: '/login' })}>
+              {messages.page.signInAgain}
             </Button>
           ) : null
         }
@@ -301,7 +309,7 @@ function PageBody({
           </p>
           <div className="mt-8">
             <PageEditor
-              key={editorKey}
+              key={`${editorKey}:${autosave.adoptedCount}`}
               content={autosave.state.latest.content}
               editable={!readOnly}
               labels={messages.editor}

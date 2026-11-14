@@ -56,5 +56,6 @@ export type {
   SavePageInput,
   UpdateNoteTypeInput,
 } from './inputs';
+export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES } from './limits';
 export { deriveTypeKey } from './type-key';
 export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageScreen, PageView, SaveResult } from './types';
