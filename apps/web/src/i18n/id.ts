@@ -32,6 +32,21 @@ export const messages = {
   },
   page: {
     untitled: 'Tanpa judul',
+    breadcrumb: 'Jalur halaman',
+    options: 'Opsi halaman',
+    changeType: 'Ubah tipe catatan',
+    restore: 'Pulihkan',
+    restored: 'Dipulihkan.',
+    trashBanner: 'Halaman ini ada di Trash. Isinya hanya bisa dibaca.',
+    edited: (relative: string) => `Diedit ${relative}`,
+    save: {
+      saving: 'Menyimpan…',
+      saved: 'Tersimpan',
+      error: 'Gagal menyimpan. Mencoba lagi…',
+      offline: 'Offline. Perubahan disimpan di perangkat ini.',
+      conflict: 'Konflik',
+      invalid: 'Ada field yang belum valid',
+    },
   },
   auth: {
     footer: 'Self-hosted. Data tidak keluar dari server ini.',
