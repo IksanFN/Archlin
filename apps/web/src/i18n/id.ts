@@ -26,7 +26,7 @@ export const messages = {
   },
   today: {
     emptyTitle: 'Belum ada yang perlu dilihat hari ini',
-    emptyBody: 'Pengingat, review, dan isi Inbox akan tampil di sini setelah fitur catatan tersedia.',
+    emptyBody: 'Saat ini belum ada catatan yang perlu dilihat lagi.',
     privacyFooter: 'Semua diproses di server ini.',
     greeting: (greeting: string, name: string) => `${greeting}, ${name}.`,
   },
@@ -234,6 +234,15 @@ export const messages = {
   },
   newPage: {
     label: 'Tipe catatan',
+  },
+  spaceHome: {
+    pages: (count: number) => `${count} halaman`,
+    pagesSuffix: 'halaman',
+    roots: 'Halaman akar',
+    recent: 'Baru diubah',
+    emptyTitle: 'Space ini masih kosong',
+    emptyBody: 'Buat halaman pertama untuk mulai mencatat.',
+    archived: 'Space ini diarsipkan dan tidak tampil di sidebar.',
   },
   favorites: {
     title: 'Favorit',

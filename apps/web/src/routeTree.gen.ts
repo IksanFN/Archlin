@@ -17,8 +17,10 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginTotpRouteImport } from './routes/login.totp'
+import { Route as AppSSpaceSlugRouteImport } from './routes/_app/s/$spaceSlug'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
+import { Route as AppSSpaceSlugIndexRouteImport } from './routes/_app/s/$spaceSlug/index'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -59,6 +61,11 @@ const LoginTotpRoute = LoginTotpRouteImport.update({
   path: '/totp',
   getParentRoute: () => LoginRoute,
 } as any)
+const AppSSpaceSlugRoute = AppSSpaceSlugRouteImport.update({
+  id: '/s/$spaceSlug',
+  path: '/s/$spaceSlug',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -69,6 +76,11 @@ const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
   path: '/security',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSSpaceSlugIndexRoute = AppSSpaceSlugIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSSpaceSlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -78,8 +90,10 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteWithChildren
   '/login/totp': typeof LoginTotpRoute
   '/login/': typeof LoginIndexRoute
+  '/s/$spaceSlug': typeof AppSSpaceSlugRouteWithChildren
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
 }
 export interface FileRoutesByTo {
   '/health': typeof HealthRoute
@@ -89,6 +103,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginIndexRoute
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/s/$spaceSlug': typeof AppSSpaceSlugIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -100,8 +115,10 @@ export interface FileRoutesById {
   '/login/totp': typeof LoginTotpRoute
   '/_app/': typeof AppIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/_app/s/$spaceSlug': typeof AppSSpaceSlugRouteWithChildren
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -113,8 +130,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/login/totp'
     | '/login/'
+    | '/s/$spaceSlug'
     | '/settings/security'
     | '/settings/'
+    | '/s/$spaceSlug/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/health'
@@ -124,6 +143,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/settings/security'
     | '/settings'
+    | '/s/$spaceSlug'
   id:
     | '__root__'
     | '/_app'
@@ -134,8 +154,10 @@ export interface FileRouteTypes {
     | '/login/totp'
     | '/_app/'
     | '/login/'
+    | '/_app/s/$spaceSlug'
     | '/_app/settings/security'
     | '/_app/settings/'
+    | '/_app/s/$spaceSlug/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -203,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginTotpRouteImport
       parentRoute: typeof LoginRoute
     }
+    '/_app/s/$spaceSlug': {
+      id: '/_app/s/$spaceSlug'
+      path: '/s/$spaceSlug'
+      fullPath: '/s/$spaceSlug'
+      preLoaderRoute: typeof AppSSpaceSlugRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/'
@@ -216,6 +245,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/security'
       preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/s/$spaceSlug/': {
+      id: '/_app/s/$spaceSlug/'
+      path: '/'
+      fullPath: '/s/$spaceSlug/'
+      preLoaderRoute: typeof AppSSpaceSlugIndexRouteImport
+      parentRoute: typeof AppSSpaceSlugRoute
     }
   }
 }
@@ -234,14 +270,28 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
   AppSettingsRouteChildren,
 )
 
+interface AppSSpaceSlugRouteChildren {
+  AppSSpaceSlugIndexRoute: typeof AppSSpaceSlugIndexRoute
+}
+
+const AppSSpaceSlugRouteChildren: AppSSpaceSlugRouteChildren = {
+  AppSSpaceSlugIndexRoute: AppSSpaceSlugIndexRoute,
+}
+
+const AppSSpaceSlugRouteWithChildren = AppSSpaceSlugRoute._addFileChildren(
+  AppSSpaceSlugRouteChildren,
+)
+
 interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
+  AppSSpaceSlugRoute: typeof AppSSpaceSlugRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
+  AppSSpaceSlugRoute: AppSSpaceSlugRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
