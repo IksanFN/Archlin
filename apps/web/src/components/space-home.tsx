@@ -31,12 +31,8 @@ function displayTitle(title: string): string {
 export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { now: Date }) {
   const router = useRouter();
   const [restoring, setRestoring] = useState(false);
-  let riseIndex = 0;
-  const nextRise = (): CSSProperties => {
-    const style = rise(riseIndex);
-    riseIndex += 1;
-    return style;
-  };
+  const afterHeader = space.archivedAt === null ? 1 : 2;
+  const recentStart = afterHeader + 1 + rootPages.length;
 
   async function restore(): Promise<void> {
     setRestoring(true);
@@ -55,7 +51,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
   return (
     <div className="flex flex-1 flex-col px-4 pt-6 pb-10 nav:px-12 nav:pt-14">
       <div className="mx-auto w-full max-w-[760px]">
-        <header className="rise flex items-start justify-between gap-4" style={nextRise()}>
+        <header className="rise flex items-start justify-between gap-4" style={rise(0)}>
           <div className="flex min-w-0 items-start gap-3">
             <span className="mt-1 flex size-6 shrink-0 items-center justify-center text-[24px] leading-none">
               {space.icon ?? <FolderSimpleIcon aria-hidden="true" size={24} />}
@@ -76,7 +72,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
         </header>
 
         {space.archivedAt === null ? null : (
-          <div className="rise mt-6 flex flex-col items-start gap-3" style={nextRise()}>
+          <div className="rise mt-6 flex flex-col items-start gap-3" style={rise(1)}>
             <InlineStatus variant="attention">{messages.spaceHome.archived}</InlineStatus>
             <Button variant="secondary" size="row" loading={restoring} onClick={() => void restore()}>
               {messages.spaces.unarchive}
@@ -87,7 +83,7 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
         {rootPages.length === 0 ? (
           <EmptyState
             className="rise mt-10"
-            style={nextRise()}
+            style={rise(afterHeader)}
             icon={FileTextIcon}
             title={messages.spaceHome.emptyTitle}
             body={messages.spaceHome.emptyBody}
@@ -103,19 +99,19 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
         ) : (
           <>
             <section className="mt-10" aria-labelledby="space-home-roots">
-              <div className="rise flex items-baseline justify-between pb-2" style={nextRise()}>
+              <div className="rise flex items-baseline justify-between pb-2" style={rise(afterHeader)}>
                 <h2 id="space-home-roots" className="text-micro font-medium text-fg-muted">
                   {messages.spaceHome.roots}
                 </h2>
                 <span className="font-mono text-micro text-fg-muted">{rootPages.length}</span>
               </div>
               <ul>
-                {rootPages.map((page) => {
+                {rootPages.map((page, index) => {
                   const summary = page.summary !== null && page.summary.trim() !== '' ? page.summary : null;
                   const href = `/s/${space.slug}/p/${page.id}`;
                   return (
                     <li key={page.id}>
-                      <Link to={href} className={cn('rise', ROW_CLASS)} style={nextRise()}>
+                      <Link to={href} className={cn('rise', ROW_CLASS)} style={rise(afterHeader + 1 + index)}>
                         <span className="flex size-[18px] shrink-0 items-center justify-center text-fg-muted">
                           {page.icon ?? <FileTextIcon aria-hidden="true" size={18} />}
                         </span>
@@ -139,15 +135,15 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
 
             {recent.length === 0 ? null : (
               <section className="mt-10" aria-labelledby="space-home-recent">
-                <h2 id="space-home-recent" className="rise pb-2 text-micro font-medium text-fg-muted" style={nextRise()}>
+                <h2 id="space-home-recent" className="rise pb-2 text-micro font-medium text-fg-muted" style={rise(recentStart)}>
                   {messages.spaceHome.recent}
                 </h2>
                 <ul>
-                  {recent.map((item) => {
+                  {recent.map((item, index) => {
                     const href = `/s/${item.spaceSlug}/p/${item.id}`;
                     return (
                       <li key={item.id}>
-                        <Link to={href} className={cn('rise', ROW_CLASS)} style={nextRise()}>
+                        <Link to={href} className={cn('rise', ROW_CLASS)} style={rise(recentStart + 1 + index)}>
                           <span className="flex size-[18px] shrink-0 items-center justify-center text-fg-muted">
                             {item.icon ?? <FileTextIcon aria-hidden="true" size={18} />}
                           </span>
