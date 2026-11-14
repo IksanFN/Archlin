@@ -2,7 +2,7 @@ import {
   changeNoteTypeInputSchema,
   createPageInputSchema,
   overwritePageInputSchema,
-  pageIdInputSchema,
+  pageScreenInputSchema,
   renamePageInputSchema,
   savePageInputSchema,
 } from '@archlin/modules-knowledge/shared';
@@ -18,14 +18,14 @@ export const createPageFn = authedFn
   });
 
 export const pageFn = authedFn
-  .validator(strictInput(pageIdInputSchema))
+  .validator(strictInput(pageScreenInputSchema))
   .handler(({ data, context }): Promise<PageScreen> => {
     const { uow, tree, knowledge } = getContainer();
-    // recordView writes, so get and ancestors share that write transaction.
+    // recordView writes, so get and ancestors share that write transaction even when the view is not counted.
     return uow.write(context.auth.scope, async (tx) => {
       const page = await knowledge.pages.getPage(tx, data.entityId);
       const breadcrumbs = await tree.ancestors(tx, data.entityId);
-      await tree.recordView(tx, data.entityId);
+      if (data.recordView) await tree.recordView(tx, data.entityId);
       return { page, breadcrumbs };
     });
   });

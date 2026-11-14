@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { resetAccount } from './helpers/db';
+import { resetAccount, viewCount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
 
 test.beforeEach(async () => {
@@ -100,4 +100,21 @@ test('the star toggles the favorites section', async ({ page }) => {
 
   await reloadSettled(page);
   await expect(page.getByText('Favorit', { exact: true })).toBeHidden();
+});
+
+test('toggling a favorite does not count as another view', async ({ page }) => {
+  await completeSetup(page);
+  await createSpace(page, 'Kerja');
+  await page.getByRole('main').getByRole('button', { name: 'Halaman baru' }).first().click();
+  await page.getByRole('menuitem', { name: 'Quick Note' }).click();
+  await expect(page).toHaveURL(/\/s\/kerja\/p\//);
+  await expect(page.getByRole('textbox', { name: 'Judul' })).toBeVisible();
+  const entityId = new URL(page.url()).pathname.split('/').at(-1) ?? '';
+  expect(await viewCount(entityId)).toBe(1);
+
+  await page.getByRole('button', { name: 'Tambah ke favorit' }).click();
+  await expect(page.getByRole('button', { name: 'Hapus dari favorit' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Hapus dari favorit' }).click();
+  await expect(page.getByRole('button', { name: 'Tambah ke favorit' })).toHaveAttribute('aria-pressed', 'false');
+  expect(await viewCount(entityId)).toBe(1);
 });

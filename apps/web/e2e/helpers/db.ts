@@ -31,3 +31,10 @@ export async function userCount(): Promise<number> {
     return Number(result.rows[0]?.count ?? 0);
   });
 }
+
+export async function viewCount(entityId: string): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query<{ view_count: number }>('select view_count from public.entities where id = $1', [entityId]);
+    return result.rows[0]?.view_count ?? 0;
+  });
+}

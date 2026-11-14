@@ -49,6 +49,10 @@ export type ChangeNoteTypeInput = z.infer<typeof changeNoteTypeInputSchema>;
 export const pageIdInputSchema = z.strictObject({ entityId: z.uuid() });
 export type PageIdInput = z.infer<typeof pageIdInputSchema>;
 
+// recordView is explicit so a router refresh or a background reload does not count as opening the page.
+export const pageScreenInputSchema = z.strictObject({ entityId: z.uuid(), recordView: z.boolean() });
+export type PageScreenInput = z.infer<typeof pageScreenInputSchema>;
+
 export const REVIEW_MODES = ['none', 'daily', 'spaced'] as const;
 export type ReviewMode = (typeof REVIEW_MODES)[number];
 

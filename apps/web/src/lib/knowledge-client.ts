@@ -32,7 +32,7 @@ export const knowledgeClient: KnowledgeClient = {
   savePage: (input) => invoke(() => savePageFn({ data: input })),
   saveConflictCopy: (input) => invoke(() => saveConflictCopyFn({ data: input })),
   overwritePage: (input) => invoke(() => overwritePageFn({ data: input })),
-  getPage: (entityId) => invoke(() => pageFn({ data: { entityId } })),
+  getPage: (entityId) => invoke(() => pageFn({ data: { entityId, recordView: false } })),
   changeNoteType: (input) => invoke(() => changeNoteTypeFn({ data: input })),
   suggestTags: (prefix) => invoke(() => suggestTagsFn({ data: { prefix } })),
   setTags: (entityId, names) => invoke(() => setEntityTagsFn({ data: { entityId, names: [...names] } })),

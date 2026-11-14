@@ -60,9 +60,9 @@ function snapshotDrafts(page: PageView): StoredDraft[] {
 }
 
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
-  loader: async ({ params }) => {
+  loader: async ({ params, cause }) => {
     try {
-      const { page, breadcrumbs } = await pageFn({ data: { entityId: params.entityId } });
+      const { page, breadcrumbs } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
       if (params.spaceSlug !== page.spaceSlug) {
         throw redirect({
           to: '/s/$spaceSlug/p/$entityId',
