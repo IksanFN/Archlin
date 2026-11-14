@@ -5,9 +5,14 @@ import { Placeholder } from '@tiptap/extensions';
 import { ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
 import { common, createLowlight } from 'lowlight';
 import { createElement, type ComponentType } from 'react';
+import { BlockCommands } from './block-commands';
+import { BlockHandleExtension } from './block-handle';
 import { CalloutView } from './callout-view';
 import { CodeBlockView } from './code-block-view';
+import { FindReplace } from './find-replace';
 import type { EditorLabels } from './labels';
+import { MarkdownPaste } from './markdown-paste';
+import { SlashCommand } from './slash-command';
 
 const lowlight = createLowlight(common);
 
@@ -41,5 +46,10 @@ export function editorExtensions(labels: EditorLabels): Extensions {
       showOnlyCurrent: true,
       placeholder: ({ node }) => (node.type.name === 'heading' ? labels.headingPlaceholder : labels.placeholder),
     }),
+    SlashCommand.configure({ labels }),
+    BlockCommands,
+    BlockHandleExtension,
+    MarkdownPaste,
+    FindReplace,
   ];
 }

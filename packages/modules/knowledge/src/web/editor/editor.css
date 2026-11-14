@@ -244,3 +244,25 @@
 .kb-bubble-menu {
   transition: opacity 120ms var(--grok-motion-ease-out);
 }
+
+.kb-block-handle {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  display: none;
+}
+
+@media (hover: hover) {
+  .kb-block-handle {
+    display: flex;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms var(--grok-motion-ease-out);
+  }
+
+  .kb-block-handle[data-visible='true'][data-placed='true'] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

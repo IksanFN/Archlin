@@ -41,4 +41,42 @@ export interface EditorLabels {
     insert: string;
     loadFailed: string;
   };
+  slashEmpty: string;
+  slash: {
+    text: string;
+    heading1: string;
+    heading2: string;
+    heading3: string;
+    bulletList: string;
+    orderedList: string;
+    taskList: string;
+    quote: string;
+    codeBlock: string;
+    calloutInfo: string;
+    calloutWarning: string;
+    calloutDanger: string;
+    calloutSuccess: string;
+    details: string;
+    table: string;
+    divider: string;
+    image: string;
+  };
+  block: {
+    handle: string;
+    moveUp: string;
+    moveDown: string;
+    duplicate: string;
+    delete: string;
+  };
+  find: {
+    find: string;
+    replace: string;
+    previous: string;
+    next: string;
+    replaceOne: string;
+    replaceAll: string;
+    caseSensitive: string;
+    count: (current: number, total: number) => string;
+    close: string;
+  };
 }
