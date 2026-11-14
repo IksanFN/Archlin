@@ -2,6 +2,7 @@ import type { PageView } from '@archlin/modules-knowledge/shared';
 import {
   browserStorage,
   ConflictDialog,
+  ContextCard,
   DraftBanner,
   invalidReason,
   PageEditor,
@@ -11,7 +12,7 @@ import {
   useKnowledgeClient,
   usePageAutosave,
 } from '@archlin/modules-knowledge/web';
-import type { Breadcrumb, SpaceSummary } from '@archlin/platform/contracts';
+import type { Breadcrumb, SpaceSummary, TagRef } from '@archlin/platform/contracts';
 import { Button } from '@archlin/ui/components/button';
 import { toast } from '@archlin/ui/components/sonner';
 import { createFileRoute, notFound, redirect, useBlocker, useRouter } from '@tanstack/react-router';
@@ -100,6 +101,7 @@ function PageBody({
   const [dismissedConflict, setDismissedConflict] = useState(false);
   const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
   const [editorKey, setEditorKey] = useState(0);
+  const [tagState, setTagState] = useState<{ source: TagRef[]; tags: TagRef[] }>({ source: page.tags, tags: page.tags });
   const [liveSince] = useState(() => new Date().toISOString());
   const { drafts: draftQueue, refresh: refreshDrafts } = useDraftQueue(page, liveSince);
   const lastTreeTitle = useRef(page.title);
@@ -114,6 +116,9 @@ function PageBody({
   const parentId = breadcrumbs.at(-1)?.id ?? null;
   const moveSpaces = spaces.filter((row) => row.archivedAt === null || row.id === page.spaceId);
   const pendingDraft = draftQueue[0];
+
+  // A reloaded page carries the server tags, which win over what this view last saved.
+  if (tagState.source !== page.tags) setTagState({ source: page.tags, tags: page.tags });
 
   if (inConflict) {
     if (seenConflictVersion === null && conflictVersion !== null) setSeenConflictVersion(conflictVersion);
@@ -186,6 +191,14 @@ function PageBody({
       if (presentation.kind === 'toast') toast.error(presentation.text);
     }
   }
+
+  const changeTags = useCallback(
+    async (names: string[]): Promise<void> => {
+      const saved = await client.setTags(page.entityId, names);
+      setTagState((current) => ({ source: current.source, tags: saved }));
+    },
+    [client, page.entityId],
+  );
 
   function toggleStar(): void {
     void run(async () => {
@@ -290,6 +303,19 @@ function PageBody({
           <p className="mt-1.5 text-small text-fg-muted">
             {page.noteType.name} · {messages.page.edited(formatRelative(new Date(page.updatedAt), now))}
           </p>
+          <div className="mt-6">
+            <ContextCard
+              key={`${editorKey}:${autosave.adoptedCount}`}
+              page={page}
+              draft={autosave.state.latest}
+              onChange={autosave.update}
+              tags={tagState.tags}
+              onTagsChange={changeTags}
+              issues={autosave.state.issues}
+              readOnly={readOnly}
+              labels={messages.contextCard}
+            />
+          </div>
           <div className="mt-8">
             <PageEditor
               key={`${editorKey}:${autosave.adoptedCount}`}

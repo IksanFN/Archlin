@@ -291,6 +291,37 @@ export const messages = {
   newPage: {
     label: 'Tipe catatan',
   },
+  contextCard: {
+    title: 'Kartu Konteks',
+    empty: 'Belum ada konteks',
+    summary: 'Ringkasan',
+    whenToUse: 'Kapan dipakai',
+    source: 'Sumber',
+    aliases: 'Alias',
+    aliasesPlaceholder: 'Kata lain untuk hal yang sama',
+    aliasesLimit: 'Maksimal 20 alias.',
+    removeAlias: (value: string) => `Hapus alias ${value}`,
+    tags: 'Tag',
+    tagsPlaceholder: 'Tambah tag',
+    tagsLimit: 'Maksimal 20 tag.',
+    tagsFailed: 'Tag gagal disimpan.',
+    removeTag: (value: string) => `Hapus tag ${value}`,
+    counter: (length: number) => `${length}/1000`,
+    notFilled: 'Belum diisi',
+    select: 'Pilih',
+    urlPlaceholder: 'https://',
+    numberInvalid: 'Masukkan angka.',
+    legacy: (value: string) => `Nilai lama “${value}” tidak cocok dengan jenis field ini. Ubah untuk menggantinya.`,
+    issue: (message: string) =>
+      message === 'invalid_property' || message === 'unknown_property'
+        ? 'Nilai ini tidak cocok dengan jenis field.'
+        : 'Nilai ini tidak valid.',
+    nudge: {
+      message: 'Tambahkan konteks agar catatan ini mudah ditemukan lagi.',
+      summary: 'Ringkasan',
+      whenToUse: 'Kapan dipakai',
+    },
+  },
   editor: {
     title: 'Judul',
     body: 'Isi halaman',

@@ -30,6 +30,8 @@ export type { StoredDraft } from './autosave/draft-store';
 export { usePageAutosave } from './autosave/use-page-autosave';
 export { KnowledgeClientError, KnowledgeClientProvider, useKnowledgeClient } from './client';
 export type { KnowledgeClient } from './client';
+export { ContextCard } from './context-card/context-card';
+export type { ContextCardLabels } from './context-card/context-card';
 export { editorExtensions } from './editor/extensions';
 export { ImageDialog, loadImageSize } from './editor/image-dialog';
 export type { EditorLabels } from './editor/labels';
