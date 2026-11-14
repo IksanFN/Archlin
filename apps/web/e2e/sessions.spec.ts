@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { completeSetup, signIn, gotoSettled, reloadSettled } from './helpers/flows';
+import { completeSetup, signIn, gotoSettled } from './helpers/flows';
 import { resetAccount } from './helpers/db';
 import { advanceClock } from './helpers/totp';
 
@@ -34,6 +34,8 @@ test('revokes another session', async ({ page, browser }) => {
 test('expires an idle session after seven days', async ({ page, request }) => {
   await completeSetup(page);
   await advanceClock(request, SEVEN_DAYS_AND_A_MINUTE);
-  await reloadSettled(page);
+  // Firefox reports a driver-awaited reload that ends in a redirect as NS_BINDING_ABORTED late in a long run; reloading
+  // from inside the page leaves only the redirect to assert.
+  await page.evaluate(() => window.location.reload());
   await expect(page).toHaveURL(/\/login/);
 });
