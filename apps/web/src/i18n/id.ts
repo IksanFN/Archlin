@@ -49,6 +49,7 @@ export const messages = {
       offline: 'Offline. Perubahan disimpan di perangkat ini.',
       conflict: 'Konflik',
       invalid: 'Ada field yang belum valid',
+      invalidContent: 'Ada tautan atau gambar yang tidak bisa disimpan. Periksa isi halaman.',
     },
     resolveConflict: 'Selesaikan',
     conflictTitle: 'Halaman ini berubah di tab atau perangkat lain',

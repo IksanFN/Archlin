@@ -42,6 +42,10 @@ export type AutosaveEvent =
 
 const STOPPED: ReadonlySet<AutosaveStatus> = new Set(['conflict', 'trashed', 'invalid']);
 
+export function invalidReason(issues: readonly { path: string; message: string }[]): 'content' | 'properties' {
+  return issues.some((issue) => issue.path === 'content') ? 'content' : 'properties';
+}
+
 export function retryDelayMs(attempt: number): number {
   if (attempt <= 0) return RETRY_DELAYS_MS[0];
   return RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAY_CAP_MS;

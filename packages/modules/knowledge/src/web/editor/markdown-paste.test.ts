@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeMarkdown } from './markdown-paste';
+import { looksLikeMarkdown, sanitizePastedContent } from './markdown-paste';
 
 describe('markdown paste', () => {
   it('detects headings, lists, quotes, fences and tables', () => {
@@ -21,5 +21,33 @@ describe('markdown paste', () => {
     expect(looksLikeMarkdown('hanya kalimat biasa')).toBe(false);
     expect(looksLikeMarkdown('satu\ndua\ntiga')).toBe(false);
     expect(looksLikeMarkdown('#tanpa spasi')).toBe(false);
+  });
+});
+
+describe('sanitizePastedContent', () => {
+  it('drops only unsafe images and links', () => {
+    const result = sanitizePastedContent([
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'a', marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }] },
+        ],
+      },
+      { type: 'image', attrs: { src: 'https://contoh.id/a.png' } },
+      { type: 'image', attrs: { src: 'http://contoh.id/b.png' } },
+    ]);
+    expect(result).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: 'a' }] },
+      { type: 'image', attrs: { src: 'https://contoh.id/a.png' } },
+    ]);
+  });
+
+  it('keeps a safe link and accepts a single node', () => {
+    const link = { type: 'link', attrs: { href: 'https://contoh.id' } };
+    const result = sanitizePastedContent({
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'b', marks: [link] }],
+    });
+    expect(result).toEqual([{ type: 'paragraph', content: [{ type: 'text', text: 'b', marks: [link] }] }]);
   });
 });

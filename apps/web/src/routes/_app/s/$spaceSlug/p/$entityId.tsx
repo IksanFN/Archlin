@@ -4,6 +4,7 @@ import {
   ConflictDialog,
   DraftBanner,
   draftFromPage,
+  invalidReason,
   PageEditor,
   pendingDraftsFor,
   removeDraft,
@@ -252,6 +253,7 @@ function PageBody({
         spaceSlug={page.spaceSlug}
         title={autosave.state.latest.title}
         saveState={autosave.saveStatus}
+        invalidReason={invalidReason(autosave.state.issues)}
         saveAction={
           autosave.saveStatus === 'conflict' ? (
             <Button variant="ghost" size="row" onClick={() => setDismissedConflict(false)}>

@@ -17,6 +17,7 @@ export function PageTopBar({
   spaceSlug,
   title,
   saveState,
+  invalidReason,
   saveAction = null,
   isStarred,
   onToggleStar,
@@ -27,12 +28,15 @@ export function PageTopBar({
   spaceSlug: string;
   title: string;
   saveState: SaveStatusState;
+  invalidReason: 'content' | 'properties';
   saveAction?: ReactNode;
   isStarred: boolean;
   onToggleStar: () => void;
   menu: ReactNode;
 }) {
   const current = displayTitle(title);
+  const { invalidContent, ...saveLabels } = messages.page.save;
+  const labels = { ...saveLabels, invalid: invalidReason === 'content' ? invalidContent : saveLabels.invalid };
   const items = [
     { label: spaceName, href: `/s/${spaceSlug}` },
     ...breadcrumbs.map((crumb) => ({
@@ -50,7 +54,7 @@ export function PageTopBar({
         <Breadcrumb className="sm:hidden" items={compactItems} current={current} label={messages.page.breadcrumb} />
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <SaveStatus state={saveState} labels={messages.page.save} action={saveAction} />
+        <SaveStatus state={saveState} labels={labels} action={saveAction} />
         <Button
           variant="icon"
           size="icon-sm"

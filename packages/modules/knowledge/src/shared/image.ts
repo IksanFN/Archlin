@@ -16,6 +16,10 @@ export function isAllowedImageSrc(src: string): boolean {
   return protocolOf(src) === 'https:';
 }
 
+interface AttributeSource {
+  getAttribute(name: string): string | null;
+}
+
 function intOrNull(value: string | null): number | null {
   if (value === null || value === '') return null;
   const parsed = Number.parseInt(value, 10);
@@ -23,16 +27,26 @@ function intOrNull(value: string | null): number | null {
 }
 
 export const ArchlinImage = Image.extend({
+  // The server rejects any non-https image, so pasted or dropped HTML must not carry one into the editor.
+  parseHTML() {
+    return [
+      {
+        tag: 'img[src]',
+        getAttrs: (element) => (isAllowedImageSrc((element as AttributeSource).getAttribute('src') ?? '') ? null : false),
+      },
+    ];
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),
       width: {
         default: null,
-        parseHTML: (element: { getAttribute(name: string): string | null }) => intOrNull(element.getAttribute('width')),
+        parseHTML: (element: AttributeSource) => intOrNull(element.getAttribute('width')),
       },
       height: {
         default: null,
-        parseHTML: (element: { getAttribute(name: string): string | null }) => intOrNull(element.getAttribute('height')),
+        parseHTML: (element: AttributeSource) => intOrNull(element.getAttribute('height')),
       },
     };
   },

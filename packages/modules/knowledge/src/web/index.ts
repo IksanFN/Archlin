@@ -3,6 +3,7 @@ export {
   autosaveReducer,
   autosaveStateFromPage,
   draftFromPage,
+  invalidReason,
   retryDelayMs,
   saveStatusOf,
 } from './autosave/autosave-machine';

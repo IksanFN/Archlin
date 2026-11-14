@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { autosaveReducer, retryDelayMs, type AutosaveState, type PageDraftState } from './autosave-machine';
+import { autosaveReducer, invalidReason, retryDelayMs, type AutosaveState, type PageDraftState } from './autosave-machine';
 
 function draft(title: string): PageDraftState {
   return {
@@ -133,5 +133,12 @@ describe('autosaveReducer', () => {
     expect(state.status).not.toBe('conflict');
     expect(state.conflictVersion).toBeNull();
     expect(state.baseVersion).toBe(2);
+  });
+});
+
+describe('invalidReason', () => {
+  it('points at the content when the document was rejected', () => {
+    expect(invalidReason([{ path: 'content', message: 'unsafe_url' }])).toBe('content');
+    expect(invalidReason([{ path: 'properties.risk', message: 'invalid_property' }])).toBe('properties');
   });
 });
