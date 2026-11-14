@@ -433,6 +433,62 @@ describe('TreeService', () => {
     expect(captured).toHaveLength(5);
   });
 
+  it('parallel entity updates each advance the revision', async () => {
+    const space = await makeSpace('RevisiParalel');
+    const item = await make(space.id, 'Naskah');
+    captured.length = 0;
+    await Promise.all(
+      Array.from({ length: 8 }, (_, i) =>
+        uow.write(scopeA(), (tx) =>
+          i % 2 === 0 ? tree.setStarred(tx, item.id, i % 4 === 0) : tree.setIcon(tx, item.id, i % 4 === 1 ? '📌' : null),
+        ),
+      ),
+    );
+    const after = await uow.read(scopeA(), (tx) => tree.get(tx, item.id));
+    expect(after.revision).toBe(item.revision + 8);
+    const revisions = captured
+      .filter((event) => event.type === 'entity.updated' && event.aggregateId === item.id)
+      .map((event) => event.aggregateRevision);
+    expect(new Set(revisions).size).toBe(8);
+  });
+
+  it('restore falls back to the space root when the old parent would exceed the depth limit', async () => {
+    const space = await makeSpace('RestoreDalam');
+    const chain = await uow.write(scopeA(), async (tx) => {
+      const nodes: Array<{ id: string }> = [];
+      let parentId: string | null = null;
+      for (let level = 1; level <= 30; level += 1) {
+        const node = await tree.create(tx, {
+          kind: KIND,
+          spaceId: space.id,
+          parentId,
+          title: `L${level}`,
+          icon: null,
+          placement: 'last',
+        });
+        nodes.push(node);
+        parentId = node.id;
+      }
+      return nodes;
+    });
+    const l29 = chain[28];
+    const l30 = chain[29];
+    expect(l29 && l30).toBeTruthy();
+    if (l29 === undefined || l30 === undefined) return;
+    const branch = await make(space.id, 'B', l30.id);
+    const leaf = await make(space.id, 'C', branch.id);
+    await uow.write(scopeA(), (tx) => tree.trash(tx, branch.id));
+    const shortcut = await make(space.id, 'S', l29.id);
+    await uow.write(scopeA(), (tx) =>
+      tree.move(tx, { entityId: l30.id, targetSpaceId: space.id, newParentId: shortcut.id, beforeId: null, afterId: null }),
+    );
+
+    const outcome = await uow.write(scopeA(), (tx) => tree.restore(tx, branch.id));
+    expect(outcome).toMatchObject({ entityId: branch.id, parentId: null, restoredToRoot: true, count: 2 });
+    const restoredLeaf = await uow.read(scopeA(), (tx) => tree.get(tx, leaf.id));
+    expect(restoredLeaf.parentId).toBe(branch.id);
+  });
+
   it('recordView does not change the revision', async () => {
     const space = await makeSpace('Dilihat');
     const page = await make(space.id, 'Halaman');

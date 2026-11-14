@@ -222,6 +222,24 @@ export function createTreeService(deps: {
     return rows[0]?.height ?? 0;
   }
 
+  // Height of the trashed operation rooted at rootId, counted over its own rows only.
+  async function trashedHeight(tx: ReadTx, rootId: string): Promise<number> {
+    const { rows } = await sql<{ height: number }>`
+      with recursive tree as (
+        select id, 1 as depth
+        from entities
+        where id = ${rootId}
+        union all
+        select e.id, t.depth + 1
+        from entities e
+        inner join tree t on e.parent_id = t.id
+        where e.deleted_root_id = ${rootId} and t.depth < ${MAX_TREE_DEPTH + 8}
+      )
+      select coalesce(max(depth), 0)::int as height from tree
+    `.execute(dbOf(tx));
+    return rows[0]?.height ?? 0;
+  }
+
   async function wouldCycle(tx: ReadTx, entityId: string, newParentId: string): Promise<boolean> {
     const { rows } = await sql<{ found: number }>`
       with recursive walk as (
@@ -250,7 +268,7 @@ export function createTreeService(deps: {
     const now = clock.now();
     const row = await dbOf(tx)
       .updateTable('entities')
-      .set({ ...patch, revision: current.revision + 1, updated_at: now })
+      .set({ ...patch, revision: sql`revision + 1`, updated_at: now })
       .where('id', '=', entityId)
       .returningAll()
       .executeTakeFirst();
@@ -432,7 +450,7 @@ export function createTreeService(deps: {
           space_id: input.targetSpaceId,
           parent_id: input.newParentId,
           position,
-          revision: current.revision + 1,
+          revision: sql`revision + 1`,
           updated_at: now,
         })
         .where('id', '=', input.entityId)
@@ -500,9 +518,13 @@ export function createTreeService(deps: {
         current.parent_id === null
           ? undefined
           : await dbOf(tx).selectFrom('entities').selectAll().where('id', '=', current.parent_id).executeTakeFirst();
-      const parentAlive = originalParent !== undefined && originalParent.deleted_at === null;
-      const newParentId = parentAlive ? current.parent_id : null;
-      const spaceId = parentAlive ? originalParent.space_id : current.space_id;
+      // The old parent may have moved deeper while the subtree sat in trash.
+      const parentFits =
+        originalParent !== undefined &&
+        originalParent.deleted_at === null &&
+        (await nodeLevel(tx, originalParent.id)) + (await trashedHeight(tx, rootId)) <= MAX_TREE_DEPTH;
+      const newParentId = parentFits ? current.parent_id : null;
+      const spaceId = parentFits ? originalParent.space_id : current.space_id;
       const siblings = await aliveSiblings(tx, spaceId, newParentId);
       const taken = siblings.some((row) => row.position === current.position);
       const last = siblings[siblings.length - 1];

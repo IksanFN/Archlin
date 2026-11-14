@@ -88,10 +88,25 @@ export function createTagService(deps: { tree: TreeService; ids: Ids; clock: Clo
       resolved.push(tag);
       toInsert.push({ id: tag.id, owner_id: ownerId, name, color: null, created_at: now });
     }
-    if (toInsert.length > 0) {
-      await dbOf(tx).insertInto('tags').values(toInsert).execute();
-    }
-    return resolved;
+    if (toInsert.length === 0) return resolved;
+    // A parallel save may create the same name first; the unique index decides and the loser reuses that row.
+    const created = await dbOf(tx)
+      .insertInto('tags')
+      .values(toInsert)
+      .onConflict((conflict) => conflict.doNothing())
+      .returning('id')
+      .execute();
+    const createdIds = new Set(created.map((row) => row.id));
+    const lostIds = new Set(toInsert.filter((row) => !createdIds.has(row.id)).map((row) => row.id));
+    if (lostIds.size === 0) return resolved;
+    const lostNames = resolved.filter((tag) => lostIds.has(tag.id)).map((tag) => tag.name);
+    const winners = new Map((await loadByLowerNames(tx, lostNames)).map((tag) => [tag.name.toLowerCase(), tag]));
+    return resolved.map((tag) => {
+      if (!lostIds.has(tag.id)) return tag;
+      const winner = winners.get(tag.name.toLowerCase());
+      if (winner === undefined) throw new Error('tag missing after insert conflict');
+      return winner;
+    });
   }
 
   return {

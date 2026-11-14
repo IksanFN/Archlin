@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemIds } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
@@ -106,6 +107,13 @@ describe('SpaceService', () => {
 
     const listed = await uow.read(scopeA(), (tx) => spaces.list(tx, { includeArchived: false }));
     expect(listed.map((space) => space.id)).toEqual([gamma.id, alpha.id, beta.id]);
+  });
+
+  it('reorder with an unknown sibling is rejected with invalid_sibling', async () => {
+    const space = await create('Saudara Asing');
+    await expect(
+      uow.write(scopeA(), (tx) => spaces.reorder(tx, { id: space.id, beforeId: randomUUID(), afterId: null })),
+    ).rejects.toMatchObject({ code: 'invalid_sibling' });
   });
 
   it('parallel creates of the same name get different slugs', async () => {

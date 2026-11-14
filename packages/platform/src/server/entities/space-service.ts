@@ -1,5 +1,5 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
-import { NotFoundError } from '@archlin/kernel';
+import { NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ModuleRegistry, ReadTx, WriteTx } from '@archlin/kernel';
 import { generateKeyBetween } from 'fractional-indexing';
 import { sql } from 'kysely';
@@ -20,6 +20,7 @@ export interface SpaceService {
 }
 
 const spaceNotFound = () => new NotFoundError('space_not_found', 'Space tidak ditemukan');
+const invalidSibling = () => new ValidationError('invalid_sibling', 'Saudara tidak valid');
 
 function dbOf(tx: ReadTx) {
   return sqlFor<EntitiesDatabase>(tx);
@@ -148,13 +149,13 @@ export function createSpaceService(deps: { registry: ModuleRegistry; ids: Ids; c
       if (input.afterId !== null) {
         const afterIndex = others.findIndex((row) => row.id === input.afterId);
         const after = others[afterIndex];
-        if (afterIndex < 0 || after === undefined) throw spaceNotFound();
+        if (afterIndex < 0 || after === undefined) throw invalidSibling();
         const next = others[afterIndex + 1];
         position = generateKeyBetween(after.position, next?.position ?? null);
       } else if (input.beforeId !== null) {
         const beforeIndex = others.findIndex((row) => row.id === input.beforeId);
         const before = others[beforeIndex];
-        if (beforeIndex < 0 || before === undefined) throw spaceNotFound();
+        if (beforeIndex < 0 || before === undefined) throw invalidSibling();
         const prev = others[beforeIndex - 1];
         position = generateKeyBetween(prev?.position ?? null, before.position);
       } else {

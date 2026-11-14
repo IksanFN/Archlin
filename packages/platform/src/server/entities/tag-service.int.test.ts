@@ -131,6 +131,20 @@ describe('TagService', () => {
     expect(listed).toEqual(original);
   });
 
+  it('parallel saves of a new tag name share one tag', async () => {
+    const space = await makeSpace('TagBalapan');
+    const items = await Promise.all(['A', 'B', 'C', 'D'].map((title) => makeItem(space.id, title)));
+    const spellings = ['Rilis', 'rilis', 'RILIS', 'rIlIs'];
+    const results = await Promise.all(
+      items.map((item, i) => uow.write(scopeA(), (tx) => tags.setForEntity(tx, item.id, [spellings[i] ?? 'Rilis']))),
+    );
+    const [first] = results;
+    expect(first).toHaveLength(1);
+    for (const result of results) expect(result).toEqual(first);
+    const stored = await uow.read(scopeA(), (tx) => tags.suggest(tx, 'ril'));
+    expect(stored).toEqual(first);
+  });
+
   it('drops case-insensitive duplicates in one request', async () => {
     const space = await makeSpace('Duplikat');
     const item = await makeItem(space.id, 'Item');
