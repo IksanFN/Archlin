@@ -9,7 +9,10 @@ import { parseNumberInput } from './number-field';
 
 // Label column beside the control from 640px up, stacked below that; the message always lines up with the control.
 export const ROW_LAYOUT =
-  'sm:grid sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start sm:gap-x-3 sm:[&>:first-child]:pt-2.5 sm:[&>:nth-child(n+3)]:col-start-2';
+  'sm:grid sm:grid-cols-[136px_minmax(0,1fr)] sm:items-start sm:gap-x-6 sm:[&>:first-child]:pt-2.5 sm:[&>:nth-child(n+3)]:col-start-2';
+
+export const ROW_FRAME = 'border-t border-line-subtle py-3';
+export const ROW_LABEL = 'font-normal text-fg-muted';
 
 export interface TypeFieldLabels {
   notFilled: string;
@@ -74,13 +77,14 @@ export function TypeField({
   }
 
   return (
-    <div>
+    <div className={ROW_FRAME}>
       <FormField
         label={field.label}
         labelAside={missing ? <span className="text-micro text-attention">{labels.notFilled}</span> : undefined}
         error={shownError}
         invalidAttempt={numberInvalid ? numberAttempt : invalidAttempt}
         className={ROW_LAYOUT}
+        labelClassName={ROW_LABEL}
       >
         {(control) => {
           switch (field.type) {
@@ -159,7 +163,7 @@ export function TypeField({
         }}
       </FormField>
       {legacyText === null ? null : (
-        <InlineStatus variant="info" className="mt-2 sm:ml-[172px]">
+        <InlineStatus variant="info" className="mt-2 sm:ml-[160px]">
           {labels.legacy(legacyText)}
         </InlineStatus>
       )}

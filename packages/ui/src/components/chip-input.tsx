@@ -13,6 +13,8 @@ export interface ChipInputProps {
   // Longer chips are cut to this length when added, so the server never has to reject them.
   maxChipLength?: number;
   disabled?: boolean;
+  // Shown before each chip, such as # for tags; the value itself stays unprefixed.
+  chipPrefix?: string;
   labels: { input: string; remove(value: string): string; limit: string };
   suggestions?: readonly string[];
   onQueryChange?(query: string): void;
@@ -29,6 +31,7 @@ function ChipInput({
   max,
   maxChipLength,
   disabled = false,
+  chipPrefix,
   labels,
   suggestions = [],
   onQueryChange,
@@ -122,9 +125,12 @@ function ChipInput({
           <span
             key={value}
             data-leaving={leaving.isLeaving(value) ? 'true' : undefined}
-            className="enter-item inline-flex h-7 max-w-full items-center gap-0.5 rounded-pill border border-line-strong pl-2.5 pr-0.5 text-small text-fg-secondary"
+            className="enter-item inline-flex h-7 max-w-full items-center gap-0.5 rounded-pill border border-line-strong pl-2.5 pr-0.5 text-[13px] text-fg-secondary"
           >
-            <span className="truncate">{value}</span>
+            <span className="truncate">
+              {chipPrefix}
+              {value}
+            </span>
             <button
               type="button"
               aria-label={labels.remove(value)}

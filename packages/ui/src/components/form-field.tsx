@@ -15,6 +15,7 @@ interface FormFieldProps {
   label: string;
   // Sits beside the label, for a status such as a missing required value.
   labelAside?: ReactNode;
+  labelClassName?: string;
   helper?: string | undefined;
   error?: string | undefined;
   invalidAttempt?: number;
@@ -23,7 +24,7 @@ interface FormFieldProps {
 }
 
 // The render prop hands the control its id and aria wiring so label, helper and error stay linked.
-function FormField({ label, labelAside, helper, error, invalidAttempt, className, children }: FormFieldProps) {
+function FormField({ label, labelAside, labelClassName, helper, error, invalidAttempt, className, children }: FormFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
   const hasMessage = error !== undefined || helper !== undefined;
@@ -50,10 +51,14 @@ function FormField({ label, labelAside, helper, error, invalidAttempt, className
   return (
     <div data-slot="form-field" className={cn('flex flex-col gap-2', className)}>
       {labelAside === undefined ? (
-        <Label htmlFor={id}>{label}</Label>
+        <Label htmlFor={id} className={labelClassName}>
+          {label}
+        </Label>
       ) : (
         <div className="flex items-baseline gap-2">
-          <Label htmlFor={id}>{label}</Label>
+          <Label htmlFor={id} className={labelClassName}>
+            {label}
+          </Label>
           {labelAside}
         </div>
       )}

@@ -12,7 +12,7 @@ import type { PageDraftState } from '../autosave/autosave-machine';
 import { browserStorage } from '../autosave/draft-store';
 import { useKnowledgeClient } from '../client';
 import { ContextNudge, type ContextNudgeLabels } from './context-nudge';
-import { ROW_LAYOUT, TypeField, type TypeFieldLabels } from './type-field';
+import { ROW_FRAME, ROW_LABEL, ROW_LAYOUT, TypeField, type TypeFieldLabels } from './type-field';
 
 const COLLAPSED_KEY = 'archlin.contextCard.collapsed';
 const SUGGEST_DEBOUNCE_MS = 150;
@@ -226,14 +226,14 @@ export function ContextCard({
   };
 
   return (
-    <section data-slot="context-card" className="rounded-lg bg-surface px-6 py-5">
+    <section data-slot="context-card" className="rounded-lg bg-surface px-6 pt-1.5 pb-2.5">
       <Collapsible open={open} onOpenChange={(next) => setCollapsed(!next)}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-md text-left">
-          <CollapsibleChevron className="shrink-0 text-fg-muted" />
+        <CollapsibleTrigger className="flex h-11 w-full items-center gap-2 rounded-md text-left">
           <span className="shrink-0 text-small font-medium text-fg">{labels.title}</span>
           {open ? null : (
             <span className="min-w-0 flex-1 truncate text-small text-fg-muted">{line === '' ? labels.empty : line}</span>
           )}
+          <CollapsibleChevron className="ml-auto shrink-0 rotate-90 text-fg-muted group-data-[state=open]:-rotate-90" />
         </CollapsibleTrigger>
         {showNudge ? (
           <ContextNudge
@@ -242,13 +242,14 @@ export function ContextCard({
           />
         ) : null}
         <CollapsibleContent>
-          <div className="flex flex-col gap-4 pt-4">
+          <div className="flex flex-col">
             <FormField
               label={labels.summary}
               helper={summaryText.length > SUMMARY_COUNTER_FROM ? labels.counter(summaryText.length) : undefined}
               error={errorOf('context.summary')}
               invalidAttempt={issueAttempt}
-              className={ROW_LAYOUT}
+              className={`${ROW_LAYOUT} ${ROW_FRAME}`}
+              labelClassName={ROW_LABEL}
             >
               {(control) => (
                 <Textarea
@@ -265,7 +266,8 @@ export function ContextCard({
               label={labels.whenToUse}
               error={errorOf('context.whenToUse')}
               invalidAttempt={issueAttempt}
-              className={ROW_LAYOUT}
+              className={`${ROW_LAYOUT} ${ROW_FRAME}`}
+              labelClassName={ROW_LABEL}
             >
               {(control) => (
                 <Textarea
@@ -282,7 +284,8 @@ export function ContextCard({
               label={labels.source}
               error={errorOf('context.source')}
               invalidAttempt={issueAttempt}
-              className={ROW_LAYOUT}
+              className={`${ROW_LAYOUT} ${ROW_FRAME}`}
+              labelClassName={ROW_LABEL}
             >
               {(control) => (
                 <Input
@@ -298,7 +301,8 @@ export function ContextCard({
               label={labels.aliases}
               error={errorOf('context.aliases')}
               invalidAttempt={issueAttempt}
-              className={ROW_LAYOUT}
+              className={`${ROW_LAYOUT} ${ROW_FRAME}`}
+              labelClassName={ROW_LABEL}
             >
               {(control) => (
                 <ChipInput
@@ -312,7 +316,7 @@ export function ContextCard({
                 />
               )}
             </FormField>
-            <FormField label={labels.tags} className={ROW_LAYOUT}>
+            <FormField label={labels.tags} className={`${ROW_LAYOUT} ${ROW_FRAME}`} labelClassName={ROW_LABEL}>
               {(control) => (
                 <ChipInput
                   {...control}
@@ -320,6 +324,7 @@ export function ContextCard({
                   onChange={changeTags}
                   max={MAX_TAGS}
                   maxChipLength={48}
+                  chipPrefix="#"
                   disabled={readOnly}
                   suggestions={suggestions}
                   onQueryChange={queryTags}
