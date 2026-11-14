@@ -22,6 +22,8 @@ import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/ind
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
 import { Route as AppSettingsTrashRouteImport } from './routes/_app/settings/trash'
 import { Route as AppSSpaceSlugIndexRouteImport } from './routes/_app/s/$spaceSlug/index'
+import { Route as AppSettingsNoteTypesIndexRouteImport } from './routes/_app/settings/note-types/index'
+import { Route as AppSettingsNoteTypesNoteTypeIdRouteImport } from './routes/_app/settings/note-types/$noteTypeId'
 import { Route as AppSSpaceSlugPEntityIdRouteImport } from './routes/_app/s/$spaceSlug/p/$entityId'
 
 const AppRoute = AppRouteImport.update({
@@ -88,6 +90,18 @@ const AppSSpaceSlugIndexRoute = AppSSpaceSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSSpaceSlugRoute,
 } as any)
+const AppSettingsNoteTypesIndexRoute =
+  AppSettingsNoteTypesIndexRouteImport.update({
+    id: '/note-types/',
+    path: '/note-types/',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
+const AppSettingsNoteTypesNoteTypeIdRoute =
+  AppSettingsNoteTypesNoteTypeIdRouteImport.update({
+    id: '/note-types/$noteTypeId',
+    path: '/note-types/$noteTypeId',
+    getParentRoute: () => AppSettingsRoute,
+  } as any)
 const AppSSpaceSlugPEntityIdRoute = AppSSpaceSlugPEntityIdRouteImport.update({
   id: '/p/$entityId',
   path: '/p/$entityId',
@@ -106,7 +120,9 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/trash': typeof AppSettingsTrashRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/settings/note-types/$noteTypeId': typeof AppSettingsNoteTypesNoteTypeIdRoute
   '/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
+  '/settings/note-types/': typeof AppSettingsNoteTypesIndexRoute
   '/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
 }
 export interface FileRoutesByTo {
@@ -118,7 +134,9 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/trash': typeof AppSettingsTrashRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/settings/note-types/$noteTypeId': typeof AppSettingsNoteTypesNoteTypeIdRoute
   '/s/$spaceSlug': typeof AppSSpaceSlugIndexRoute
+  '/settings/note-types': typeof AppSettingsNoteTypesIndexRoute
   '/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
 }
 export interface FileRoutesById {
@@ -135,7 +153,9 @@ export interface FileRoutesById {
   '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/trash': typeof AppSettingsTrashRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/settings/note-types/$noteTypeId': typeof AppSettingsNoteTypesNoteTypeIdRoute
   '/_app/s/$spaceSlug/': typeof AppSSpaceSlugIndexRoute
+  '/_app/settings/note-types/': typeof AppSettingsNoteTypesIndexRoute
   '/_app/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
 }
 export interface FileRouteTypes {
@@ -152,7 +172,9 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/trash'
     | '/settings/'
+    | '/settings/note-types/$noteTypeId'
     | '/s/$spaceSlug/'
+    | '/settings/note-types/'
     | '/s/$spaceSlug/p/$entityId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -164,7 +186,9 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/trash'
     | '/settings'
+    | '/settings/note-types/$noteTypeId'
     | '/s/$spaceSlug'
+    | '/settings/note-types'
     | '/s/$spaceSlug/p/$entityId'
   id:
     | '__root__'
@@ -180,7 +204,9 @@ export interface FileRouteTypes {
     | '/_app/settings/security'
     | '/_app/settings/trash'
     | '/_app/settings/'
+    | '/_app/settings/note-types/$noteTypeId'
     | '/_app/s/$spaceSlug/'
+    | '/_app/settings/note-types/'
     | '/_app/s/$spaceSlug/p/$entityId'
   fileRoutesById: FileRoutesById
 }
@@ -284,6 +310,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSSpaceSlugIndexRouteImport
       parentRoute: typeof AppSSpaceSlugRoute
     }
+    '/_app/settings/note-types/': {
+      id: '/_app/settings/note-types/'
+      path: '/note-types'
+      fullPath: '/settings/note-types/'
+      preLoaderRoute: typeof AppSettingsNoteTypesIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/note-types/$noteTypeId': {
+      id: '/_app/settings/note-types/$noteTypeId'
+      path: '/note-types/$noteTypeId'
+      fullPath: '/settings/note-types/$noteTypeId'
+      preLoaderRoute: typeof AppSettingsNoteTypesNoteTypeIdRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/s/$spaceSlug/p/$entityId': {
       id: '/_app/s/$spaceSlug/p/$entityId'
       path: '/p/$entityId'
@@ -298,12 +338,16 @@ interface AppSettingsRouteChildren {
   AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsTrashRoute: typeof AppSettingsTrashRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppSettingsNoteTypesNoteTypeIdRoute: typeof AppSettingsNoteTypesNoteTypeIdRoute
+  AppSettingsNoteTypesIndexRoute: typeof AppSettingsNoteTypesIndexRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsTrashRoute: AppSettingsTrashRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppSettingsNoteTypesNoteTypeIdRoute: AppSettingsNoteTypesNoteTypeIdRoute,
+  AppSettingsNoteTypesIndexRoute: AppSettingsNoteTypesIndexRoute,
 }
 
 const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(

@@ -106,7 +106,11 @@ test('changing the type then typing does not open the conflict dialog', async ({
   await typeInEditor(page, 'sebelum ubah tipe');
 
   await page.getByRole('button', { name: 'Opsi halaman' }).click();
-  await page.getByRole('menuitemradio', { name: 'Runbook' }).click();
+  await page.getByRole('menuitem', { name: 'Ubah tipe catatan' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ubah tipe catatan' });
+  await dialog.locator('label', { hasText: 'Runbook' }).click();
+  await dialog.getByRole('button', { name: 'Ubah tipe' }).click();
+  await expect(dialog).toBeHidden();
   await expect(page.getByText(/Runbook/).first()).toBeVisible();
 
   await typeInEditor(page, ' sesudah');

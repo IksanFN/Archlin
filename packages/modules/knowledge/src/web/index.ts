@@ -32,6 +32,10 @@ export { KnowledgeClientError, KnowledgeClientProvider, useKnowledgeClient } fro
 export type { KnowledgeClient } from './client';
 export { ContextCard } from './context-card/context-card';
 export type { ContextCardLabels } from './context-card/context-card';
+export { ChangeTypeDialog } from './note-types/change-type-dialog';
+export type { NoteTypeLabels } from './note-types/labels';
+export { NoteTypeEditor } from './note-types/note-type-editor';
+export { NoteTypeList } from './note-types/note-type-list';
 export { editorExtensions } from './editor/extensions';
 export { ImageDialog, loadImageSize } from './editor/image-dialog';
 export type { EditorLabels } from './editor/labels';
