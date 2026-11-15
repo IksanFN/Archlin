@@ -1,6 +1,12 @@
 .kb-editor .ProseMirror {
   min-height: 12rem;
   outline: none;
+  /* The block handle sits in this gutter, so the pointer stays inside the editor on its way to the handle. */
+  padding-inline-start: var(--kb-handle-gutter);
+}
+
+.kb-editor[data-gutter='outside'] .ProseMirror {
+  margin-inline-start: calc(-1 * var(--kb-handle-gutter));
 }
 
 .kb-editor .ProseMirror p {

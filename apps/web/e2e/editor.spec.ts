@@ -189,6 +189,28 @@ test('a javascript link is refused', async ({ page }) => {
   await expect(editorOf(page).locator('a[href="https://contoh.id"]')).toHaveCount(1);
 });
 
+test('a pointer moving from the text reaches the block handle', async ({ page }) => {
+  await openEditor(page);
+  await page.keyboard.type('Paragraf yang dipindah dengan handle');
+  const text = await editorOf(page).locator('p').first().boundingBox();
+  const title = await page.getByRole('textbox', { name: 'Judul' }).boundingBox();
+  if (text === null || title === null) throw new Error('the paragraph and the title must be on screen');
+  // The handle sits in a gutter beside the text, so the text itself stays in line with the title.
+  expect(Math.abs(text.x - title.x)).toBeLessThanOrEqual(1);
+
+  await page.mouse.move(text.x + 40, text.y + text.height / 2, { steps: 4 });
+  const handle = page.getByRole('button', { name: 'Opsi blok' });
+  await expect(handle).toBeVisible();
+  const box = await handle.boundingBox();
+  if (box === null) throw new Error('the block handle must be on screen');
+  expect(box.x + box.width).toBeLessThanOrEqual(text.x);
+  // Stepping like a real pointer crosses every pixel between the text and the handle; a jump would skip the gap.
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 25 });
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(page.getByRole('menuitem', { name: /Pindah ke bawah/ })).toBeVisible();
+});
+
 test('the block handle does not cover the callout variant button', async ({ page }) => {
   await openEditor(page);
   await page.keyboard.type('/info');

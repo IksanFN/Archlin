@@ -70,6 +70,13 @@ test('the block handle follows the tapped block and moves it', async ({ page }) 
 
   const handle = page.getByRole('button', { name: 'Opsi blok' });
   await expect(handle).toBeVisible();
+  // The whole 24px target is on screen and beside the text, not under the thumb's view of the first characters.
+  const box = await handle.boundingBox();
+  const text = await editor.locator('p').first().boundingBox();
+  if (box === null || text === null) throw new Error('the block handle and the paragraph must be on screen');
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.width).toBeGreaterThanOrEqual(24);
+  expect(box.x + box.width).toBeLessThanOrEqual(text.x);
   await handle.tap();
   await page.getByRole('menuitem', { name: /Pindah ke bawah/ }).tap();
   await expect(editor.locator('p').first()).toHaveText('dua');
