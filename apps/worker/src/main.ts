@@ -4,12 +4,13 @@ import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
 import {
   createEventPublisher,
   createIdentityGateway,
+  createLinkService,
   createLogger,
   createTreeService,
   PLATFORM_EVENTS,
 } from '@archlin/platform/server';
 import { PgBoss } from 'pg-boss';
-import { migrationSets, moduleDrafts } from '../../../archlin.config';
+import { migrationSets, moduleDrafts, workerTasks } from '../../../archlin.config';
 import { loadWorkerEnv, WorkerConfigError } from './env';
 import { createPgBossQueue } from './pg-boss-queue';
 import { createWorkerRuntime } from './runtime';
@@ -39,11 +40,13 @@ async function main(): Promise<void> {
   const registry = buildRegistry(moduleDrafts({ ids: systemIds }), PLATFORM_EVENTS);
   const publisher = createEventPublisher({ registry, ids: systemIds, clock: systemClock });
   const tree = createTreeService({ registry, publisher, clock: systemClock, ids: systemIds });
+  const links = createLinkService({ registry, ids: systemIds, clock: systemClock });
   const gateway = createIdentityGateway(db);
+  const uow = createOwnerUnitOfWork(db);
 
   const runtime = createWorkerRuntime({
     db,
-    uow: createOwnerUnitOfWork(db),
+    uow,
     registry,
     queue: createPgBossQueue(boss),
     clock: systemClock,
@@ -51,6 +54,7 @@ async function main(): Promise<void> {
     expectedMigrations: qualifiedMigrationNames(migrationSets()),
     tree,
     listOwnerIds: () => gateway.listOwnerIds(),
+    tasks: workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links }),
   });
 
   let shuttingDown = false;

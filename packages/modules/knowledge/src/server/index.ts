@@ -19,3 +19,5 @@ export { createVersionService } from './version-service';
 export type { VersionService } from './version-service';
 export { insertVersion, latestSnapshotHash } from './version-store';
 export type { PageSnapshot } from './version-store';
+export { pruneVersions, VERSION_RETENTION_DAYS } from './retention';
+export { createKnowledgeWorkerTasks } from './worker-tasks';

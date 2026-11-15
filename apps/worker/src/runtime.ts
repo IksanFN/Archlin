@@ -2,7 +2,7 @@ import { readSchemaStatus } from '@archlin/db/migrations';
 import type { Clock, Logger, ModuleRegistry, OwnerUnitOfWork } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { createDeliveryConsumer, createOutboxRelay } from '@archlin/platform/server';
-import type { TreeService } from '@archlin/platform/server';
+import type { PeriodicTask, TreeService } from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
 import type { WorkerQueue } from './pg-boss-queue';
 
@@ -16,6 +16,7 @@ export interface WorkerRuntimeDeps {
   expectedMigrations: readonly string[];
   tree: TreeService;
   listOwnerIds: () => Promise<string[]>;
+  tasks: readonly PeriodicTask[];
   pollIntervalMs?: number;
   sweepIntervalMs?: number;
   schemaPollMs?: number;
@@ -32,7 +33,7 @@ export class SchemaMismatchError extends Error {
 }
 
 export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
-  const { db, uow, registry, queue, clock, logger, expectedMigrations, tree, listOwnerIds } = deps;
+  const { db, uow, registry, queue, clock, logger, expectedMigrations, tree, listOwnerIds, tasks } = deps;
   const pollIntervalMs = deps.pollIntervalMs ?? 1000;
   const sweepIntervalMs = deps.sweepIntervalMs ?? 30_000;
   const schemaPollMs = deps.schemaPollMs ?? 5000;
@@ -100,6 +101,18 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
     if (roots + count > 0) logger.info({ roots, count });
   }
 
+  // One failing owner is logged and skipped so the remaining owners still get their turn.
+  async function runForEveryOwner(task: PeriodicTask): Promise<void> {
+    for (const ownerId of await listOwnerIds()) {
+      if (stopping.signal.aborted) return;
+      try {
+        await task.run(issueOwnerScope(ownerId), stopping.signal);
+      } catch (err) {
+        logger.error({ err, task: task.id }, 'periodic task failed');
+      }
+    }
+  }
+
   return {
     async start() {
       await waitForSchema();
@@ -109,6 +122,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
         loop('relay', pollIntervalMs, () => relay.tick()),
         loop('sweep', sweepIntervalMs, () => relay.sweep()),
         loop('trash-purge', trashPurgeIntervalMs, purgeExpiredTrash),
+        ...tasks.map((task) => loop(task.id, task.intervalMs, () => runForEveryOwner(task))),
       );
       logger.info({}, 'worker started');
     },

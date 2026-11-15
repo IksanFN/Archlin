@@ -1,7 +1,7 @@
 import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
-import type { Clock, EventPublisher, OwnerScope } from '@archlin/kernel';
+import type { Clock, EventPublisher, Logger, OwnerScope } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { platformMigrations } from '@archlin/platform/migrations';
 import {
@@ -15,7 +15,7 @@ import {
   entityRestored,
   entityUpdated,
 } from '@archlin/platform/server';
-import type { TreeService } from '@archlin/platform/server';
+import type { PeriodicTask, TreeService } from '@archlin/platform/server';
 import { createTwoOwnerDatabase } from '@archlin/testing/db';
 import type { TestDbUrls } from '@archlin/testing/db';
 import { FakeClock, noopLogger } from '@archlin/testing/fakes';
@@ -124,6 +124,7 @@ beforeEach(async () => {
     schemaPollMs: 200,
     tree: defaultTree,
     listOwnerIds,
+    tasks: [],
   });
 });
 
@@ -217,6 +218,7 @@ describe('worker runtime', () => {
       tree,
       listOwnerIds,
       trashPurgeIntervalMs: 50,
+      tasks: [],
     });
     await runtime.start();
 
@@ -238,5 +240,43 @@ describe('worker runtime', () => {
         { timeout: 10_000, interval: 50 },
       )
       .toBe(false);
+  });
+
+  it('a periodic task runs for every owner and an error for one owner does not stop the others', async () => {
+    const seen: string[] = [];
+    const logs: Record<string, unknown>[] = [];
+    const capture: Logger = {
+      debug: () => undefined,
+      info: () => undefined,
+      warn: () => undefined,
+      error: (obj) => void logs.push({ ...obj, level: 50 }),
+      child: () => capture,
+    };
+    const task: PeriodicTask = {
+      id: 'test.probe',
+      intervalMs: 50,
+      run: async (owner) => {
+        seen.push(owner.ownerId);
+        if (owner.ownerId === ownerA) throw new Error('boom');
+      },
+    };
+    runtime = createWorkerRuntime({
+      db,
+      uow,
+      registry: buildRegistry([fixtureModule]),
+      queue: createPgBossQueue(boss),
+      clock: systemClock,
+      logger: capture,
+      expectedMigrations,
+      pollIntervalMs: 200,
+      sweepIntervalMs: 2000,
+      schemaPollMs: 200,
+      tree: defaultTree,
+      listOwnerIds,
+      tasks: [task],
+    });
+    await runtime.start();
+    await expect.poll(() => new Set(seen), { timeout: 10_000, interval: 50 }).toEqual(new Set([ownerA, ownerB]));
+    expect(logs.some((line) => line.task === 'test.probe' && line.level === 50)).toBe(true);
   });
 });
