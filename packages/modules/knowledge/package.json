@@ -35,6 +35,7 @@
     "@tiptap/react": "catalog:",
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/suggestion": "catalog:",
+    "diff-match-patch": "catalog:",
     "fractional-indexing": "catalog:",
     "highlight.js": "catalog:",
     "kysely": "catalog:",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@archlin/testing": "workspace:*",
+    "@types/diff-match-patch": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",
     "@types/react": "catalog:",

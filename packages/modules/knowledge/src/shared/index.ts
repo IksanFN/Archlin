@@ -88,3 +88,5 @@ export type {
   VersionPage,
   VersionSummary,
 } from './types';
+export { diffVersions, formatPropertyValue } from './version-diff';
+export type { DiffLine, FieldChange, FieldKey, VersionDiff, VersionSnapshot } from './version-diff';
