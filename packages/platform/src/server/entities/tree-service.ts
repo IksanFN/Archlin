@@ -5,7 +5,16 @@ import { generateKeyBetween } from 'fractional-indexing';
 import type { Selectable } from 'kysely';
 import { sql } from 'kysely';
 import { MAX_TREE_DEPTH, TRASH_RETENTION_DAYS } from '../../contracts';
-import type { Breadcrumb, EntityRef, MoveEntityInput, RecentEntity, RestoreOutcome, TrashRoot, TreeNode } from '../../contracts';
+import type {
+  Breadcrumb,
+  EntityRef,
+  MoveEntityInput,
+  Placement,
+  RecentEntity,
+  RestoreOutcome,
+  TrashRoot,
+  TreeNode,
+} from '../../contracts';
 import { entityCreated, entityDeleted, entityMoved, entityRestored, entityUpdated } from './events';
 import { lockOwnerTree } from './lock';
 import type { EntitiesDatabase, EntitiesTable, SpacesTable } from './schema';
@@ -34,7 +43,7 @@ export interface TreeService {
       parentId: string | null;
       title: string;
       icon: string | null;
-      placement: 'first' | 'last';
+      placement: Placement;
     },
   ): Promise<EntityRecord>;
   get(tx: ReadTx, entityId: string): Promise<EntityRecord>;
@@ -72,6 +81,7 @@ const spaceNotFound = () => new NotFoundError('space_not_found', 'Space tidak di
 const invalidParent = () => new ValidationError('invalid_parent', 'Induk tidak valid');
 const treeCycle = () => new ValidationError('tree_cycle', 'Pemindahan membentuk siklus');
 const treeTooDeep = () => new ValidationError('tree_too_deep', 'Tree terlalu dalam');
+const parentInTrash = () => new ConflictError('parent_in_trash', 'Halaman induknya ada di Trash');
 const invalidSibling = () => new ValidationError('invalid_sibling', 'Saudara tidak valid');
 const titleTooLong = () => new ValidationError('title_too_long', 'Judul terlalu panjang');
 
@@ -106,7 +116,8 @@ function requireTitle(title: string): string {
   return normalized;
 }
 
-function placementKey(siblings: readonly Sibling[], placement: 'first' | 'last'): string {
+function placementKey(siblings: readonly Sibling[], placement: Placement): string {
+  if (typeof placement === 'object') return moveKey(siblings, null, placement.afterId);
   if (placement === 'first') return generateKeyBetween(null, siblings[0]?.position ?? null);
   const last = siblings[siblings.length - 1];
   return generateKeyBetween(last?.position ?? null, null);
@@ -140,6 +151,9 @@ export function createTreeService(deps: {
   function requireTreeable(kind: string): void {
     if (registry.entityKind(kind)?.treeable !== true) throw unknownKind();
   }
+
+  // Non-treeable children (attachments) stay out of every tree listing and out of depth arithmetic.
+  const isTreeable = (column: string) => sql<boolean>`${sql.ref(column)} = any(${registry.treeableKinds}::text[])`;
 
   async function loadEntity(tx: ReadTx, entityId: string): Promise<EntityRow> {
     const row = await dbOf(tx).selectFrom('entities').selectAll().where('id', '=', entityId).executeTakeFirst();
@@ -215,7 +229,7 @@ export function createTreeService(deps: {
         select e.id, t.depth + 1
         from entities e
         inner join tree t on e.parent_id = t.id
-        where e.deleted_at is null and t.depth < ${MAX_TREE_DEPTH + 8}
+        where e.deleted_at is null and ${isTreeable('e.kind')} and t.depth < ${MAX_TREE_DEPTH + 8}
       )
       select coalesce(max(depth), 0)::int as height from tree
     `.execute(dbOf(tx));
@@ -233,7 +247,7 @@ export function createTreeService(deps: {
         select e.id, t.depth + 1
         from entities e
         inner join tree t on e.parent_id = t.id
-        where e.deleted_root_id = ${rootId} and t.depth < ${MAX_TREE_DEPTH + 8}
+        where e.deleted_root_id = ${rootId} and ${isTreeable('e.kind')} and t.depth < ${MAX_TREE_DEPTH + 8}
       )
       select coalesce(max(depth), 0)::int as height from tree
     `.execute(dbOf(tx));
@@ -331,13 +345,16 @@ export function createTreeService(deps: {
   return {
     async create(tx, input) {
       await lockOwnerTree(tx);
-      requireTreeable(input.kind);
+      const definition = registry.entityKind(input.kind);
+      if (definition === undefined) throw unknownKind();
       const space = await loadSpace(tx, input.spaceId);
       if (space.archived_at !== null) throw spaceArchived();
       const title = requireTitle(input.title);
       if (input.parentId !== null) {
         const parent = await requireParent(tx, input.parentId, input.spaceId);
-        if ((await nodeLevel(tx, parent.id)) + 1 > MAX_TREE_DEPTH) throw treeTooDeep();
+        if (definition.treeable && (await nodeLevel(tx, parent.id)) + 1 > MAX_TREE_DEPTH) throw treeTooDeep();
+      } else if (!definition.treeable) {
+        throw invalidParent();
       }
       const siblings = await aliveSiblings(tx, input.spaceId, input.parentId);
       const now = clock.now();
@@ -386,12 +403,14 @@ export function createTreeService(deps: {
           'e.title',
           'e.icon',
           'e.is_starred',
-          sql<boolean>`exists (select 1 from entities c where c.parent_id = e.id and c.deleted_at is null)`.as(
-            'has_children',
-          ),
+          sql<boolean>`exists (
+            select 1 from entities c
+            where c.parent_id = e.id and c.deleted_at is null and ${isTreeable('c.kind')}
+          )`.as('has_children'),
         ])
         .where('e.space_id', '=', input.spaceId)
         .where('e.deleted_at', 'is', null)
+        .where(isTreeable('e.kind'))
         .orderBy('e.position');
       query =
         input.parentId === null ? query.where('e.parent_id', 'is', null) : query.where('e.parent_id', '=', input.parentId);
@@ -518,11 +537,14 @@ export function createTreeService(deps: {
         current.parent_id === null
           ? undefined
           : await dbOf(tx).selectFrom('entities').selectAll().where('id', '=', current.parent_id).executeTakeFirst();
+      const originalParentAlive = originalParent !== undefined && originalParent.deleted_at === null;
+      // A non-treeable root has no place at the space root, so it needs its page back.
+      const rootIsTreeable = registry.entityKind(current.kind)?.treeable === true;
+      if (!rootIsTreeable && !originalParentAlive) throw parentInTrash();
       // The old parent may have moved deeper while the subtree sat in trash.
       const parentFits =
-        originalParent !== undefined &&
-        originalParent.deleted_at === null &&
-        (await nodeLevel(tx, originalParent.id)) + (await trashedHeight(tx, rootId)) <= MAX_TREE_DEPTH;
+        originalParentAlive &&
+        (!rootIsTreeable || (await nodeLevel(tx, originalParent.id)) + (await trashedHeight(tx, rootId)) <= MAX_TREE_DEPTH);
       const newParentId = parentFits ? current.parent_id : null;
       const spaceId = parentFits ? originalParent.space_id : current.space_id;
       const siblings = await aliveSiblings(tx, spaceId, newParentId);
@@ -593,6 +615,7 @@ export function createTreeService(deps: {
         space_name: string;
         parent_title: string | null;
         descendant_count: number;
+        attached_count: number;
         deleted_at: Date;
       }>`
         select
@@ -602,7 +625,10 @@ export function createTreeService(deps: {
           r.icon,
           s.name as space_name,
           p.title as parent_title,
-          (select count(*)::int from entities d where d.deleted_root_id = r.id and d.id <> r.id) as descendant_count,
+          (select count(*)::int from entities d
+            where d.deleted_root_id = r.id and d.id <> r.id and ${isTreeable('d.kind')}) as descendant_count,
+          (select count(*)::int from entities d
+            where d.deleted_root_id = r.id and d.id <> r.id and not ${isTreeable('d.kind')}) as attached_count,
           r.deleted_at
         from entities r
         inner join spaces s on s.id = r.space_id
@@ -618,6 +644,7 @@ export function createTreeService(deps: {
         spaceName: row.space_name,
         parentTitle: row.parent_title,
         descendantCount: row.descendant_count,
+        attachedCount: row.attached_count,
         deletedAt: row.deleted_at.toISOString(),
         purgeAt: new Date(row.deleted_at.getTime() + RETENTION_MS).toISOString(),
       }));
@@ -664,6 +691,7 @@ export function createTreeService(deps: {
         ])
         .where('entities.is_starred', '=', true)
         .where('entities.deleted_at', 'is', null)
+        .where(isTreeable('entities.kind'))
         .orderBy(sql`lower(entities.title)`)
         .execute();
       return rows.map((row) => ({
@@ -691,6 +719,7 @@ export function createTreeService(deps: {
         ])
         .where('entities.space_id', '=', spaceId)
         .where('entities.deleted_at', 'is', null)
+        .where(isTreeable('entities.kind'))
         .orderBy('entities.updated_at', 'desc')
         .limit(limit)
         .execute();
@@ -717,7 +746,7 @@ export function createTreeService(deps: {
           select e.id, t.root
           from entities e
           inner join tree t on e.parent_id = t.id
-          where e.deleted_at is null
+          where e.deleted_at is null and ${isTreeable('e.kind')}
         )
         select root, (count(*)::int - 1) as n from tree group by root
       `.execute(dbOf(tx));

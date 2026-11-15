@@ -20,6 +20,21 @@ describe('module registry', () => {
     expect(registry.entityKind('kb.page')).toMatchObject({ kind: 'kb.page', module: 'kb', treeable: true });
   });
 
+  it('treeableKinds lists only treeable kinds of every module', () => {
+    const registry = buildRegistry([
+      defineModule({
+        id: 'alpha',
+        entityKinds: {
+          page: { label: 'P', icon: 'x', treeable: true },
+          file: { label: 'F', icon: 'x', treeable: false },
+        },
+      }),
+      defineModule({ id: 'beta', entityKinds: { card: { label: 'C', icon: 'x', treeable: true } } }),
+    ]);
+    expect(registry.treeableKinds).toEqual(['alpha.page', 'beta.card']);
+    expect(Object.isFrozen(registry.treeableKinds)).toBe(true);
+  });
+
   it('returns undefined for unknown kinds, events and handlers', () => {
     const registry = buildRegistry([defineModule({ id: 'fixture' })]);
     expect(registry.entityKind('fixture.nothing')).toBeUndefined();

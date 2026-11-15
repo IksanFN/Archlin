@@ -4,6 +4,8 @@ import { emojiIconSchema } from './icons';
 export const MAX_TREE_DEPTH = 32;
 export const TRASH_RETENTION_DAYS = 30;
 
+export type Placement = 'first' | 'last' | { readonly afterId: string };
+
 export const moveEntityInputSchema = z
   .strictObject({
     entityId: z.uuid(),
@@ -71,6 +73,7 @@ export interface TrashRoot {
   spaceName: string;
   parentTitle: string | null;
   descendantCount: number;
+  attachedCount: number;
   deletedAt: string;
   purgeAt: string;
 }

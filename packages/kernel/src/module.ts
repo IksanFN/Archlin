@@ -42,6 +42,8 @@ export interface EventHandlerDefinition {
 
 export interface ModuleRegistry {
   readonly moduleIds: readonly string[];
+  // Full kind names that appear in the tree, in registration order.
+  readonly treeableKinds: readonly string[];
   entityKind(kind: string): EntityKindDefinition | undefined;
   event(type: string): EventDefinition<unknown> | undefined;
   syncHandlersFor(type: string): readonly EventHandlerDefinition[];
@@ -110,6 +112,7 @@ export function buildRegistry(
 ): ModuleRegistry {
   const moduleIds = new Set<string>();
   const kinds = new Map<string, EntityKindDefinition>();
+  const treeableKinds: string[] = [];
   const events = new Map<string, EventDefinition<unknown>>();
   const handlers = new Map<string, EventHandlerDefinition>();
   const syncByEvent = new Map<string, EventHandlerDefinition[]>();
@@ -142,6 +145,7 @@ export function buildRegistry(
       assertLocalName(local, 'entity kind', draft.id);
       const full = `${draft.id}.${local}`;
       kinds.set(full, Object.freeze({ ...kind, kind: full, module: draft.id }));
+      if (kind.treeable) treeableKinds.push(full);
     }
 
     for (const event of draft.events ?? []) {
@@ -186,6 +190,7 @@ export function buildRegistry(
 
   return Object.freeze({
     moduleIds: Object.freeze([...moduleIds]),
+    treeableKinds: Object.freeze(treeableKinds),
     entityKind: (kind: string) => kinds.get(kind),
     event: (type: string) => events.get(type),
     syncHandlersFor: (type: string) => syncByEvent.get(type) ?? NO_HANDLERS,

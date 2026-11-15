@@ -65,6 +65,7 @@ export type {
   EntityIdInput,
   EntityRef,
   MoveEntityInput,
+  Placement,
   RecentEntity,
   RestoreOutcome,
   SetIconInput,

@@ -32,7 +32,7 @@ const kinds: Migration = {
   async up(db) {
     await sql
       .raw(
-        `INSERT INTO public.entity_kinds (kind, module_id) VALUES ('fixture.item', 'fixture') ON CONFLICT (kind) DO NOTHING`,
+        `INSERT INTO public.entity_kinds (kind, module_id) VALUES ('fixture.item', 'fixture'), ('fixture.part', 'fixture') ON CONFLICT (kind) DO NOTHING`,
       )
       .execute(db);
   },
