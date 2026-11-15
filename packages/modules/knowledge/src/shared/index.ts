@@ -28,12 +28,14 @@ export {
 export type { FieldDefinition, FieldType, PropertyIssue } from './field-schema';
 export {
   REVIEW_MODES,
+  SNAPSHOT_REASONS,
   changeNoteTypeInputSchema,
   contextFieldsSchema,
   createNoteTypeInputSchema,
   createLinkedPageInputSchema,
   createPageInputSchema,
   deleteNoteTypeInputSchema,
+  listVersionsInputSchema,
   noteTypeIdInputSchema,
   noteTypeNameSchema,
   overwritePageInputSchema,
@@ -42,8 +44,10 @@ export {
   propertiesSchema,
   renamePageInputSchema,
   savePageInputSchema,
+  snapshotPageInputSchema,
   suggestPagesInputSchema,
   updateNoteTypeInputSchema,
+  versionInputSchema,
 } from './inputs';
 export type {
   ChangeNoteTypeInput,
@@ -52,6 +56,7 @@ export type {
   CreateNoteTypeInput,
   CreatePageInput,
   DeleteNoteTypeInput,
+  ListVersionsInput,
   NoteTypeIdInput,
   OverwritePageInput,
   PageIdInput,
@@ -59,10 +64,13 @@ export type {
   RenamePageInput,
   ReviewMode,
   SavePageInput,
+  SnapshotPageInput,
+  SnapshotReason,
   SuggestPagesInput,
   UpdateNoteTypeInput,
+  VersionInput,
 } from './inputs';
-export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES } from './limits';
+export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES, VERSION_PAGE_SIZE } from './limits';
 export { deriveTypeKey } from './type-key';
 export type {
   NoteTypeDetail,
@@ -72,4 +80,8 @@ export type {
   PageSuggestion,
   PageView,
   SaveResult,
+  SnapshotResult,
+  VersionDetail,
+  VersionPage,
+  VersionSummary,
 } from './types';

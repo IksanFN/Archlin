@@ -1,6 +1,6 @@
 import { sqlFor } from '@archlin/db/scoped';
-import { NotFoundError } from '@archlin/kernel';
-import type { Clock, ReadTx, WriteTx } from '@archlin/kernel';
+import { ConflictError, NotFoundError } from '@archlin/kernel';
+import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { EntitiesDatabase, LinkService, TreeService } from '@archlin/platform/server';
 import type { JSONContent } from '@tiptap/core';
 import { sql } from 'kysely';
@@ -11,6 +11,8 @@ import { documentText, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
 import { documentLinkRefs } from './links';
 import type { KnowledgeDatabase } from './schema';
+import { shouldSnapshot } from './snapshot-policy';
+import { insertVersion, latestSnapshotHash } from './version-store';
 
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
@@ -49,6 +51,22 @@ interface LockRow {
 
 function dbOf(tx: ReadTx) {
   return sqlFor<PageDatabase>(tx);
+}
+
+export function pageInTrash(): never {
+  throw new ConflictError('page_in_trash', 'Halaman ini ada di Trash');
+}
+
+export function pageConflict(currentVersion: number): never {
+  throw new ConflictError('page_conflict', 'Halaman ini berubah di tab atau perangkat lain', { currentVersion });
+}
+
+export function requireAlive(locked: LockedPage): void {
+  if (locked.deletedAt !== null) pageInTrash();
+}
+
+export function requireVersion(locked: LockedPage, expected: number): void {
+  if (expected !== locked.version) pageConflict(locked.version);
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
@@ -110,8 +128,8 @@ export function changedPageFields(locked: LockedPage, next: PageState): string[]
   return fields;
 }
 
-export function createPageWriter(deps: { tree: TreeService; links: LinkService; clock: Clock }) {
-  const { tree, links, clock } = deps;
+export function createPageWriter(deps: { tree: TreeService; links: LinkService; clock: Clock; ids: Ids }) {
+  const { tree, links, clock, ids } = deps;
 
   return {
     async lockPage(tx: WriteTx, entityId: string): Promise<LockedPage> {
@@ -150,6 +168,14 @@ export function createPageWriter(deps: { tree: TreeService; links: LinkService; 
     ): Promise<SaveResult> {
       const now = clock.now();
       const version = locked.version + 1;
+      const idle = shouldSnapshot({
+        reason: 'idle',
+        now,
+        lastSavedAt: new Date(locked.lastSavedAt),
+        currentHash: locked.contentHash,
+        lastSnapshotHash: await latestSnapshotHash(tx, locked.entityId),
+      });
+      if (idle) await insertVersion(tx, { ids, clock }, { snapshot: locked, reason: 'idle', label: null });
       const doc = parseDocument(next.content);
       const contentText = documentText(doc);
       const contentHash = pageStateHash(next);

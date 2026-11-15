@@ -3,3 +3,5 @@ export const PAGE_SAVE_MAX_BYTES = 5_242_880;
 
 // Leaves room for the server function envelope so the client refuses before the server has to.
 export const PAGE_SAVE_CLIENT_MAX_BYTES = 5_000_000;
+
+export const VERSION_PAGE_SIZE = 30;

@@ -96,7 +96,7 @@ export function createNoteTypeService(deps: {
   ids: Ids;
 }): NoteTypeService {
   const { tree, links, publisher, clock, ids } = deps;
-  const writer = createPageWriter({ tree, links, clock });
+  const writer = createPageWriter({ tree, links, clock, ids });
 
   async function pageCounts(tx: ReadTx, typeIds: readonly string[]): Promise<Map<string, PageCount>> {
     const counts = new Map<string, PageCount>(typeIds.map((id) => [id, { alive: 0, trashed: 0 }]));

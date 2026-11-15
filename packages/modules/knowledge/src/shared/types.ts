@@ -1,7 +1,7 @@
 import type { Breadcrumb, InboundLink, OutboundLink, TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
 import type { FieldDefinition } from './field-schema';
-import type { ContextFields, ReviewMode, SavePageInput } from './inputs';
+import type { ContextFields, ReviewMode, SavePageInput, SnapshotReason } from './inputs';
 
 export interface NoteTypeRef {
   id: string;
@@ -63,4 +63,30 @@ export interface PageScreen {
   breadcrumbs: Breadcrumb[];
   linkTargets: OutboundLink[];
   backlinks: InboundLink[];
+}
+
+export type SnapshotResult =
+  | { status: 'created'; versionId: string }
+  | { status: 'unchanged'; versionId: string | null };
+
+export interface VersionSummary {
+  id: string;
+  version: number;
+  reason: SnapshotReason;
+  label: string | null;
+  createdAt: string;
+}
+
+export interface VersionPage {
+  items: VersionSummary[];
+  nextCursor: string | null;
+}
+
+export interface VersionDetail extends VersionSummary {
+  title: string;
+  content: JSONContent;
+  contentText: string;
+  context: ContextFields;
+  properties: Record<string, unknown>;
+  noteType: { id: string; name: string | null };
 }

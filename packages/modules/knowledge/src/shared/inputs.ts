@@ -101,3 +101,21 @@ export type DeleteNoteTypeInput = z.infer<typeof deleteNoteTypeInputSchema>;
 
 export const noteTypeIdInputSchema = z.strictObject({ id: z.uuid() });
 export type NoteTypeIdInput = z.infer<typeof noteTypeIdInputSchema>;
+
+export const SNAPSHOT_REASONS = ['idle', 'leave', 'manual', 'pre_restore', 'conflict', 'import'] as const;
+export type SnapshotReason = (typeof SNAPSHOT_REASONS)[number];
+
+export const snapshotPageInputSchema = z
+  .strictObject({
+    entityId: z.uuid(),
+    reason: z.enum(['leave', 'manual']),
+    label: z.string().trim().min(1).max(80).nullable(),
+  })
+  .refine((value) => value.reason === 'manual' || value.label === null, { path: ['label'] });
+export type SnapshotPageInput = z.infer<typeof snapshotPageInputSchema>;
+
+export const listVersionsInputSchema = z.strictObject({ entityId: z.uuid(), before: z.uuid().nullable() });
+export type ListVersionsInput = z.infer<typeof listVersionsInputSchema>;
+
+export const versionInputSchema = z.strictObject({ entityId: z.uuid(), versionId: z.uuid() });
+export type VersionInput = z.infer<typeof versionInputSchema>;

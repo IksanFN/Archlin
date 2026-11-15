@@ -1,9 +1,8 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
-import { ConflictError, NotFoundError, ValidationError } from '@archlin/kernel';
+import { NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { normalizeTitle } from '@archlin/platform/server';
-import type { JSONContent } from '@tiptap/core';
 import { sql } from 'kysely';
 import { fieldSchemaSchema, legacyKeys, missingRequired, validateProperties } from '../shared/field-schema';
 import type { FieldDefinition } from '../shared/field-schema';
@@ -30,9 +29,13 @@ import {
   contextOf,
   createPageWriter,
   jsonbValue,
-  type LockedPage,
+  pageConflict,
+  pageInTrash,
+  requireAlive,
+  requireVersion,
 } from './page-writer';
 import type { KnowledgeDatabase } from './schema';
+import { insertVersion } from './version-store';
 
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
@@ -102,28 +105,12 @@ function noteTypeNotFound(): never {
   throw new NotFoundError('note_type_not_found', 'Tipe catatan tidak ditemukan');
 }
 
-function pageInTrash(): never {
-  throw new ConflictError('page_in_trash', 'Halaman ini ada di Trash');
-}
-
-function pageConflict(currentVersion: number): never {
-  throw new ConflictError('page_conflict', 'Halaman ini berubah di tab atau perangkat lain', { currentVersion });
-}
-
 function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
 }
 
 function isBlank(value: string | null): boolean {
   return value === null || value.trim() === '';
-}
-
-function requireAlive(locked: LockedPage): void {
-  if (locked.deletedAt !== null) pageInTrash();
-}
-
-function requireVersion(locked: LockedPage, expected: number): void {
-  if (expected !== locked.version) pageConflict(locked.version);
 }
 
 function asProperties(value: SavePageInput['properties']): Record<string, unknown> {
@@ -154,7 +141,7 @@ export function createPageService(deps: {
   ids: Ids;
 }): PageService {
   const { tree, tags, links, clock, ids } = deps;
-  const writer = createPageWriter({ tree, links, clock });
+  const writer = createPageWriter({ tree, links, clock, ids });
 
   async function loadNoteType(tx: ReadTx, noteTypeId: string): Promise<NoteTypeRow> {
     const row = await dbOf(tx)
@@ -172,48 +159,6 @@ export function createPageService(deps: {
       fieldSchema: parseFields(row.field_schema),
       schemaVersion: row.schema_version,
     };
-  }
-
-  async function insertConflictVersion(
-    tx: WriteTx,
-    input: {
-      entityId: string;
-      version: number;
-      title: string;
-      content: JSONContent;
-      contentText: string;
-      contentHash: string;
-      noteTypeId: string;
-      noteTypeSchemaVersion: number;
-      properties: Record<string, unknown>;
-      context: ContextFields;
-    },
-  ): Promise<string> {
-    const versionId = ids.uuidv7();
-    await dbOf(tx)
-      .insertInto('kb_page_versions')
-      .values({
-        id: versionId,
-        owner_id: ownerOf(tx),
-        entity_id: input.entityId,
-        version: input.version,
-        title: input.title,
-        content: jsonbValue(input.content),
-        content_text: input.contentText,
-        content_hash: input.contentHash,
-        note_type_id: input.noteTypeId,
-        note_type_schema_version: input.noteTypeSchemaVersion,
-        properties: jsonbValue(input.properties),
-        summary: input.context.summary,
-        when_to_use: input.context.whenToUse,
-        source: input.context.source,
-        aliases: [...input.context.aliases],
-        reason: 'conflict',
-        label: null,
-        created_at: clock.now(),
-      })
-      .execute();
-    return versionId;
   }
 
   async function getPage(tx: ReadTx, entityId: string): Promise<PageView> {
@@ -489,18 +434,25 @@ export function createPageService(deps: {
         properties,
         noteTypeId: locked.noteTypeId,
       };
-      const versionId = await insertConflictVersion(tx, {
-        entityId: locked.entityId,
-        version: input.baseVersion,
-        title,
-        content,
-        contentText: documentText(parseDocument(content)),
-        contentHash: pageStateHash(next),
-        noteTypeId: locked.noteTypeId,
-        noteTypeSchemaVersion: noteType.schemaVersion,
-        properties,
-        context: input.context,
-      });
+      const versionId = await insertVersion(
+        tx,
+        { ids, clock },
+        {
+          snapshot: {
+            entityId: locked.entityId,
+            version: input.baseVersion,
+            title,
+            content,
+            contentText: documentText(parseDocument(content)),
+            contentHash: pageStateHash(next),
+            noteTypeId: locked.noteTypeId,
+            properties,
+            context: input.context,
+          },
+          reason: 'conflict',
+          label: null,
+        },
+      );
       return { versionId };
     },
 
@@ -513,18 +465,7 @@ export function createPageService(deps: {
       const content = normalizeDocument(input.content);
       const properties = asProperties(input.properties);
       requireValidProperties(properties, locked.properties, noteType.fieldSchema);
-      await insertConflictVersion(tx, {
-        entityId: locked.entityId,
-        version: locked.version,
-        title: locked.title,
-        content: locked.content,
-        contentText: locked.contentText,
-        contentHash: locked.contentHash,
-        noteTypeId: locked.noteTypeId,
-        noteTypeSchemaVersion: noteType.schemaVersion,
-        properties: locked.properties,
-        context: locked.context,
-      });
+      await insertVersion(tx, { ids, clock }, { snapshot: locked, reason: 'conflict', label: null });
       const next: PageState = {
         title,
         content,

@@ -1,7 +1,7 @@
 import type { ColumnType, Generated } from 'kysely';
+import type { SnapshotReason } from '../shared/inputs';
 
 export type ReviewMode = 'none' | 'daily' | 'spaced';
-export type SnapshotReason = 'idle' | 'leave' | 'manual' | 'pre_restore' | 'conflict' | 'import';
 
 export interface KbNoteTypesTable {
   id: string;
