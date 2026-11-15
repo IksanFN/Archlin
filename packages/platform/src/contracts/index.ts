@@ -75,3 +75,5 @@ export type {
   TreeChildrenInput,
   TreeNode,
 } from './tree';
+export { LINK_SNIPPET_MAX, LINK_TITLE_MAX, linkKey } from './links';
+export type { InboundLink, LinkKind, LinkRef, LinkTarget, OutboundLink } from './links';
