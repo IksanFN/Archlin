@@ -23,7 +23,9 @@ const ROOT_ROW = 'root';
 // Arrow keys walk the rendered rows; selecting and expanding reuse the click handlers so the keyboard cannot drift from the pointer.
 function onPickerKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
   const rows = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="treeitem"]'));
-  const index = rows.findIndex((row) => row === document.activeElement);
+  // A clicked chevron keeps focus inside its row, so the row is found from the event, not from the focused element.
+  const origin = event.target instanceof Element ? event.target.closest<HTMLElement>('[role="treeitem"]') : null;
+  const index = origin === null ? -1 : rows.indexOf(origin);
   const row = rows[index];
   if (row === undefined) return;
   const level = Number(row.getAttribute('aria-level'));
@@ -35,8 +37,10 @@ function onPickerKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
   else if (event.key === 'End') next = rows.at(-1);
   else if (event.key === 'Enter' || event.key === ' ') row.click();
   else if (event.key === 'ArrowRight') {
+    const child = rows[index + 1];
     if (expanded === 'false') row.querySelector('button')?.click();
-    else if (expanded === 'true') next = rows[index + 1];
+    // Until the children have loaded, the next row is a sibling.
+    else if (expanded === 'true' && Number(child?.getAttribute('aria-level')) === level + 1) next = child;
   } else if (event.key === 'ArrowLeft') {
     if (expanded === 'true') row.querySelector('button')?.click();
     else next = rows.slice(0, index).reverse().find((candidate) => Number(candidate.getAttribute('aria-level')) === level - 1);

@@ -4,6 +4,8 @@ import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
 import { createPage, createSpace, sidebarTree, treeRow } from './helpers/knowledge';
 
+const TRASH_BANNER = 'Halaman ini ada di Trash. Isinya hanya bisa dibaca.';
+
 test.beforeEach(async () => {
   await resetAccount();
 });
@@ -110,7 +112,13 @@ test('moves a page with only the keyboard', async ({ page }) => {
 
   await page.keyboard.press('Shift+F10');
   const moveItem = page.getByRole('menuitem', { name: 'Pindahkan ke…' });
-  await moveItem.focus();
+  await expect(moveItem).toBeVisible();
+  for (let presses = 0; presses < 8 && !(await moveItem.evaluate((node) => node === document.activeElement)); presses += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  await expect(moveItem).toBeFocused();
+  // An open menu hides the rest of the page from the accessibility tree, so the row is found by CSS.
+  await expect(page.locator('[role="treeitem"]').filter({ hasText: 'Beta' }).last()).toHaveAttribute('tabindex', '0');
   await page.keyboard.press('Enter');
 
   const dialog = page.getByRole('dialog', { name: /Pindahkan/ });
@@ -180,6 +188,111 @@ test('undo in the trash toast restores the page', async ({ page }) => {
   await page.getByRole('button', { name: 'Batalkan' }).click();
   await expect(treeRow(page, 'Sementara')).toBeVisible();
   await expect(page.getByText('Halaman ini ada di Trash. Isinya hanya bisa dibaca.')).toBeHidden();
+});
+
+test('keys typed in a row icon field stay in the field', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Induk' });
+  const child = await createPage(page, { space: slug, parentTitle: 'Induk', type: 'Quick Note', title: 'Anak' });
+
+  await treeRow(page, 'Induk').getByRole('button', { name: 'Opsi', exact: true }).first().click();
+  await page.getByRole('menuitem', { name: 'Ubah ikon' }).click();
+  const field = page.getByLabel('Ketik atau tempel satu emoji');
+  await field.fill('ab');
+  await field.press('ArrowLeft');
+  await field.press('Delete');
+  await expect(field).toHaveValue('a');
+
+  await expect(treeRow(page, 'Induk')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText(TRASH_BANNER)).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(child.url));
+});
+
+test('Enter on a row options button opens its menu and stays on the page', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Induk' });
+  const current = await createPage(page, { space: slug, type: 'Quick Note', title: 'Prosedur' });
+
+  await treeRow(page, 'Prosedur').focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(treeRow(page, 'Induk')).toBeFocused();
+  await treeRow(page, 'Induk').getByRole('button', { name: 'Opsi', exact: true }).first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem', { name: 'Ganti nama' })).toBeVisible();
+
+  // Opening the other row would load its page; once the network is quiet, nothing was opened.
+  await page.waitForLoadState('networkidle');
+  await expect(page).toHaveURL(new RegExp(current.url));
+});
+
+test('Delete trashes the row that has focus, not the one the keyboard left', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Alpha' });
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Beta' });
+
+  await treeRow(page, 'Beta').focus();
+  await page.keyboard.press('ArrowUp');
+  await expect(treeRow(page, 'Alpha')).toBeFocused();
+  await treeRow(page, 'Beta').getByRole('link', { name: 'Beta', exact: true }).click();
+  await page.keyboard.press('Delete');
+
+  await expect(page.getByText('“Beta” dipindahkan ke Trash.')).toBeVisible();
+  await expect(treeRow(page, 'Alpha')).toBeVisible();
+});
+
+test('the move picker keeps the arrow keys after a chevron click', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Induk' });
+  await createPage(page, { space: slug, parentTitle: 'Induk', type: 'Quick Note', title: 'Anak' });
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Lain' });
+
+  await openMenuItem(page, 'Pindahkan ke…');
+  const picker = page.getByRole('dialog', { name: /Pindahkan/ }).getByRole('tree');
+  const parent = picker.getByRole('treeitem', { name: 'Induk' });
+  await parent.locator('button').click();
+  await expect(parent).toHaveAttribute('aria-expanded', 'true');
+  await expect(picker.getByRole('treeitem', { name: 'Anak' })).toBeVisible();
+
+  await page.keyboard.press('ArrowDown');
+  await expect(picker.getByRole('treeitem', { name: 'Anak' })).toBeFocused();
+});
+
+test('ArrowRight in the move picker waits for the children to load', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Induk' });
+  await createPage(page, { space: slug, parentTitle: 'Induk', type: 'Quick Note', title: 'Anak' });
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Lain' });
+
+  await openMenuItem(page, 'Pindahkan ke…');
+  const picker = page.getByRole('dialog', { name: /Pindahkan/ }).getByRole('tree');
+  const parent = picker.getByRole('treeitem', { name: 'Induk' });
+  await parent.click();
+  await expect(parent).toBeFocused();
+
+  // The children of Induk arrive late, so the row after it is still its sibling when the second ArrowRight lands.
+  let release = (): void => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/_serverFn/**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.keyboard.press('ArrowRight');
+  await expect(parent).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('ArrowRight');
+  await expect(parent).toBeFocused();
+
+  release();
+  await expect(picker.getByRole('treeitem', { name: 'Anak' })).toBeVisible();
+  await page.unrouteAll({ behavior: 'wait' });
+  await page.keyboard.press('ArrowRight');
+  await expect(picker.getByRole('treeitem', { name: 'Anak' })).toBeFocused();
 });
 
 test('a page cannot be moved into its own child', async ({ page, context }) => {

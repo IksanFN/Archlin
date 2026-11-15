@@ -14,7 +14,7 @@ import type { MoveEntityInput, SpaceSummary } from '@archlin/platform/contracts'
 import { DotsThreeIcon, PlusIcon } from '@phosphor-icons/react/ssr';
 import { useLocation, useRouter } from '@tanstack/react-router';
 import { createContext, use, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import type { KeyboardEvent } from 'react';
+import type { FocusEvent, KeyboardEvent, SyntheticEvent } from 'react';
 import { ArchivedSpacesDialog } from '~/components/archived-spaces-dialog';
 import { MoveDialog, type MoveEntity } from '~/components/move-dialog';
 import { SpaceDialog } from '~/components/space-dialog';
@@ -92,6 +92,14 @@ function selectionFromPath(pathname: string, spaces: readonly SpaceSummary[]): {
   if (parts[2] === 'p' && parts[3] !== undefined) return { selectedId: parts[3], spaceSlug: slug, entityId: parts[3] };
   const space = spaces.find((row) => row.slug === slug);
   return { selectedId: space?.id ?? null, spaceSlug: slug, entityId: null };
+}
+
+// The row an event belongs to. Row action buttons and the menus React bubbles out of their portals keep their own keys.
+function rowOfEvent(event: SyntheticEvent<HTMLDivElement>): HTMLElement | null {
+  const target = event.target;
+  if (!(target instanceof Element) || !event.currentTarget.contains(target)) return null;
+  if (target.closest('[data-slot="tree-actions"]') !== null) return null;
+  return target.closest<HTMLElement>('[role="treeitem"]');
 }
 
 export function SpaceTree() {
@@ -352,12 +360,17 @@ export function SpaceTree() {
     window.requestAnimationFrame(() => document.getElementById(id)?.focus());
   }
 
+  function onTreeFocus(event: FocusEvent<HTMLDivElement>): void {
+    const row = rowOfEvent(event);
+    if (row !== null && row.id !== focusedId) setFocusedId(row.id);
+  }
+
   function onTreeKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     if (renamingId !== null) return;
+    const row = rowOfEvent(event);
+    if (row === null) return;
     const rows = visibleRows();
-    const current = focusedId ?? selectedId ?? rows[0]?.id;
-    if (current === undefined) return;
-    const action = treeKeyAction(rows, current, event.key, { shift: event.shiftKey });
+    const action = treeKeyAction(rows, row.id, event.key, { shift: event.shiftKey });
     if (action === null) return;
     event.preventDefault();
     if (action.type === 'focus') focusRow(action.id);
@@ -436,7 +449,7 @@ export function SpaceTree() {
           </Button>
         </div>
       ) : (
-        <div role="tree" aria-label={messages.tree.label} className="flex flex-col" onKeyDown={onTreeKeyDown}>
+        <div role="tree" aria-label={messages.tree.label} className="flex flex-col" onKeyDown={onTreeKeyDown} onFocus={onTreeFocus}>
           {spaces.map((space, index) => (
             <SpaceNode
               key={space.id}
