@@ -19,6 +19,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { knowledgeMigrations } from '../migrations';
 import { emptyDocument } from '../shared/document-schema';
+import type { FieldDefinition } from '../shared/field-schema';
 import type { SavePageInput } from '../shared/inputs';
 import type { SnapshotResult } from '../shared/types';
 import { createKnowledgeApi } from './api';
@@ -136,9 +137,9 @@ const list = (page: TestPage, before: string | null = null) =>
 const get = (page: TestPage, versionId: string) =>
   read((tx) => api.versions.get(tx, { entityId: page.entityId, versionId }));
 
-async function createNoteType(name: string) {
+async function createNoteType(name: string, fieldSchema: FieldDefinition[] = []) {
   return write((tx) =>
-    api.noteTypes.create(tx, { name, icon: null, fieldSchema: [], template: emptyDocument(), defaultReviewMode: 'none' }),
+    api.noteTypes.create(tx, { name, icon: null, fieldSchema, template: emptyDocument(), defaultReviewMode: 'none' }),
   );
 }
 
@@ -253,5 +254,150 @@ describe('VersionService list and get', () => {
     await expect(
       uow.read(issueOwnerScope(ownerB), (tx) => api.versions.get(tx, { entityId: a.entityId, versionId })),
     ).rejects.toMatchObject({ code: 'version_not_found' });
+  });
+});
+
+const pageVersionOf = async (page: TestPage) =>
+  (await read((tx) => api.pages.getPage(tx, page.entityId))).version;
+
+const screenOf = (page: TestPage) =>
+  write((tx) => api.pages.screen(tx, { entityId: page.entityId, recordView: false }));
+
+const restore = (page: TestPage, versionId: string, baseVersion: number) =>
+  write((tx) => api.versions.restore(tx, { entityId: page.entityId, versionId, baseVersion }));
+
+async function saveProperties(page: TestPage, properties: SavePageInput['properties']) {
+  const view = await read((tx) => api.pages.getPage(tx, page.entityId));
+  await write((tx) =>
+    api.pages.savePage(tx, {
+      entityId: page.entityId,
+      baseVersion: view.version,
+      title: view.title,
+      content: view.content,
+      context: view.context,
+      properties,
+    }),
+  );
+}
+
+async function updateFieldOptions(noteTypeId: string, key: string, options: string[]) {
+  const current = await read((tx) => api.noteTypes.get(tx, noteTypeId));
+  await write((tx) =>
+    api.noteTypes.update(tx, {
+      id: noteTypeId,
+      baseRevision: current.revision,
+      fieldSchema: current.fieldSchema.map((field) => (field.key === key ? { ...field, options } : field)),
+    }),
+  );
+}
+
+const docWith = (...nodes: SavePageInput['content'][]) => ({
+  type: 'doc',
+  content: [{ type: 'paragraph', content: nodes }],
+});
+const wiki = (entityId: string | null, title: string) => ({ type: 'wikiLink', attrs: { entityId, title } });
+
+describe('VersionService restore', () => {
+  it('restoring a version writes its content as a new page version and snapshots the current state first', async () => {
+    const page = await createPageTitled('Runbook');
+    await save(page, docText('versi lama'));
+    const old = await snapshot(page, 'manual', 'lama');
+    await save(page, docText('versi baru'));
+    const before = await pageVersionOf(page);
+    const result = await restore(page, createdId(old), before);
+    expect(result.version).toBe(before + 1);
+    expect((await screenOf(page)).page.content).toEqual(docText('versi lama'));
+    const reasons = (await list(page)).items.map((v) => v.reason);
+    expect(reasons).toEqual(['pre_restore', 'manual']);
+    expect(result.preRestoreVersionId).not.toBeNull();
+    expect((await get(page, result.preRestoreVersionId ?? '')).contentText).toBe('versi baru');
+  });
+
+  it('restore with a stale base version fails with page_conflict and changes nothing', async () => {
+    const page = await createPageTitled('Runbook');
+    const old = await snapshot(page, 'manual', null);
+    await save(page, docText('perubahan'));
+    const current = await pageVersionOf(page);
+    await expect(restore(page, createdId(old), current - 1)).rejects.toMatchObject({
+      code: 'page_conflict',
+      details: { currentVersion: current },
+    });
+    expect(await pageVersionOf(page)).toBe(current);
+    expect((await list(page)).items.map((v) => v.reason)).toEqual(['manual']);
+  });
+
+  it('restore of a page in trash fails with page_in_trash', async () => {
+    const page = await createPageTitled('Runbook');
+    const old = await snapshot(page, 'manual', null);
+    const current = await pageVersionOf(page);
+    await write((tx) => tree.trash(tx, page.entityId));
+    await expect(restore(page, createdId(old), current)).rejects.toMatchObject({ code: 'page_in_trash' });
+  });
+
+  it('restore keeps a legacy property value and returns to the version type when it still exists', async () => {
+    const runbookTypeId = await noteTypeIdByKey('runbook');
+    const page = await createPageTitled('Runbook', { noteTypeId: runbookTypeId });
+    await saveProperties(page, { risk: 'sedang' });
+    const old = await snapshot(page, 'manual', null);
+    await changeType(page, quickNoteTypeId);
+    await updateFieldOptions(runbookTypeId, 'risk', ['rendah', 'tinggi']);
+    await restore(page, createdId(old), await pageVersionOf(page));
+    const view = (await screenOf(page)).page;
+    expect(view.noteType.id).toBe(runbookTypeId);
+    expect(view.properties).toMatchObject({ risk: 'sedang' });
+  });
+
+  it('restore keeps the current note type when the version type was deleted', async () => {
+    const temp = await createNoteType('Sementara', [{ key: 'pihak', label: 'Pihak', type: 'text' }]);
+    const page = await createPageTitled('Kontrak', { noteTypeId: temp.id });
+    await saveProperties(page, { pihak: 'PT Sinar Data' });
+    const old = await snapshot(page, 'manual', null);
+    await changeType(page, quickNoteTypeId);
+    await deleteNoteType(temp.id);
+    await restore(page, createdId(old), await pageVersionOf(page));
+    const view = (await screenOf(page)).page;
+    expect(view.noteType.id).toBe(quickNoteTypeId);
+    // Not a field of the current type, so it is kept hidden rather than shown (spec 10.2).
+    expect(view.properties).toMatchObject({ pihak: 'PT Sinar Data' });
+  });
+
+  it('restore of a version from another page fails with version_not_found', async () => {
+    const a = await createPageTitled('A');
+    const b = await createPageTitled('B');
+    const old = await snapshot(a, 'manual', null);
+    await expect(restore(b, createdId(old), await pageVersionOf(b))).rejects.toMatchObject({
+      code: 'version_not_found',
+    });
+  });
+
+  it('restore re-syncs links from the restored content', async () => {
+    const target = await createPageTitled('Deploy');
+    const page = await createPageTitled('Indeks');
+    await save(page, docWith(wiki(target.entityId, 'Deploy')));
+    const old = await snapshot(page, 'manual', null);
+    await save(page, docText('tanpa link'));
+    await restore(page, createdId(old), await pageVersionOf(page));
+    expect((await screenOf(page)).linkTargets.map((l) => l.target?.id)).toEqual([target.entityId]);
+  });
+
+  it('restore adds no pre_restore snapshot when the current state is already the latest snapshot', async () => {
+    const page = await createPageTitled('Runbook');
+    const old = await snapshot(page, 'manual', null);
+    await save(page, docText('b'));
+    await snapshot(page, 'manual', null);
+    const result = await restore(page, createdId(old), await pageVersionOf(page));
+    expect(result.preRestoreVersionId).toBeNull();
+    expect((await list(page)).items.map((v) => v.reason)).toEqual(['manual', 'manual']);
+  });
+
+  it('restoring the same version again snapshots the state it replaced, which differs from the latest snapshot', async () => {
+    const page = await createPageTitled('Runbook');
+    const old = await snapshot(page, 'manual', null);
+    await save(page, docText('b'));
+    await restore(page, createdId(old), await pageVersionOf(page));
+    const second = await restore(page, createdId(old), await pageVersionOf(page));
+    const replaced = await get(page, second.preRestoreVersionId ?? '');
+    expect(replaced.reason).toBe('pre_restore');
+    expect(replaced.contentText).toBe((await get(page, createdId(old))).contentText);
   });
 });

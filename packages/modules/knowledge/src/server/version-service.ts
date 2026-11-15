@@ -4,9 +4,19 @@ import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { LinkService, TreeService } from '@archlin/platform/server';
 import { sql } from 'kysely';
 import { VERSION_PAGE_SIZE } from '../shared/limits';
-import type { ListVersionsInput, SnapshotPageInput, VersionInput } from '../shared/inputs';
-import type { SnapshotResult, VersionDetail, VersionPage } from '../shared/types';
-import { asContent, asRecord, contextOf, createPageWriter, requireAlive } from './page-writer';
+import type { ListVersionsInput, RestoreVersionInput, SnapshotPageInput, VersionInput } from '../shared/inputs';
+import type { RestoreVersionResult, SnapshotResult, VersionDetail, VersionPage } from '../shared/types';
+import { normalizeDocument } from './document';
+import type { PageState } from './hash';
+import {
+  asContent,
+  asRecord,
+  changedPageFields,
+  contextOf,
+  createPageWriter,
+  requireAlive,
+  requireVersion,
+} from './page-writer';
 import type { KnowledgeDatabase } from './schema';
 import { shouldSnapshot } from './snapshot-policy';
 import { insertVersion, latestVersion } from './version-store';
@@ -15,6 +25,7 @@ export interface VersionService {
   snapshot(tx: WriteTx, input: SnapshotPageInput): Promise<SnapshotResult>;
   list(tx: ReadTx, input: ListVersionsInput): Promise<VersionPage>;
   get(tx: ReadTx, input: VersionInput): Promise<VersionDetail>;
+  restore(tx: WriteTx, input: RestoreVersionInput): Promise<RestoreVersionResult>;
 }
 
 function dbOf(tx: ReadTx) {
@@ -128,6 +139,47 @@ export function createVersionService(deps: {
         properties: asRecord(row.properties),
         noteType: { id: row.note_type_id, name: row.note_type_name },
       };
+    },
+
+    async restore(tx, input) {
+      const locked = await writer.lockPage(tx, input.entityId);
+      requireAlive(locked);
+      requireVersion(locked, input.baseVersion);
+      const version = await dbOf(tx)
+        .selectFrom('kb_page_versions')
+        .selectAll()
+        .where('id', '=', input.versionId)
+        .where('entity_id', '=', input.entityId)
+        .executeTakeFirst();
+      if (!version) versionNotFound();
+
+      const latest = await latestVersion(tx, input.entityId);
+      const keepCurrent = shouldSnapshot({
+        reason: 'pre_restore',
+        now: clock.now(),
+        lastSavedAt: new Date(locked.lastSavedAt),
+        currentHash: locked.contentHash,
+        lastSnapshotHash: latest?.contentHash ?? null,
+      });
+      const preRestoreVersionId = keepCurrent
+        ? await insertVersion(tx, { ids, clock }, { snapshot: locked, reason: 'pre_restore', label: null })
+        : null;
+
+      // A deleted note type cannot come back, so the page keeps its current one and the old values stay as hidden properties.
+      const typeStillExists = await dbOf(tx)
+        .selectFrom('kb_note_types')
+        .select('id')
+        .where('id', '=', version.note_type_id)
+        .executeTakeFirst();
+      const next: PageState = {
+        title: version.title,
+        content: normalizeDocument(version.content),
+        context: contextOf(version),
+        properties: asRecord(version.properties),
+        noteTypeId: typeStillExists ? version.note_type_id : locked.noteTypeId,
+      };
+      const saved = await writer.writePage(tx, locked, next, changedPageFields(locked, next));
+      return { version: saved.version, savedAt: saved.savedAt, preRestoreVersionId };
     },
   };
 }

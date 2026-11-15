@@ -90,3 +90,9 @@ export interface VersionDetail extends VersionSummary {
   properties: Record<string, unknown>;
   noteType: { id: string; name: string | null };
 }
+
+export interface RestoreVersionResult {
+  version: number;
+  savedAt: string;
+  preRestoreVersionId: string | null;
+}

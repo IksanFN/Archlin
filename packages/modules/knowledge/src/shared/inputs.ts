@@ -119,3 +119,10 @@ export type ListVersionsInput = z.infer<typeof listVersionsInputSchema>;
 
 export const versionInputSchema = z.strictObject({ entityId: z.uuid(), versionId: z.uuid() });
 export type VersionInput = z.infer<typeof versionInputSchema>;
+
+export const restoreVersionInputSchema = z.strictObject({
+  entityId: z.uuid(),
+  versionId: z.uuid(),
+  baseVersion: z.int().min(1),
+});
+export type RestoreVersionInput = z.infer<typeof restoreVersionInputSchema>;
