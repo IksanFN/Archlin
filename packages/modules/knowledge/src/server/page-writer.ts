@@ -1,7 +1,7 @@
 import { sqlFor } from '@archlin/db/scoped';
 import { NotFoundError } from '@archlin/kernel';
 import type { Clock, ReadTx, WriteTx } from '@archlin/kernel';
-import type { EntitiesDatabase, TreeService } from '@archlin/platform/server';
+import type { EntitiesDatabase, LinkService, TreeService } from '@archlin/platform/server';
 import type { JSONContent } from '@tiptap/core';
 import { sql } from 'kysely';
 import { canonicalJson } from '../shared/canonical-json';
@@ -9,12 +9,14 @@ import type { ContextFields } from '../shared/inputs';
 import type { SaveResult } from '../shared/types';
 import { documentText, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
+import { documentLinkRefs } from './links';
 import type { KnowledgeDatabase } from './schema';
 
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
 export interface LockedPage {
   entityId: string;
+  spaceId: string;
   title: string;
   content: JSONContent;
   context: ContextFields;
@@ -41,6 +43,7 @@ interface LockRow {
   version: number;
   last_saved_at: Date;
   title: string;
+  space_id: string;
   deleted_at: Date | null;
 }
 
@@ -79,6 +82,7 @@ export function contextOf(row: {
 function toLocked(row: LockRow): LockedPage {
   return {
     entityId: row.entity_id,
+    spaceId: row.space_id,
     title: row.title,
     content: asContent(row.content),
     context: contextOf(row),
@@ -106,8 +110,8 @@ export function changedPageFields(locked: LockedPage, next: PageState): string[]
   return fields;
 }
 
-export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
-  const { tree, clock } = deps;
+export function createPageWriter(deps: { tree: TreeService; links: LinkService; clock: Clock }) {
+  const { tree, links, clock } = deps;
 
   return {
     async lockPage(tx: WriteTx, entityId: string): Promise<LockedPage> {
@@ -126,6 +130,7 @@ export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
           p.version,
           p.last_saved_at,
           e.title,
+          e.space_id,
           e.deleted_at
         from kb_pages p
         inner join entities e on e.owner_id = p.owner_id and e.id = p.entity_id
@@ -173,6 +178,12 @@ export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
         } else {
           await tree.touch(tx, locked.entityId, fields);
         }
+      }
+      if (fields.includes('content')) {
+        await links.sync(tx, { sourceId: locked.entityId, spaceId: locked.spaceId, refs: documentLinkRefs(doc) });
+      }
+      if (fields.includes('title')) {
+        await links.resolvePending(tx, { entityId: locked.entityId, title: next.title });
       }
       return { status: 'saved', version, savedAt: now.toISOString() };
     },

@@ -2,7 +2,7 @@ import { ownerOf, sqlFor } from '@archlin/db/scoped';
 import { ConflictError, NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, EventPublisher, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { ReorderInput } from '@archlin/platform/contracts';
-import type { EntitiesDatabase, TreeService } from '@archlin/platform/server';
+import type { EntitiesDatabase, LinkService, TreeService } from '@archlin/platform/server';
 import { generateKeyBetween } from 'fractional-indexing';
 import { sql, type Selectable } from 'kysely';
 import { canonicalJson } from '../shared/canonical-json';
@@ -90,12 +90,13 @@ function assertFieldTypesImmutable(previous: readonly FieldDefinition[], next: r
 
 export function createNoteTypeService(deps: {
   tree: TreeService;
+  links: LinkService;
   publisher: EventPublisher;
   clock: Clock;
   ids: Ids;
 }): NoteTypeService {
-  const { tree, publisher, clock, ids } = deps;
-  const writer = createPageWriter({ tree, clock });
+  const { tree, links, publisher, clock, ids } = deps;
+  const writer = createPageWriter({ tree, links, clock });
 
   async function pageCounts(tx: ReadTx, typeIds: readonly string[]): Promise<Map<string, PageCount>> {
     const counts = new Map<string, PageCount>(typeIds.map((id) => [id, { alive: 0, trashed: 0 }]));

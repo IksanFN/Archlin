@@ -1,4 +1,4 @@
-import type { Breadcrumb, TagRef } from '@archlin/platform/contracts';
+import type { Breadcrumb, InboundLink, OutboundLink, TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
 import type { FieldDefinition } from './field-schema';
 import type { ContextFields, ReviewMode, SavePageInput } from './inputs';
@@ -49,7 +49,18 @@ export interface PageView {
 
 export type SaveResult = { status: 'saved' | 'unchanged'; version: number; savedAt: string };
 
+export interface PageSuggestion {
+  entityId: string;
+  title: string;
+  icon: string | null;
+  spaceId: string;
+  spaceSlug: string;
+  spaceName: string;
+}
+
 export interface PageScreen {
   page: PageView;
   breadcrumbs: Breadcrumb[];
+  linkTargets: OutboundLink[];
+  backlinks: InboundLink[];
 }

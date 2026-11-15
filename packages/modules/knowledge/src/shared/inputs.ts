@@ -17,8 +17,10 @@ export const createPageInputSchema = z.strictObject({
   parentId: z.uuid().nullable(),
   noteTypeId: z.uuid(),
   placement: z.enum(['first', 'last']),
+  title: z.string().max(500).default(''),
 });
-export type CreatePageInput = z.infer<typeof createPageInputSchema>;
+// Callers that do not name the page leave the title out; the server function schema fills it in.
+export type CreatePageInput = z.input<typeof createPageInputSchema>;
 
 export const savePageInputSchema = z.strictObject({
   entityId: z.uuid(),
@@ -52,6 +54,19 @@ export type PageIdInput = z.infer<typeof pageIdInputSchema>;
 // recordView is explicit so a router refresh or a background reload does not count as opening the page.
 export const pageScreenInputSchema = z.strictObject({ entityId: z.uuid(), recordView: z.boolean() });
 export type PageScreenInput = z.infer<typeof pageScreenInputSchema>;
+
+export const suggestPagesInputSchema = z.strictObject({
+  q: z.string().max(200),
+  spaceId: z.uuid(),
+  excludeId: z.uuid().nullable(),
+});
+export type SuggestPagesInput = z.infer<typeof suggestPagesInputSchema>;
+
+export const createLinkedPageInputSchema = z.strictObject({
+  sourceEntityId: z.uuid(),
+  title: z.string().trim().min(1).max(500),
+});
+export type CreateLinkedPageInput = z.infer<typeof createLinkedPageInputSchema>;
 
 export const REVIEW_MODES = ['none', 'daily', 'spaced'] as const;
 export type ReviewMode = (typeof REVIEW_MODES)[number];

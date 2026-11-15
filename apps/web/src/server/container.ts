@@ -9,6 +9,7 @@ import {
   createAccountService,
   createAuthService,
   createEventPublisher,
+  createLinkService,
   createLogger,
   createPasswordHasher,
   createSecretBox,
@@ -61,7 +62,8 @@ function buildContainer(): WebContainer {
   const spaces = createSpaceService({ registry, ids: systemIds, clock });
   const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
   const tags = createTagService({ tree, ids: systemIds, clock });
-  const knowledge = createKnowledgeApi({ tree, tags, publisher, clock, ids: systemIds });
+  const links = createLinkService({ registry, ids: systemIds, clock });
+  const knowledge = createKnowledgeApi({ tree, tags, links, publisher, clock, ids: systemIds });
 
   const authDeps: AuthDeps = {
     db,

@@ -164,3 +164,32 @@ describe('normalizeDocument', () => {
     expect(json).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] });
   });
 });
+
+const LINK_ID = '0197b2a0-0000-7000-8000-000000000001';
+const text = (value: string) => ({ type: 'text', text: value });
+const wiki = (entityId: string | null, title: string) => ({ type: 'wikiLink', attrs: { entityId, title } });
+const mention = (entityId: string | null, title: string) => ({ type: 'mention', attrs: { entityId, title } });
+const para = (inline: unknown[]) => ({ type: 'doc', content: [{ type: 'paragraph', content: inline }] });
+
+describe('link nodes', () => {
+  it('documentText renders link titles', () => {
+    const doc = parseDocument(para([text('Lihat '), wiki(null, 'Deploy'), text(' dan '), mention(LINK_ID, 'Rudi')]));
+    expect(documentText(doc)).toBe('Lihat Deploy dan @Rudi');
+  });
+
+  it('rejects a mention without an entity id and a wikiLink with an empty title', () => {
+    expectRejected(para([mention(null, 'Rudi')]), 'invalid_document');
+    expectRejected(para([wiki(null, '   ')]), 'invalid_document');
+  });
+
+  it('rejects a link whose id is not a uuid or whose title is longer than 500 characters', () => {
+    expectRejected(para([wiki('bukan-uuid', 'Deploy')]), 'invalid_document');
+    expectRejected(para([wiki(null, 'x'.repeat(501))]), 'invalid_document');
+    expectRejected(para([mention(LINK_ID, 'x'.repeat(501))]), 'invalid_document');
+  });
+
+  it('keeps a valid wikiLink and mention through normalizeDocument', () => {
+    const json = para([wiki(null, 'Deploy'), mention(LINK_ID, 'Rudi')]);
+    expect(normalizeDocument(json)).toEqual(json);
+  });
+});

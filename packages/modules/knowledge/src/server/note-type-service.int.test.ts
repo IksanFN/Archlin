@@ -7,6 +7,7 @@ import { issueOwnerScope } from '@archlin/kernel/trusted';
 import {
   PLATFORM_EVENTS,
   createEventPublisher,
+  createLinkService,
   createSpaceService,
   createTagService,
   createTreeService,
@@ -49,7 +50,8 @@ const publisher = createEventPublisher({ registry, ids: systemIds, clock });
 const spaces = createSpaceService({ registry, ids: systemIds, clock });
 const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
 const tags = createTagService({ tree, ids: systemIds, clock });
-const api = createKnowledgeApi({ tree, tags, publisher, clock, ids });
+const links = createLinkService({ registry, ids: systemIds, clock });
+const api = createKnowledgeApi({ tree, tags, links, publisher, clock, ids });
 
 let urls: TestDbUrls;
 let ownerA: string;

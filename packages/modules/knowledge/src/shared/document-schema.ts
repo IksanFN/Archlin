@@ -8,11 +8,15 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { Callout } from './callout';
 import { ArchlinHeading } from './heading';
 import { ArchlinImage, isAllowedLink } from './image';
+import { Mention } from './mention';
+import { WikiLink } from './wiki-link';
 
 export { CALLOUT_VARIANTS, Callout } from './callout';
 export type { CalloutVariant } from './callout';
 export { ArchlinHeading } from './heading';
 export { ALLOWED_LINK_PROTOCOLS, ArchlinImage, isAllowedImageSrc, isAllowedLink } from './image';
+export { Mention } from './mention';
+export { WikiLink } from './wiki-link';
 
 export function contentExtensions(): Extensions {
   return [
@@ -39,6 +43,8 @@ export function contentExtensions(): Extensions {
     DetailsContent,
     ArchlinImage,
     Callout,
+    WikiLink,
+    Mention,
   ];
 }
 

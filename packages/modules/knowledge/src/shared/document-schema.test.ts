@@ -61,3 +61,43 @@ describe('document schema', () => {
     expect(isAllowedImageSrc('data:image/png;base64,aaaa')).toBe(false);
   });
 });
+
+describe('link nodes', () => {
+  it('the document schema has wikiLink and mention as inline atoms', () => {
+    const schema = getDocumentSchema();
+    expect(schema.nodes.wikiLink?.isAtom && schema.nodes.wikiLink.isInline).toBe(true);
+    expect(schema.nodes.mention?.isAtom && schema.nodes.mention.isInline).toBe(true);
+    expect(Object.keys(schema.nodes.wikiLink?.spec.attrs ?? {})).toEqual(['entityId', 'title']);
+    expect(Object.keys(schema.nodes.mention?.spec.attrs ?? {})).toEqual(['entityId', 'title']);
+  });
+
+  it('wikiLink parses its id and title back from the rendered anchor', () => {
+    const rules = (getDocumentSchema().nodes.wikiLink?.spec.parseDOM ?? []) as TagParseRule[];
+    const rule = rules.find((candidate) => candidate.tag === 'a[data-wiki-link]');
+    const anchor = (id: string | null) => ({
+      getAttribute: (name: string) => (name === 'data-entity-id' ? id : null),
+      textContent: 'Deploy',
+    });
+    const read = (element: ReturnType<typeof anchor>) =>
+      (rule?.getAttrs as ((node: unknown) => Record<string, unknown> | false) | undefined)?.(element);
+    expect(read(anchor('0197b2a0-0000-7000-8000-000000000001'))).toMatchObject({
+      entityId: '0197b2a0-0000-7000-8000-000000000001',
+      title: 'Deploy',
+    });
+    expect(read(anchor(''))).toMatchObject({ title: 'Deploy' });
+    expect(read(anchor(''))).not.toHaveProperty('entityId');
+  });
+
+  it('mention parses its id and drops the leading at sign from the title', () => {
+    const rules = (getDocumentSchema().nodes.mention?.spec.parseDOM ?? []) as TagParseRule[];
+    const rule = rules.find((candidate) => candidate.tag === 'span[data-mention]');
+    const span = {
+      getAttribute: (name: string) => (name === 'data-entity-id' ? '0197b2a0-0000-7000-8000-000000000001' : null),
+      textContent: '@Rudi',
+    };
+    expect((rule?.getAttrs as ((node: unknown) => Record<string, unknown> | false) | undefined)?.(span)).toMatchObject({
+      entityId: '0197b2a0-0000-7000-8000-000000000001',
+      title: 'Rudi',
+    });
+  });
+});

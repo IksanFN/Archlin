@@ -2,6 +2,7 @@ export { createKnowledgeApi } from './api';
 export type { KnowledgeApi } from './api';
 export { documentText, parseDocument } from './document';
 export { pageStateHash } from './hash';
+export { documentLinkRefs } from './links';
 export type { PageState } from './hash';
 export { createKnowledgeModule, KB_MODULE_ID, noteTypeUpdated, PAGE_KIND } from './module';
 export { createNoteTypeService } from './note-type-service';

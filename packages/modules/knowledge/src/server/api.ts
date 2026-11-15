@@ -1,5 +1,5 @@
 import type { Clock, EventPublisher, Ids } from '@archlin/kernel';
-import type { TagService, TreeService } from '@archlin/platform/server';
+import type { LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { createNoteTypeService, type NoteTypeService } from './note-type-service';
 import { createPageService, type PageService } from './page-service';
 
@@ -11,6 +11,7 @@ export interface KnowledgeApi {
 export function createKnowledgeApi(deps: {
   tree: TreeService;
   tags: TagService;
+  links: LinkService;
   publisher: EventPublisher;
   clock: Clock;
   ids: Ids;

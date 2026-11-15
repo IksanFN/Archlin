@@ -1,14 +1,17 @@
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { sqlFor } from '@archlin/db/scoped';
 import { buildRegistry, systemIds } from '@archlin/kernel';
+import type { ReadTx, WriteTx } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import {
   PLATFORM_EVENTS,
   createEventPublisher,
+  createLinkService,
   createSpaceService,
   createTagService,
   createTreeService,
 } from '@archlin/platform/server';
+import type { EntitiesDatabase } from '@archlin/platform/server';
 import { createTwoOwnerDatabase } from '@archlin/testing/db';
 import type { TestDbUrls } from '@archlin/testing/db';
 import { FakeClock, SequenceIds } from '@archlin/testing/fakes';
@@ -34,7 +37,8 @@ const publisher = createEventPublisher({ registry, ids: systemIds, clock });
 const spaces = createSpaceService({ registry, ids: systemIds, clock });
 const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
 const tags = createTagService({ tree, ids: systemIds, clock });
-const api = createKnowledgeApi({ tree, tags, publisher, clock, ids });
+const links = createLinkService({ registry, ids: systemIds, clock });
+const api = createKnowledgeApi({ tree, tags, links, publisher, clock, ids });
 
 let urls: TestDbUrls;
 let ownerA: string;
@@ -672,5 +676,191 @@ describe('PageService', () => {
       return { pages, versions };
     });
     expect(leftover).toEqual({ pages: [], versions: [] });
+  });
+});
+
+describe('PageService links', () => {
+  let defaultSpaceId: string;
+  let otherSpaceId: string;
+
+  beforeEach(async () => {
+    defaultSpaceId = (await uow.write(scopeA(), (tx) => spaces.create(tx, { name: 'Utama', icon: null }))).id;
+    otherSpaceId = (await uow.write(scopeA(), (tx) => spaces.create(tx, { name: 'Lain', icon: null }))).id;
+  });
+
+  const wiki = (entityId: string | null, title: string) => ({ type: 'wikiLink', attrs: { entityId, title } });
+  const docWith = (...inline: unknown[]) => ({ type: 'doc', content: [{ type: 'paragraph', content: inline }] });
+  const read = <T>(work: (tx: ReadTx) => Promise<T>) => uow.read(scopeA(), work);
+  const write = <T>(work: (tx: WriteTx) => Promise<T>) => uow.write(scopeA(), work);
+
+  async function createPageTitled(title: string, spaceId = defaultSpaceId) {
+    const noteType = await noteTypeId('quick_note');
+    return write((tx) =>
+      api.pages.createPage(tx, { spaceId, parentId: null, noteTypeId: noteType, placement: 'last', title }),
+    );
+  }
+
+  async function save(page: { entityId: string }, content: unknown, patch: { aliases?: string[] } = {}) {
+    const view = await read((tx) => api.pages.getPage(tx, page.entityId));
+    return write((tx) =>
+      api.pages.savePage(tx, {
+        entityId: page.entityId,
+        baseVersion: view.version,
+        title: view.title,
+        content: content as SavePageInput['content'],
+        context: { ...view.context, aliases: patch.aliases ?? view.context.aliases },
+        properties: view.properties,
+      }),
+    );
+  }
+
+  const rename = (page: { entityId: string }, title: string) =>
+    write((tx) => api.pages.renamePage(tx, { entityId: page.entityId, title }));
+  const screenOf = (page: { entityId: string }, recordView = false) =>
+    write((tx) => api.pages.screen(tx, { entityId: page.entityId, recordView }));
+  const suggest = (q: string, excludeId: string | null = null) =>
+    read((tx) => api.pages.suggestPages(tx, { q, spaceId: defaultSpaceId, excludeId }));
+  const pageVersionOf = async (page: { entityId: string }) =>
+    (await read((tx) => api.pages.getPage(tx, page.entityId))).version;
+  const viewCountOf = async (page: { entityId: string }) =>
+    read(async (tx) => {
+      const row = await sqlFor<EntitiesDatabase>(tx)
+        .selectFrom('entities')
+        .select('view_count')
+        .where('id', '=', page.entityId)
+        .executeTakeFirstOrThrow();
+      return row.view_count;
+    });
+
+  it('creating a page with a title stores it', async () => {
+    const created = await createPageTitled('  Rapat   mingguan ');
+    expect((await read((tx) => api.pages.getPage(tx, created.entityId))).title).toBe('Rapat mingguan');
+  });
+
+  it('saving content with a wikiLink to an existing page links it and the target lists the source', async () => {
+    const target = await createPageTitled('Rollback Postgres 16');
+    const source = await createPageTitled('Checklist migrasi');
+    await save(source, docWith(wiki(target.entityId, 'Rollback Postgres 16')));
+    const screen = await screenOf(target);
+    expect(screen.backlinks.map((link) => link.title)).toEqual(['Checklist migrasi']);
+  });
+
+  it('renaming the target keeps the link and the source shows the new title', async () => {
+    const target = await createPageTitled('Rollback');
+    const source = await createPageTitled('Checklist');
+    await save(source, docWith(wiki(target.entityId, 'Rollback')));
+    await rename(target, 'Rollback Postgres 16');
+    expect((await screenOf(source)).linkTargets[0]?.target?.title).toBe('Rollback Postgres 16');
+  });
+
+  it('an unresolved link connects when a page with that title is created from it', async () => {
+    const source = await createPageTitled('Catatan rapat');
+    await save(source, docWith(wiki(null, 'Halaman Baru')));
+    const created = await write((tx) =>
+      api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'Halaman Baru' }),
+    );
+    expect((await screenOf(source)).linkTargets[0]).toMatchObject({
+      key: 't:halaman baru',
+      target: { id: created.entityId },
+    });
+    expect((await screenOf({ entityId: created.entityId })).backlinks.map((link) => link.sourceId)).toEqual([
+      source.entityId,
+    ]);
+  });
+
+  it('createLinkedPage puts a quick note at the root of the source space', async () => {
+    const source = await createPageTitled('Indeks', otherSpaceId);
+    const created = await write((tx) =>
+      api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'Baru' }),
+    );
+    const view = await read((tx) => api.pages.getPage(tx, created.entityId));
+    expect(view).toMatchObject({ title: 'Baru', spaceId: otherSpaceId });
+    expect(view.noteType.key).toBe('quick_note');
+    expect(created.spaceSlug).toBe(view.spaceSlug);
+  });
+
+  it('renaming a page to a pending title resolves links that were waiting for it', async () => {
+    const source = await createPageTitled('Indeks');
+    await save(source, docWith(wiki(null, 'Freeze rilis')));
+    const target = await createPageTitled('');
+    await rename(target, 'Freeze rilis');
+    expect((await screenOf(source)).linkTargets[0]?.target?.id).toBe(target.entityId);
+  });
+
+  it('creating a page whose title is pending resolves links that were waiting for it', async () => {
+    const source = await createPageTitled('Indeks');
+    await save(source, docWith(wiki(null, 'Retro')));
+    const target = await createPageTitled('Retro');
+    expect((await screenOf(source)).linkTargets[0]?.target?.id).toBe(target.entityId);
+  });
+
+  it('opening a page never writes a version or a link', async () => {
+    const source = await createPageTitled('Indeks');
+    await save(source, docWith(wiki(null, 'Belum ada')));
+    const before = await pageVersionOf(source);
+    await screenOf(source);
+    expect(await pageVersionOf(source)).toBe(before);
+  });
+
+  it('screen counts a view only when asked to', async () => {
+    const page = await createPageTitled('Dibuka');
+    await screenOf(page, false);
+    expect(await viewCountOf(page)).toBe(0);
+    await screenOf(page, true);
+    expect(await viewCountOf(page)).toBe(1);
+  });
+
+  it('saving content without links clears the links the page had', async () => {
+    const target = await createPageTitled('Target');
+    const source = await createPageTitled('Sumber');
+    await save(source, docWith(wiki(target.entityId, 'Target')));
+    await save(source, docWith({ type: 'text', text: 'tanpa link' }));
+    expect((await screenOf(source)).linkTargets).toEqual([]);
+    expect((await screenOf(target)).backlinks).toEqual([]);
+  });
+
+  it('suggestPages finds by title or alias, current space first, and escapes LIKE characters', async () => {
+    const other = await createPageTitled('Deploy ke production', otherSpaceId);
+    const here = await createPageTitled('Deploy staging');
+    await save(here, docWith(), { aliases: ['rilis'] });
+    await createPageTitled('100% selesai');
+    expect((await suggest('deploy')).map((suggestion) => suggestion.entityId)).toEqual([here.entityId, other.entityId]);
+    expect((await suggest('rilis')).map((suggestion) => suggestion.entityId)).toEqual([here.entityId]);
+    expect((await suggest('0%')).map((suggestion) => suggestion.title)).toEqual(['100% selesai']);
+    expect((await suggest('_')).length).toBe(0);
+  });
+
+  it('suggestPages ignores accents, trashed pages, archived spaces and the excluded page', async () => {
+    const cafe = await createPageTitled('Café harian');
+    const trashed = await createPageTitled('Cafe lama');
+    await write((tx) => tree.trash(tx, trashed.entityId));
+    const archivedSpace = (await uow.write(scopeA(), (tx) => spaces.create(tx, { name: 'Arsip', icon: null }))).id;
+    await createPageTitled('Cafe arsip', archivedSpace);
+    await write((tx) => spaces.archive(tx, archivedSpace));
+    expect((await suggest('cafe')).map((suggestion) => suggestion.entityId)).toEqual([cafe.entityId]);
+    expect(await suggest('cafe', cafe.entityId)).toEqual([]);
+  });
+
+  it('suggestPages with an empty query lists the latest pages, current space first', async () => {
+    const other = await createPageTitled('Di tempat lain', otherSpaceId);
+    const here = await createPageTitled('Di sini');
+    expect((await suggest('')).map((suggestion) => suggestion.entityId)).toEqual([here.entityId, other.entityId]);
+  });
+
+  it('createLinkedPage refuses a source that is in trash', async () => {
+    const source = await createPageTitled('Indeks');
+    await write((tx) => tree.trash(tx, source.entityId));
+    await expect(
+      write((tx) => api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'X' })),
+    ).rejects.toMatchObject({ code: 'page_in_trash' });
+  });
+
+  it('owner B cannot suggest pages of owner A', async () => {
+    await createPageTitled('Rahasia A');
+    const spaceB = (await uow.write(scopeB(), (tx) => spaces.create(tx, { name: 'B', icon: null }))).id;
+    const found = await uow.read(scopeB(), (tx) =>
+      api.pages.suggestPages(tx, { q: 'rahasia', spaceId: spaceB, excludeId: null }),
+    );
+    expect(found).toEqual([]);
   });
 });

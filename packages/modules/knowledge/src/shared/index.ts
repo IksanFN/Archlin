@@ -11,6 +11,8 @@ export {
   headingDocument,
   isAllowedImageSrc,
   isAllowedLink,
+  Mention,
+  WikiLink,
 } from './document-schema';
 export type { CalloutVariant } from './document-schema';
 export {
@@ -29,6 +31,7 @@ export {
   changeNoteTypeInputSchema,
   contextFieldsSchema,
   createNoteTypeInputSchema,
+  createLinkedPageInputSchema,
   createPageInputSchema,
   deleteNoteTypeInputSchema,
   noteTypeIdInputSchema,
@@ -39,11 +42,13 @@ export {
   propertiesSchema,
   renamePageInputSchema,
   savePageInputSchema,
+  suggestPagesInputSchema,
   updateNoteTypeInputSchema,
 } from './inputs';
 export type {
   ChangeNoteTypeInput,
   ContextFields,
+  CreateLinkedPageInput,
   CreateNoteTypeInput,
   CreatePageInput,
   DeleteNoteTypeInput,
@@ -54,8 +59,17 @@ export type {
   RenamePageInput,
   ReviewMode,
   SavePageInput,
+  SuggestPagesInput,
   UpdateNoteTypeInput,
 } from './inputs';
 export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES } from './limits';
 export { deriveTypeKey } from './type-key';
-export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageScreen, PageView, SaveResult } from './types';
+export type {
+  NoteTypeDetail,
+  NoteTypeRef,
+  NoteTypeSummary,
+  PageScreen,
+  PageSuggestion,
+  PageView,
+  SaveResult,
+} from './types';

@@ -1,22 +1,27 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
 import { ConflictError, NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
-import type { EntitiesDatabase, TagService, TreeService } from '@archlin/platform/server';
+import type { EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { normalizeTitle } from '@archlin/platform/server';
 import type { JSONContent } from '@tiptap/core';
+import { sql } from 'kysely';
 import { fieldSchemaSchema, legacyKeys, missingRequired, validateProperties } from '../shared/field-schema';
 import type { FieldDefinition } from '../shared/field-schema';
 import type {
   ChangeNoteTypeInput,
   ContextFields,
+  CreateLinkedPageInput,
   CreatePageInput,
   OverwritePageInput,
+  PageScreenInput,
   RenamePageInput,
   SavePageInput,
+  SuggestPagesInput,
 } from '../shared/inputs';
-import type { PageView, SaveResult } from '../shared/types';
+import type { PageScreen, PageSuggestion, PageView, SaveResult } from '../shared/types';
 import { documentText, normalizeDocument, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
+import { documentLinkRefs } from './links';
 import { PAGE_KIND } from './module';
 import {
   asContent,
@@ -32,10 +37,14 @@ import type { KnowledgeDatabase } from './schema';
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
 const CONTEXT_NUDGE_MS = 24 * 60 * 60 * 1000;
+const SUGGESTION_LIMIT = 10;
 
 export interface PageService {
   createPage(tx: WriteTx, input: CreatePageInput): Promise<{ entityId: string; spaceSlug: string }>;
+  createLinkedPage(tx: WriteTx, input: CreateLinkedPageInput): Promise<{ entityId: string; spaceSlug: string }>;
   getPage(tx: ReadTx, entityId: string): Promise<PageView>;
+  screen(tx: WriteTx, input: PageScreenInput): Promise<PageScreen>;
+  suggestPages(tx: ReadTx, input: SuggestPagesInput): Promise<PageSuggestion[]>;
   savePage(tx: WriteTx, input: SavePageInput): Promise<SaveResult>;
   renamePage(tx: WriteTx, input: RenamePageInput): Promise<{ version: number }>;
   changeNoteType(tx: WriteTx, input: ChangeNoteTypeInput): Promise<PageView>;
@@ -101,6 +110,10 @@ function pageConflict(currentVersion: number): never {
   throw new ConflictError('page_conflict', 'Halaman ini berubah di tab atau perangkat lain', { currentVersion });
 }
 
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
 function isBlank(value: string | null): boolean {
   return value === null || value.trim() === '';
 }
@@ -136,11 +149,12 @@ function requireValidProperties(
 export function createPageService(deps: {
   tree: TreeService;
   tags: TagService;
+  links: LinkService;
   clock: Clock;
   ids: Ids;
 }): PageService {
-  const { tree, tags, clock, ids } = deps;
-  const writer = createPageWriter({ tree, clock });
+  const { tree, tags, links, clock, ids } = deps;
+  const writer = createPageWriter({ tree, links, clock });
 
   async function loadNoteType(tx: ReadTx, noteTypeId: string): Promise<NoteTypeRow> {
     const row = await dbOf(tx)
@@ -282,14 +296,14 @@ export function createPageService(deps: {
     };
   }
 
-  return {
+  const service: PageService = {
     async createPage(tx, input) {
       const noteType = await loadNoteType(tx, input.noteTypeId);
       const entity = await tree.create(tx, {
         kind: PAGE_KIND,
         spaceId: input.spaceId,
         parentId: input.parentId,
-        title: '',
+        title: input.title ?? '',
         icon: null,
         placement: input.placement,
       });
@@ -323,12 +337,87 @@ export function createPageService(deps: {
           last_snapshot_at: null,
         })
         .execute();
+      const refs = documentLinkRefs(parseDocument(content));
+      if (refs.length > 0) await links.sync(tx, { sourceId: entity.id, spaceId: entity.spaceId, refs });
+      if (entity.title !== '') await links.resolvePending(tx, { entityId: entity.id, title: entity.title });
       const space = await dbOf(tx).selectFrom('spaces').select('slug').where('id', '=', entity.spaceId).executeTakeFirst();
       if (!space) throw new NotFoundError('space_not_found', 'Space tidak ditemukan');
       return { entityId: entity.id, spaceSlug: space.slug };
     },
 
+    async createLinkedPage(tx, input) {
+      const source = await tree.get(tx, input.sourceEntityId);
+      if (source.kind !== PAGE_KIND) pageNotFound();
+      if (source.deletedAt !== null) pageInTrash();
+      const noteType = await dbOf(tx)
+        .selectFrom('kb_note_types')
+        .select('id')
+        .where('key', '=', 'quick_note')
+        .executeTakeFirst();
+      if (!noteType) noteTypeNotFound();
+      return service.createPage(tx, {
+        spaceId: source.spaceId,
+        parentId: null,
+        noteTypeId: noteType.id,
+        placement: 'last',
+        title: input.title,
+      });
+    },
+
     getPage,
+
+    async screen(tx, input) {
+      const page = await getPage(tx, input.entityId);
+      const breadcrumbs = await tree.ancestors(tx, input.entityId);
+      const linkTargets = await links.outbound(tx, input.entityId);
+      const backlinks = await links.inbound(tx, { entityId: input.entityId, title: page.title });
+      if (input.recordView) await tree.recordView(tx, input.entityId);
+      return { page, breadcrumbs, linkTargets, backlinks };
+    },
+
+    async suggestPages(tx, input) {
+      const query = normalizeTitle(input.q);
+      const pattern = escapeLike(query);
+      const hasQuery = query !== '';
+      const { rows } = await sql<{
+        entity_id: string;
+        title: string;
+        icon: string | null;
+        space_id: string;
+        space_slug: string;
+        space_name: string;
+      }>`
+        select e.id as entity_id, e.title, e.icon, e.space_id, s.slug as space_slug, s.name as space_name
+        from kb_pages p
+        inner join entities e on e.owner_id = p.owner_id and e.id = p.entity_id
+        inner join spaces s on s.owner_id = e.owner_id and s.id = e.space_id
+        where e.deleted_at is null
+          and s.archived_at is null
+          and e.id is distinct from ${input.excludeId}::uuid
+          and (
+            not ${hasQuery}::boolean
+            or unaccent(lower(e.title)) like '%' || unaccent(lower(${pattern}::text)) || '%' escape '\\'
+            or exists (
+              select 1 from unnest(p.aliases) as a(alias)
+              where unaccent(lower(a.alias)) like '%' || unaccent(lower(${pattern}::text)) || '%' escape '\\'
+            )
+          )
+        order by
+          (e.space_id = ${input.spaceId}::uuid) desc,
+          (${hasQuery}::boolean and unaccent(lower(e.title)) like unaccent(lower(${pattern}::text)) || '%' escape '\\') desc,
+          e.updated_at desc,
+          e.id
+        limit ${SUGGESTION_LIMIT}
+      `.execute(dbOf(tx));
+      return rows.map((row) => ({
+        entityId: row.entity_id,
+        title: row.title,
+        icon: row.icon,
+        spaceId: row.space_id,
+        spaceSlug: row.space_slug,
+        spaceName: row.space_name,
+      }));
+    },
 
     async savePage(tx, input) {
       const locked = await writer.lockPage(tx, input.entityId);
@@ -458,4 +547,5 @@ export function createPageService(deps: {
       return summaries;
     },
   };
+  return service;
 }
