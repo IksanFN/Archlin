@@ -3,35 +3,11 @@ import type { Page } from '@playwright/test';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled } from './helpers/flows';
+import { createNoteType, createSpace } from './helpers/knowledge';
 
 test.beforeEach(async () => {
   await resetAccount();
 });
-
-async function createSpace(page: Page, name: string): Promise<void> {
-  await page.getByRole('button', { name: 'Buat space' }).first().click();
-  const dialog = page.getByRole('dialog', { name: 'Buat space' });
-  await dialog.getByLabel('Nama').fill(name);
-  await dialog.getByRole('button', { name: 'Buat space' }).click();
-  await expect(dialog).toBeHidden();
-}
-
-async function createMeetingType(page: Page): Promise<void> {
-  await gotoSettled(page, '/settings/note-types');
-  await page.getByRole('button', { name: 'Tipe baru' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Tipe baru' });
-  await dialog.getByLabel('Nama').fill('Catatan Rapat');
-  await dialog.getByRole('button', { name: 'Buat tipe' }).click();
-  await expect(page).toHaveURL(/\/settings\/note-types\/[0-9a-f-]{36}$/);
-
-  await page.getByRole('button', { name: 'Tambah field' }).click();
-  await page.getByLabel('Label', { exact: true }).first().fill('Tanggal');
-  await page.getByLabel('Jenis', { exact: true }).first().selectOption('date');
-  await page.getByRole('button', { name: 'Tambah field' }).click();
-  await page.getByLabel('Label', { exact: true }).nth(1).fill('Peserta');
-  await page.getByRole('button', { name: 'Simpan perubahan' }).click();
-  await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
-}
 
 async function openNewPage(page: Page, noteType: string): Promise<void> {
   await gotoSettled(page, '/s/kerja');
@@ -53,7 +29,7 @@ async function changeType(page: Page, name: string): Promise<void> {
 test('a custom type adds fields to a page and its values survive a type change and back', async ({ page }) => {
   await completeSetup(page);
   await createSpace(page, 'Kerja');
-  await createMeetingType(page);
+  await createNoteType(page, 'Catatan Rapat', [{ label: 'Tanggal', kind: 'date' }, { label: 'Peserta' }]);
   await openNewPage(page, 'Catatan Rapat');
 
   await page.getByLabel('Peserta', { exact: true }).fill('Budi dan Sari');
@@ -65,25 +41,6 @@ test('a custom type adds fields to a page and its values survive a type change a
 
   await changeType(page, 'Catatan Rapat');
   await expect(page.getByLabel('Peserta', { exact: true })).toHaveValue('Budi dan Sari');
-});
-
-test('deleting a type that has pages moves them to the chosen type', async ({ page }) => {
-  await completeSetup(page);
-  await createSpace(page, 'Kerja');
-  await createMeetingType(page);
-  await openNewPage(page, 'Catatan Rapat');
-  await expect(page.getByLabel('Peserta', { exact: true })).toBeVisible();
-
-  await gotoSettled(page, '/settings/note-types');
-  await page.getByRole('link', { name: 'Catatan Rapat' }).click();
-  await page.getByRole('button', { name: 'Hapus tipe' }).click();
-  const dialog = page.getByRole('dialog', { name: /Hapus tipe/ });
-  await expect(dialog.getByText(/Dipakai 1 halaman, termasuk yang ada di Trash/)).toBeVisible();
-  await dialog.getByLabel('Tipe tujuan').selectOption({ label: 'Quick Note' });
-  await dialog.getByRole('button', { name: 'Pindahkan dan hapus' }).click();
-
-  await expect(page).toHaveURL(/\/settings\/note-types$/);
-  await expect(page.getByRole('link', { name: 'Catatan Rapat' })).toHaveCount(0);
 });
 
 test('leaving the type editor with unsaved changes asks first', async ({ page }) => {
@@ -124,26 +81,10 @@ test('the type list and the type editor have no axe violations', async ({ page }
   await expectNoA11yViolations(page);
 });
 
-async function createType(page: Page, name: string, fields: readonly { label: string; kind?: string }[]): Promise<void> {
-  await gotoSettled(page, '/settings/note-types');
-  await page.getByRole('button', { name: 'Tipe baru' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Tipe baru' });
-  await dialog.getByLabel('Nama').fill(name);
-  await dialog.getByRole('button', { name: 'Buat tipe' }).click();
-  await expect(page).toHaveURL(/\/settings\/note-types\/[0-9a-f-]{36}$/);
-  for (const [index, field] of fields.entries()) {
-    await page.getByRole('button', { name: 'Tambah field' }).click();
-    await page.getByLabel('Label', { exact: true }).nth(index).fill(field.label);
-    if (field.kind !== undefined) await page.getByLabel('Jenis', { exact: true }).nth(index).selectOption(field.kind);
-  }
-  await page.getByRole('button', { name: 'Simpan perubahan' }).click();
-  await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
-}
-
 test('creates a note type with fields and uses it for a page', async ({ page }) => {
   await completeSetup(page);
   await createSpace(page, 'Kerja');
-  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }, { label: 'Tanggal kelas', kind: 'date' }]);
+  await createNoteType(page, 'Catatan Kelas', [{ label: 'Pengajar' }, { label: 'Tanggal kelas', kind: 'date' }]);
 
   await gotoSettled(page, '/settings/note-types');
   await expect(page.getByRole('link', { name: 'Catatan Kelas' })).toBeVisible();
@@ -159,7 +100,7 @@ test('creates a note type with fields and uses it for a page', async ({ page }) 
 
 test('a saved field keeps its type', async ({ page }) => {
   await completeSetup(page);
-  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
+  await createNoteType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
 
   await reloadSettled(page);
   const kind = page.getByLabel('Jenis', { exact: true }).first();
@@ -173,7 +114,7 @@ test('a saved field keeps its type', async ({ page }) => {
 test('deleting a used type moves its pages first', async ({ page }) => {
   await completeSetup(page);
   await createSpace(page, 'Kerja');
-  await createType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
+  await createNoteType(page, 'Catatan Kelas', [{ label: 'Pengajar' }]);
   await openNewPage(page, 'Catatan Kelas');
   await page.getByLabel('Pengajar', { exact: true }).fill('Pak Dedi');
   await expect(page.getByText('Tersimpan', { exact: true })).toBeVisible();
@@ -184,13 +125,14 @@ test('deleting a used type moves its pages first', async ({ page }) => {
   await page.getByRole('button', { name: 'Hapus tipe' }).click();
   const dialog = page.getByRole('dialog', { name: /Hapus tipe/ });
   const confirm = dialog.getByRole('button', { name: 'Pindahkan dan hapus' });
-  await expect(dialog.getByText(/Dipakai 1 halaman/)).toBeVisible();
+  await expect(dialog.getByText(/Dipakai 1 halaman, termasuk yang ada di Trash/)).toBeVisible();
   await dialog.getByLabel('Tipe tujuan').selectOption({ label: 'Referensi' });
   await confirm.click();
   await expect(page).toHaveURL(/\/settings\/note-types$/);
+  await expect(page.getByRole('link', { name: 'Catatan Kelas' })).toHaveCount(0);
 
   await gotoSettled(page, pageUrl);
-  await expect(page.getByText('Referensi', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText(/^Referensi · /)).toBeVisible();
   await expect(page.getByLabel('URL', { exact: true })).toBeVisible();
   await expect(page.getByLabel('Pengajar', { exact: true })).toBeHidden();
 });
@@ -198,8 +140,8 @@ test('deleting a used type moves its pages first', async ({ page }) => {
 test('changing a page type keeps values of shared keys', async ({ page }) => {
   await completeSetup(page);
   await createSpace(page, 'Kerja');
-  await createType(page, 'Catatan Kelas', [{ label: 'Peserta' }, { label: 'Materi' }]);
-  await createType(page, 'Catatan Rapat', [{ label: 'Peserta' }, { label: 'Keputusan' }]);
+  await createNoteType(page, 'Catatan Kelas', [{ label: 'Peserta' }, { label: 'Materi' }]);
+  await createNoteType(page, 'Catatan Rapat', [{ label: 'Peserta' }, { label: 'Keputusan' }]);
   await openNewPage(page, 'Catatan Kelas');
   await page.getByLabel('Peserta', { exact: true }).fill('Tim operasional');
   await page.getByLabel('Materi', { exact: true }).fill('Pengantar');

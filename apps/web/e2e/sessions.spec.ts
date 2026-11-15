@@ -35,7 +35,9 @@ test('expires an idle session after seven days', async ({ page, request }) => {
   await completeSetup(page);
   await advanceClock(request, SEVEN_DAYS_AND_A_MINUTE);
   // Firefox reports a driver-awaited reload that ends in a redirect as NS_BINDING_ABORTED late in a long run; reloading
-  // from inside the page leaves only the redirect to assert.
-  await page.evaluate(() => window.location.reload());
+  // from inside the page leaves only the redirect to assert. The reload waits a task so the evaluate can answer first.
+  await page.evaluate(() => {
+    window.setTimeout(() => window.location.reload(), 0);
+  });
   await expect(page).toHaveURL(/\/login/);
 });

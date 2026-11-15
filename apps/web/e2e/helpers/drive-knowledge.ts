@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { gotoSettled, reloadSettled } from './flows';
-import { createPage, createSpace, editorOf, spaceRow, treeRow, waitSaved } from './knowledge';
+import { createNoteType, createPage, createSpace, editorOf, spaceRow, treeRow, waitSaved } from './knowledge';
 
 const CONFLICT_TITLE = 'Halaman ini berubah di tab atau perangkat lain';
 const TRASH_BANNER = 'Halaman ini ada di Trash. Isinya hanya bisa dibaca.';
@@ -48,6 +48,11 @@ async function drivePages(page: Page, space: string): Promise<{ mainUrl: string 
   await expect(page.getByRole('button', { name: 'Hapus tag ops' })).toBeVisible();
 
   await createPage(page, { space, type: 'Quick Note', title: 'Induk' });
+  // The next page is offered the tag the first one got; Enter alone would commit before the suggestions are asked for.
+  const nextTags = page.getByRole('combobox', { name: 'Tag', exact: true });
+  await nextTags.fill('op');
+  await expect(page.getByRole('option', { name: 'ops', exact: true })).toBeVisible();
+  await nextTags.press('Escape');
   await createPage(page, { space, parentTitle: 'Induk', type: 'Quick Note', title: 'Anak' });
   await rowMenu(page, treeRow(page, 'Induk'), 'Ubah ikon');
   await page.getByLabel('Ketik atau tempel satu emoji').fill('🚀');
@@ -117,16 +122,7 @@ async function driveConflicts(page: Page, space: string): Promise<void> {
 }
 
 async function driveNoteTypes(page: Page): Promise<void> {
-  await gotoSettled(page, '/settings/note-types');
-  await page.getByRole('button', { name: 'Tipe baru' }).click();
-  const create = page.getByRole('dialog', { name: 'Tipe baru' });
-  await create.getByLabel('Nama').fill('Catatan Rapat');
-  await create.getByRole('button', { name: 'Buat tipe' }).click();
-  await expect(page).toHaveURL(/\/settings\/note-types\/[0-9a-f-]{36}$/);
-  await page.getByRole('button', { name: 'Tambah field' }).click();
-  await page.getByLabel('Label', { exact: true }).first().fill('Peserta');
-  await page.getByRole('button', { name: 'Simpan perubahan' }).click();
-  await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
+  await createNoteType(page, 'Catatan Rapat', [{ label: 'Peserta' }]);
 
   await gotoSettled(page, '/settings/note-types');
   await page.getByRole('button', { name: 'Naikkan tipe Catatan Rapat' }).click();

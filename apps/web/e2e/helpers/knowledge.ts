@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
+import { gotoSettled } from './flows';
 
 export const savedLabel = (page: Page): Locator => page.getByText('Tersimpan', { exact: true });
 
@@ -36,6 +37,23 @@ export async function createSpace(page: Page, name: string): Promise<{ slug: str
   const slug = new URL(page.url()).pathname.split('/')[2];
   if (slug === undefined || slug === '') throw new Error('expected a space slug in the url after creating a space');
   return { slug };
+}
+
+// Creates a note type from the settings screen and saves its fields; `kind` is the value of the Jenis select.
+export async function createNoteType(page: Page, name: string, fields: readonly { label: string; kind?: string }[]): Promise<void> {
+  await gotoSettled(page, '/settings/note-types');
+  await page.getByRole('button', { name: 'Tipe baru' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Tipe baru' });
+  await dialog.getByLabel('Nama').fill(name);
+  await dialog.getByRole('button', { name: 'Buat tipe' }).click();
+  await expect(page).toHaveURL(/\/settings\/note-types\/[0-9a-f-]{36}$/);
+  for (const [index, field] of fields.entries()) {
+    await page.getByRole('button', { name: 'Tambah field' }).click();
+    await page.getByLabel('Label', { exact: true }).nth(index).fill(field.label);
+    if (field.kind !== undefined) await page.getByLabel('Jenis', { exact: true }).nth(index).selectOption(field.kind);
+  }
+  await page.getByRole('button', { name: 'Simpan perubahan' }).click();
+  await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
 }
 
 export async function waitSaved(page: Page): Promise<void> {
