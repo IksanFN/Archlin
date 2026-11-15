@@ -1,14 +1,26 @@
 import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
-import type { EventPublisher, OwnerScope } from '@archlin/kernel';
+import type { Clock, EventPublisher, OwnerScope } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { platformMigrations } from '@archlin/platform/migrations';
-import { bootstrapQueue, createEventPublisher } from '@archlin/platform/server';
+import {
+  bootstrapQueue,
+  createEventPublisher,
+  createSpaceService,
+  createTreeService,
+  entityCreated,
+  entityDeleted,
+  entityMoved,
+  entityRestored,
+  entityUpdated,
+} from '@archlin/platform/server';
+import type { TreeService } from '@archlin/platform/server';
 import { createTwoOwnerDatabase } from '@archlin/testing/db';
 import type { TestDbUrls } from '@archlin/testing/db';
-import { noopLogger } from '@archlin/testing/fakes';
+import { FakeClock, noopLogger } from '@archlin/testing/fakes';
 import { fixtureMigrations, fixtureModule, fixturePinged } from '@archlin/testing/fixture-module';
+import { sql } from 'kysely';
 import pg from 'pg';
 import { PgBoss } from 'pg-boss';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -16,18 +28,38 @@ import { createPgBossQueue } from './pg-boss-queue';
 import { createWorkerRuntime } from './runtime';
 
 const AGGREGATE = '00000000-0000-7000-8000-00000000aaaa';
+const KIND = 'fixture.item';
+const DAY_MS = 24 * 60 * 60 * 1000;
 const REAL_MIGRATIONS = qualifiedMigrationNames([platformMigrations, fixtureMigrations]);
+const TREE_EVENTS = [entityCreated, entityUpdated, entityMoved, entityDeleted, entityRestored];
+
+function makeTree(clock: Clock): { spaces: ReturnType<typeof createSpaceService>; tree: TreeService } {
+  const registry = buildRegistry([fixtureModule], TREE_EVENTS);
+  const publisher = createEventPublisher({ registry, ids: systemIds, clock });
+  return {
+    spaces: createSpaceService({ registry, ids: systemIds, clock }),
+    tree: createTreeService({ registry, publisher, clock, ids: systemIds }),
+  };
+}
 
 let urls: TestDbUrls;
 let ownerA: string;
+let ownerB: string;
 let scopeA: OwnerScope;
+let scopeB: OwnerScope;
 let db: ReturnType<typeof createDatabase>;
 let uow: ReturnType<typeof createOwnerUnitOfWork>;
 let publisher: EventPublisher;
+let defaultTree: TreeService;
 let boss: PgBoss;
 let runtime: ReturnType<typeof createWorkerRuntime>;
 let bossErrors: unknown[];
 let expectedMigrations: string[];
+
+const listOwnerIds = async (): Promise<string[]> => {
+  const { rows } = await sql<{ id: string }>`select public.auth_list_owner_ids() as id`.execute(db);
+  return rows.map((row) => row.id);
+};
 
 async function asMigrator<T extends pg.QueryResultRow = pg.QueryResultRow>(text: string, params: unknown[] = []): Promise<pg.QueryResult<T>> {
   const client = new pg.Client({ connectionString: urls.migrator });
@@ -49,13 +81,15 @@ const publishPing = () =>
   );
 
 beforeAll(async () => {
-  ({ urls, ownerA } = await createTwoOwnerDatabase({ extraSets: [fixtureMigrations] }));
+  ({ urls, ownerA, ownerB } = await createTwoOwnerDatabase({ extraSets: [fixtureMigrations] }));
   scopeA = issueOwnerScope(ownerA);
+  scopeB = issueOwnerScope(ownerB);
   await bootstrapQueue({ connectionString: urls.migrator, logger: noopLogger });
   db = createDatabase({ connectionString: urls.app, applicationName: 'worker-runtime-test', max: 6 });
   uow = createOwnerUnitOfWork(db);
   const registry = buildRegistry([fixtureModule]);
   publisher = createEventPublisher({ registry, ids: systemIds, clock: systemClock });
+  defaultTree = makeTree(systemClock).tree;
 });
 
 afterAll(async () => {
@@ -88,6 +122,8 @@ beforeEach(async () => {
     pollIntervalMs: 200,
     sweepIntervalMs: 2000,
     schemaPollMs: 200,
+    tree: defaultTree,
+    listOwnerIds,
   });
 });
 
@@ -142,5 +178,65 @@ describe('worker runtime', () => {
     } finally {
       await asMigrator(`delete from kysely_migration where name = 'fixture:299901010000_from_the_future'`);
     }
+  });
+
+  it('purges expired trash for every owner', async () => {
+    const clock = new FakeClock(new Date('2026-11-12T00:00:00.000Z'));
+    const { spaces, tree } = makeTree(clock);
+
+    const plant = (scope: OwnerScope, name: string) =>
+      uow.write(scope, async (tx) => {
+        const space = await spaces.create(tx, { name, icon: null });
+        const entity = await tree.create(tx, {
+          kind: KIND,
+          spaceId: space.id,
+          parentId: null,
+          title: name,
+          icon: null,
+          placement: 'last',
+        });
+        await tree.trash(tx, entity.id);
+        return entity.id;
+      });
+
+    const rootA = await plant(scopeA, 'Sampah A');
+    const rootB = await plant(scopeB, 'Sampah B');
+    clock.advance(31 * DAY_MS);
+
+    runtime = createWorkerRuntime({
+      db,
+      uow,
+      registry: buildRegistry([fixtureModule]),
+      queue: createPgBossQueue(boss),
+      clock,
+      logger: noopLogger,
+      expectedMigrations,
+      pollIntervalMs: 200,
+      sweepIntervalMs: 2000,
+      schemaPollMs: 200,
+      tree,
+      listOwnerIds,
+      trashPurgeIntervalMs: 50,
+    });
+    await runtime.start();
+
+    await expect
+      .poll(
+        async () => {
+          const [a, b] = await Promise.all([
+            uow.read(scopeA, (tx) => tree.get(tx, rootA)).then(
+              () => true,
+              () => false,
+            ),
+            uow.read(scopeB, (tx) => tree.get(tx, rootB)).then(
+              () => true,
+              () => false,
+            ),
+          ]);
+          return a || b;
+        },
+        { timeout: 10_000, interval: 50 },
+      )
+      .toBe(false);
   });
 });

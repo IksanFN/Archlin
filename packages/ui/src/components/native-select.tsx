@@ -11,13 +11,15 @@ const selectSize = {
 export interface NativeSelectProps extends Omit<ComponentProps<'select'>, 'size'> {
   size?: keyof typeof selectSize;
   wrapperClassName?: string;
+  'data-shake'?: 'true';
 }
 
 // A real <select>: the platform picker is keyboard and screen reader complete, so only the frame is styled.
-function NativeSelect({ className, wrapperClassName, size = 'default', children, ...props }: NativeSelectProps) {
+function NativeSelect({ className, wrapperClassName, size = 'default', children, 'data-shake': dataShake, ...props }: NativeSelectProps) {
   return (
     <div
       data-slot="native-select"
+      {...(dataShake === undefined ? {} : { 'data-shake': dataShake })}
       className={cn(
         'relative flex items-center',
         fieldSurface,

@@ -1,5 +1,7 @@
 @import "@archlin/ui/styles/globals.css";
 @source "../../../../packages/ui/src";
+@source "../../../../packages/modules/knowledge/src/web";
+@import "@archlin/modules-knowledge/web/editor.css";
 @import "@fontsource/geist/400.css";
 @import "@fontsource/geist/500.css";
 @import "@fontsource/geist/600.css";

@@ -32,7 +32,7 @@ function isThemePreference(value: string): value is ThemePreference {
 // Theme and sign-out live here because they must be reachable from every screen (spec 11).
 export function AccountMenu({ displayName }: { displayName: string }) {
   const { preference, setPreference } = useTheme();
-  const { signOut, signingOut } = useSignOut();
+  const { signOut, signingOut, dialog } = useSignOut();
 
   const { variant } = use(ShellContext);
   const rail = variant === 'rail';
@@ -58,38 +58,41 @@ export function AccountMenu({ displayName }: { displayName: string }) {
   );
 
   return (
-    <DropdownMenu>
-      {rail ? (
-        <Tooltip>
-          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-          <TooltipContent side="right">{displayName}</TooltipContent>
-        </Tooltip>
-      ) : (
-        trigger
-      )}
-      <DropdownMenuContent side="top" align="start" className="w-[260px]">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>{messages.account.theme}</DropdownMenuLabel>
-          <DropdownMenuRadioGroup
-            value={preference}
-            onValueChange={(value) => {
-              if (isThemePreference(value)) setPreference(value);
-            }}
-          >
-            {THEME_OPTIONS.map(({ value, label, icon: OptionIcon }) => (
-              <DropdownMenuRadioItem key={value} value={value}>
-                <OptionIcon aria-hidden="true" size={16} className="text-fg-muted" />
-                {label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled={signingOut} onSelect={() => void signOut()}>
-          <SignOutIcon aria-hidden="true" size={16} className="text-fg-muted" />
-          {messages.account.signOut}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        {rail ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+            <TooltipContent side="right">{displayName}</TooltipContent>
+          </Tooltip>
+        ) : (
+          trigger
+        )}
+        <DropdownMenuContent side="top" align="start" className="w-[260px]">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{messages.account.theme}</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={preference}
+              onValueChange={(value) => {
+                if (isThemePreference(value)) setPreference(value);
+              }}
+            >
+              {THEME_OPTIONS.map(({ value, label, icon: OptionIcon }) => (
+                <DropdownMenuRadioItem key={value} value={value}>
+                  <OptionIcon aria-hidden="true" size={16} className="text-fg-muted" />
+                  {label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={signingOut} onSelect={signOut}>
+            <SignOutIcon aria-hidden="true" size={16} className="text-fg-muted" />
+            {messages.account.signOut}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {dialog}
+    </>
   );
 }

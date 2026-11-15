@@ -13,8 +13,11 @@
   "dependencies": {
     "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
+    "@archlin/modules-knowledge": "workspace:*",
     "@archlin/platform": "workspace:*",
     "@archlin/ui": "workspace:*",
+    "@atlaskit/pragmatic-drag-and-drop": "catalog:",
+    "@atlaskit/pragmatic-drag-and-drop-hitbox": "catalog:",
     "@fontsource/geist": "catalog:",
     "@fontsource/geist-mono": "catalog:",
     "@node-rs/argon2": "catalog:",

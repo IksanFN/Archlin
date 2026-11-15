@@ -3,6 +3,13 @@
 @import "./tokens.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant fine-hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 
 @theme {
   --breakpoint-sm: 640px; --breakpoint-nav: 768px; --breakpoint-md: 960px; --breakpoint-lg: 1280px; --breakpoint-xl: 1440px;
@@ -21,7 +28,7 @@
   --text-ui: 15px; --text-ui--line-height: 1.4;
   --radius-xs: 2px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 9999px;
   --shadow-overlay: 0 16px 48px var(--grok-color-shadow);
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); --ease-in: cubic-bezier(0.32, 0, 0.67, 0); --ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 @theme inline {
@@ -58,10 +65,30 @@
   /* Entrance for a screen's blocks: set --rise-index per block so they arrive one after another. */
   @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   @keyframes fade-in-only { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes field-shake { 0%,100% { transform: none } 25% { transform: translateX(-4px) } 50% { transform: translateX(4px) } 75% { transform: translateX(-2px) } }
+  @keyframes skeleton-tone { 0%,100% { background-color: var(--grok-color-surface-raised) } 50% { background-color: var(--grok-color-surface-hover) } }
+  @keyframes flash-selected { from { background-color: var(--grok-color-selected) } to { background-color: transparent } }
   .rise { animation: rise-in var(--grok-motion-slow) var(--ease-out) backwards; animation-delay: calc(var(--rise-index, 0) * 60ms); }
+  [data-shake="true"] { animation: field-shake 240ms var(--ease-inout); }
+  .flash-selected { animation: flash-selected 320ms var(--ease-out); }
+  .enter-item {
+    transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+    @starting-style { opacity: 0; transform: translateY(4px); }
+  }
+  [data-leaving="true"] {
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: opacity 150ms var(--ease-in), transform 150ms var(--ease-in);
+    pointer-events: none;
+  }
+  .page-enter { animation: fade-in-only 150ms var(--ease-out); }
   @media (prefers-reduced-motion: reduce) {
     .rise { animation-name: fade-in-only; animation-delay: 0ms; }
     *, *::before, *::after { animation-duration: 120ms !important; transition-duration: 120ms !important; }
     [data-state] { --tw-enter-translate-x: 0; --tw-enter-translate-y: 0; --tw-exit-translate-x: 0; --tw-exit-translate-y: 0; --tw-enter-scale: 1; --tw-exit-scale: 1; }
+    [data-shake="true"] { animation: none; }
+    .enter-item, [data-leaving="true"] { transform: none; }
+    [data-slot="skeleton"] { animation: none; }
+    [data-sonner-toast] { transform: none !important; }
   }
 }

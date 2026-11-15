@@ -14,6 +14,7 @@
     "@archlin/db": "workspace:*",
     "@archlin/kernel": "workspace:*",
     "@node-rs/argon2": "catalog:",
+    "fractional-indexing": "catalog:",
     "kysely": "catalog:",
     "otplib": "catalog:",
     "pg": "catalog:",

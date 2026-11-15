@@ -53,5 +53,6 @@
   --grok-motion-base: 200ms;
   --grok-motion-slow: 320ms;
   --grok-motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --grok-motion-ease-in: cubic-bezier(0.32, 0, 0.67, 0);
   --grok-motion-ease-inout: cubic-bezier(0.65, 0, 0.35, 1);
 }

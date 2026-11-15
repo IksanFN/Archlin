@@ -17,7 +17,7 @@ export const Route = createFileRoute('/_app/settings/security')({
 
 function SecurityPage() {
   const { viewer } = Route.useRouteContext();
-  const { signOut, signingOut } = useSignOut();
+  const { signOut, signingOut, dialog } = useSignOut();
   const device = messages.settings.device;
   return (
     <ReauthProvider totpEnabled={viewer.totpEnabled}>
@@ -34,13 +34,14 @@ function SecurityPage() {
           <SecurityEventsSection viewer={viewer} />
           <SettingsGroup label={device.group}>
             <SettingsRow title={device.title} description={device.body}>
-              <Button variant="outline" size="row" loading={signingOut} onClick={() => void signOut()}>
+              <Button variant="outline" size="row" loading={signingOut} onClick={signOut}>
                 {device.action}
               </Button>
             </SettingsRow>
           </SettingsGroup>
         </div>
       </div>
+      {dialog}
     </ReauthProvider>
   );
 }

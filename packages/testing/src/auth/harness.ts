@@ -1,13 +1,15 @@
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
-import { systemIds } from '@archlin/kernel';
+import { buildRegistry, systemIds } from '@archlin/kernel';
 import type { OwnerUnitOfWork } from '@archlin/kernel';
 import {
   createAccountService,
   createAuthService,
+  createEventPublisher,
   createLogger,
   createPasswordHasher,
   createSecretBox,
   createTotp,
+  PLATFORM_EVENTS,
 } from '@archlin/platform/server';
 import type { AccountService, AuthDeps, AuthService, IssuedSession, RequestMeta } from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
@@ -77,6 +79,11 @@ export async function createAuthHarness(): Promise<AuthHarness> {
     sleep: async (ms) => {
       sleeps.push(ms);
     },
+    publisher: createEventPublisher({
+      registry: buildRegistry([], PLATFORM_EVENTS),
+      ids: systemIds,
+      clock,
+    }),
   };
 
   return {

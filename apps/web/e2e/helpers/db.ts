@@ -31,3 +31,30 @@ export async function userCount(): Promise<number> {
     return Number(result.rows[0]?.count ?? 0);
   });
 }
+
+export async function viewCount(entityId: string): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query<{ view_count: number }>('select view_count from public.entities where id = $1', [entityId]);
+    return result.rows[0]?.view_count ?? 0;
+  });
+}
+
+// Copies of the version a save lost, written before either side of a conflict is dropped.
+export async function conflictCopies(entityId: string): Promise<{ title: string; contentText: string }[]> {
+  return withClient(async (client) => {
+    const result = await client.query<{ title: string; content_text: string }>(
+      `select title, content_text from public.kb_page_versions where entity_id = $1 and reason = 'conflict' order by created_at`,
+      [entityId],
+    );
+    return result.rows.map((row) => ({ title: row.title, contentText: row.content_text }));
+  });
+}
+
+export async function pageVersion(entityId: string): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query<{ version: number }>('select version from public.kb_pages where entity_id = $1', [entityId]);
+    const row = result.rows[0];
+    if (row === undefined) throw new Error(`no kb page for entity ${entityId}`);
+    return row.version;
+  });
+}

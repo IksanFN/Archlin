@@ -60,6 +60,7 @@ const recordAudit = defineHandler({
 
 export const fixtureModule = defineModule({
   id: 'fixture',
+  entityKinds: { item: { label: 'Item', icon: 'cube', treeable: true } },
   events: [fixturePinged],
   eventHandlers: [markSync, recordPing, recordAudit],
 });

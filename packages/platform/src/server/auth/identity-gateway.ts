@@ -1,8 +1,10 @@
+import { sqlFor } from '@archlin/db/scoped';
+import type { WriteTx } from '@archlin/kernel';
 import { sql } from 'kysely';
 import type { Kysely } from 'kysely';
 
-// The only file that calls the auth_* gateway functions. They are SECURITY DEFINER, so the pre-auth steps (which have
-// no owner yet) run on the plain pool; every parameter is bound and cast, nothing is interpolated into the text.
+// The only file that calls the auth_* gateway functions. They are SECURITY DEFINER. Pre-auth steps with no owner yet
+// run on the pool; createInitialAccount uses the setup write transaction so a failing sync handler rolls the account back.
 
 export interface LoginRecord {
   readonly userId: string;
@@ -50,7 +52,8 @@ export interface NewAccountInput {
 
 export interface IdentityGateway {
   accountExists(): Promise<boolean>;
-  createInitialAccount(input: NewAccountInput): Promise<void>;
+  createInitialAccount(tx: WriteTx, input: NewAccountInput): Promise<void>;
+  listOwnerIds(): Promise<string[]>;
   findLogin(email: string): Promise<LoginRecord | null>;
   recordAttempt(input: AttemptInput): Promise<void>;
   countRecentFailures(email: string | null, ip: string | null, since: Date): Promise<{ byEmail: number; byIp: number }>;
@@ -69,13 +72,18 @@ export function createIdentityGateway(db: Kysely<unknown>): IdentityGateway {
       return result.rows[0]?.exists === true;
     },
 
-    async createInitialAccount(input) {
+    async createInitialAccount(tx, input) {
       await sql`
         select public.auth_create_initial_account(
           ${input.id}::uuid, ${input.email}::text, ${input.displayName}::text, ${input.passwordHash}::text,
           ${input.timezone}::text, ${input.now}::timestamptz
         )
-      `.execute(db);
+      `.execute(sqlFor(tx));
+    },
+
+    async listOwnerIds() {
+      const { rows } = await sql<{ id: string }>`select public.auth_list_owner_ids() as id`.execute(db);
+      return rows.map((row) => row.id);
     },
 
     async findLogin(email) {

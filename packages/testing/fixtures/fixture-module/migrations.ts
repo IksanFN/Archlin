@@ -28,7 +28,20 @@ const tables: Migration = {
   },
 };
 
+const kinds: Migration = {
+  async up(db) {
+    await sql
+      .raw(
+        `INSERT INTO public.entity_kinds (kind, module_id) VALUES ('fixture.item', 'fixture') ON CONFLICT (kind) DO NOTHING`,
+      )
+      .execute(db);
+  },
+};
+
 export const fixtureMigrations: NamespacedMigrations = {
   namespace: 'fixture',
-  migrations: { '202611111300_tables': tables },
+  migrations: {
+    '202611111300_tables': tables,
+    '202611121010_kinds': kinds,
+  },
 };

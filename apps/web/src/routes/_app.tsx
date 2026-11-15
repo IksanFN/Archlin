@@ -1,7 +1,9 @@
+import { KnowledgeClientProvider } from '@archlin/modules-knowledge/web';
 import { AppShell } from '@archlin/ui/shell/app-shell';
-import { createFileRoute, Outlet, redirect, useLocation } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useLocation, useMatches } from '@tanstack/react-router';
 import { AppSidebar } from '~/components/app-sidebar';
 import { messages } from '~/i18n/id';
+import { knowledgeClient } from '~/lib/knowledge-client';
 import { AppError } from '~/server/errors';
 import { authStateFn } from '~/server/functions/auth';
 import { viewerFn } from '~/server/functions/account';
@@ -22,21 +24,35 @@ export const Route = createFileRoute('/_app')({
   component: AppLayout,
 });
 
+function mobileTitleFromMatches(matches: ReadonlyArray<{ loaderData?: unknown }>, pathname: string): string {
+  // Deepest loaded screen wins so a space or page can name the phone header instead of Hari ini / Pengaturan.
+  for (let i = matches.length - 1; i >= 0; i -= 1) {
+    const data = matches[i]?.loaderData;
+    if (typeof data === 'object' && data !== null && 'mobileTitle' in data && typeof data.mobileTitle === 'string') {
+      return data.mobileTitle;
+    }
+  }
+  return pathname.startsWith('/settings') ? messages.nav.settings : messages.nav.today;
+}
+
 function AppLayout() {
   const { viewer } = Route.useRouteContext();
   const { pathname } = useLocation();
-  const title = pathname.startsWith('/settings') ? messages.nav.settings : messages.nav.today;
+  const title = mobileTitleFromMatches(useMatches(), pathname);
   return (
-    <AppShell
-      title={title}
-      sidebar={<AppSidebar displayName={viewer.displayName} />}
-      labels={{
-        skipToContent: messages.common.skipToContent,
-        navigation: messages.nav.label,
-        openNavigation: messages.nav.openNavigation,
-      }}
-    >
-      <Outlet />
-    </AppShell>
+    // The provider also keeps knowledge server functions in the client graph so their stable ids are emitted.
+    <KnowledgeClientProvider client={knowledgeClient}>
+      <AppShell
+        title={title}
+        sidebar={<AppSidebar displayName={viewer.displayName} />}
+        labels={{
+          skipToContent: messages.common.skipToContent,
+          navigation: messages.nav.label,
+          openNavigation: messages.nav.openNavigation,
+        }}
+      >
+        <Outlet />
+      </AppShell>
+    </KnowledgeClientProvider>
   );
 }

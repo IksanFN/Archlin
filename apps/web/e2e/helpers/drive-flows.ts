@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { completeSetup, confirmIdentityIfAsked, signIn, signOut, reloadSettled } from './flows';
+import { driveKnowledgeFlows } from './drive-knowledge';
 import { serverNow, totpCode } from './totp';
 
 const NEW_PASSWORD = 'kata-sandi-baru-456-xyz';
@@ -14,6 +15,7 @@ export async function driveAuthedFlows(
   options: { signOutAtEnd: boolean },
 ): Promise<void> {
   await completeSetup(page);
+  await driveKnowledgeFlows(page);
   await page.getByRole('link', { name: 'Pengaturan' }).first().click();
   await expect(page.getByRole('heading', { level: 1, name: 'Profil & keamanan' })).toBeVisible();
 

@@ -25,7 +25,8 @@ export function useAsyncData<T>(load: () => Promise<T>): { state: AsyncData<T>; 
   }, [load, attempt]);
 
   const reload = useCallback(() => {
-    setState({ status: 'loading' });
+    // Keep a ready list visible so Favorites/Trash do not flash empty on refresh.
+    setState((current) => (current.status === 'ready' ? current : { status: 'loading' }));
     setAttempt((current) => current + 1);
   }, []);
 

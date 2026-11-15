@@ -1,4 +1,6 @@
 import { sqlFor } from '@archlin/db/scoped';
+import { buildRegistry, defineHandler, defineModule } from '@archlin/kernel';
+import { accountCreated, createEventPublisher, PLATFORM_EVENTS } from '@archlin/platform/server';
 import { createAuthHarness, SENTINEL, TEST_META, TEST_START, VALID_SETUP } from '@archlin/testing/auth';
 import type { AuthHarness } from '@archlin/testing/auth';
 import { sql } from 'kysely';
@@ -98,6 +100,56 @@ describe('setup', () => {
     await auth.setup({ ...VALID_SETUP, email: '  Andra@Archlin.ID ' }, TEST_META);
     const users = await h.asMigrator('select email from public.users');
     expect(users.rows).toEqual([{ email: 'andra@archlin.id' }]);
+  });
+
+  it('setup publishes platform.account.created inside the account transaction', async () => {
+    const owners: string[] = [];
+    const probe = defineModule({
+      id: 'probe',
+      eventHandlers: [
+        defineHandler({
+          id: 'recordOwner',
+          event: accountCreated,
+          mode: 'sync',
+          handle: async (event) => {
+            owners.push(event.ownerId);
+          },
+        }),
+      ],
+    });
+    const publisher = createEventPublisher({
+      registry: buildRegistry([probe], PLATFORM_EVENTS),
+      ids: h.deps.ids,
+      clock: h.clock,
+    });
+    const auth = h.makeAuth({ publisher });
+    const session = await auth.setup(VALID_SETUP, TEST_META);
+    const ctx = await auth.authenticate(session.token);
+    expect(owners).toEqual([ctx.scope.ownerId]);
+  });
+
+  it('a failing account.created handler leaves no account behind', async () => {
+    const probe = defineModule({
+      id: 'probe',
+      eventHandlers: [
+        defineHandler({
+          id: 'fail',
+          event: accountCreated,
+          mode: 'sync',
+          handle: async () => {
+            throw new Error('account.created failed');
+          },
+        }),
+      ],
+    });
+    const publisher = createEventPublisher({
+      registry: buildRegistry([probe], PLATFORM_EVENTS),
+      ids: h.deps.ids,
+      clock: h.clock,
+    });
+    const auth = h.makeAuth({ publisher });
+    await expect(auth.setup(VALID_SETUP, TEST_META)).rejects.toThrow('account.created failed');
+    await expect(auth.getAuthState(null)).resolves.toMatchObject({ accountExists: false });
   });
 });
 

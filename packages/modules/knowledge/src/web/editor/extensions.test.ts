@@ -1,0 +1,101 @@
+import { getSchema } from '@tiptap/core';
+import type { Schema } from '@tiptap/pm/model';
+import { describe, expect, it } from 'vitest';
+import { getDocumentSchema } from '../../shared/document-schema';
+import { editorExtensions } from './extensions';
+import type { EditorLabels } from './labels';
+
+const testLabels: EditorLabels = {
+  title: 'Judul',
+  body: 'Isi halaman',
+  untitled: 'Tanpa judul',
+  placeholder: 'Ketik / untuk menyisipkan blok',
+  headingPlaceholder: 'Judul bagian',
+  copy: 'Salin',
+  copied: 'Disalin',
+  copyFailed: 'Tidak bisa menyalin. Salin manual.',
+  plainText: 'Teks biasa',
+  calloutVariant: 'Jenis callout',
+  callout: { info: 'Info', warning: 'Peringatan', danger: 'Bahaya', success: 'Sukses' },
+  bold: 'Tebal',
+  italic: 'Miring',
+  underline: 'Garis bawah',
+  strike: 'Coret',
+  code: 'Kode',
+  link: 'Tautan',
+  linkUrl: 'Alamat tautan',
+  linkInvalid: 'Pakai alamat http, https, atau mailto.',
+  linkSave: 'Simpan',
+  linkRemove: 'Hapus tautan',
+  table: {
+    addRowBelow: 'Tambah baris di bawah',
+    addColumnRight: 'Tambah kolom di kanan',
+    deleteRow: 'Hapus baris',
+    deleteColumn: 'Hapus kolom',
+    headerRow: 'Baris judul',
+    deleteTable: 'Hapus tabel',
+  },
+  image: {
+    title: 'Gambar dari URL',
+    url: 'Alamat gambar',
+    urlInvalid: 'Pakai alamat https.',
+    alt: 'Deskripsi gambar',
+    altHelper: 'Dibacakan pembaca layar. Kosongkan bila hanya hiasan.',
+    insert: 'Sisipkan',
+    loadFailed: 'Gambar tidak bisa dimuat dari alamat ini.',
+  },
+  slashEmpty: 'Tidak ada blok yang cocok',
+  slash: {
+    text: 'Teks',
+    heading1: 'Judul 1',
+    heading2: 'Judul 2',
+    heading3: 'Judul 3',
+    bulletList: 'Daftar',
+    orderedList: 'Daftar bernomor',
+    taskList: 'Daftar tugas',
+    quote: 'Kutipan',
+    codeBlock: 'Blok kode',
+    calloutInfo: 'Callout info',
+    calloutWarning: 'Callout peringatan',
+    calloutDanger: 'Callout bahaya',
+    calloutSuccess: 'Callout sukses',
+    details: 'Toggle',
+    table: 'Tabel',
+    divider: 'Garis pemisah',
+    image: 'Gambar dari URL',
+  },
+  block: {
+    handle: 'Opsi blok',
+    moveUp: 'Pindah ke atas',
+    moveUpShortcut: 'Alt+Shift+↑',
+    moveDown: 'Pindah ke bawah',
+    moveDownShortcut: 'Alt+Shift+↓',
+    duplicate: 'Duplikat',
+    delete: 'Hapus',
+  },
+  find: {
+    find: 'Cari',
+    replace: 'Ganti dengan',
+    previous: 'Sebelumnya',
+    next: 'Berikutnya',
+    replaceOne: 'Ganti',
+    replaceAll: 'Ganti semua',
+    caseSensitive: 'Beda huruf besar',
+    count: (current, total) => `${current} dari ${total}`,
+    close: 'Tutup pencarian',
+  },
+};
+
+describe('editor extensions', () => {
+  it('the editor schema equals the server schema', () => {
+    const web = getSchema(editorExtensions(testLabels));
+    const server = getDocumentSchema();
+    const describe = (s: Schema) => ({
+      nodes: Object.fromEntries(
+        Object.entries(s.nodes).map(([n, t]) => [n, { attrs: Object.keys(t.spec.attrs ?? {}).sort(), content: t.spec.content ?? '' }]),
+      ),
+      marks: Object.keys(s.marks).sort(),
+    });
+    expect(describe(web)).toEqual(describe(server));
+  });
+});

@@ -5,6 +5,7 @@ import { driveAuthedFlows } from './helpers/drive-flows';
 import { ACCOUNT, completeSetup, fillSetupForm, gotoSettled } from './helpers/flows';
 import { recordServerFns } from './helpers/server-fn-recorder';
 import type { RecordedCall } from './helpers/server-fn-recorder';
+import { serverFnId, serverFnNames } from './helpers/server-fn-manifest';
 
 const BASE_URL = 'http://localhost:3100';
 
@@ -13,14 +14,14 @@ test.beforeEach(async () => {
 });
 
 // The four public server functions, learned by driving the screens as a visitor instead of hard-coding their ids.
-async function learnPublicUrls(page: Page): Promise<Set<string>> {
+async function learnPublicCalls(page: Page): Promise<RecordedCall[]> {
   const recorder = recordServerFns(page);
   await gotoSettled(page, '/setup');
   await fillSetupForm(page, 'bukan-kode-setup');
   await page.getByRole('button', { name: 'Buat akun' }).click();
   await expect(page.getByText('Kode setup tidak cocok.')).toBeVisible();
   // Copied now: the account set-up below also makes signed-in calls, which are not public.
-  const setupUrls = recorder.calls().map((call) => call.url);
+  const setupCalls = [...recorder.calls()];
 
   await completeSetup(page);
   const cleanContext = await page.context().browser()?.newContext();
@@ -39,7 +40,7 @@ async function learnPublicUrls(page: Page): Promise<Set<string>> {
     // Without a challenge cookie the server answers challenge_expired and the client moves to /login, so the sign-in
     // guard asks for the account state over HTTP as well.
     await expect(visitor).toHaveURL(/alasan=verifikasi-habis/);
-    return new Set([...setupUrls, ...visitorRecorder.calls().map((call) => call.url)]);
+    return distinct([...setupCalls, ...visitorRecorder.calls()]);
   } finally {
     await cleanContext.close();
   }
@@ -71,6 +72,14 @@ function withExtraKey(body: string): string {
   return JSON.stringify(root);
 }
 
+function nameOf(served: ReadonlyMap<string, string>, url: string): string {
+  return served.get(serverFnId(url)) ?? `unknown function ${url}`;
+}
+
+function namesOf(served: ReadonlyMap<string, string>, calls: readonly RecordedCall[]): string[] {
+  return [...new Set(calls.map((call) => nameOf(served, call.url)))].sort();
+}
+
 function distinct(calls: readonly RecordedCall[]): RecordedCall[] {
   const byUrl = new Map<string, RecordedCall>();
   for (const call of calls) if (!byUrl.has(call.url)) byUrl.set(call.url, call);
@@ -79,16 +88,18 @@ function distinct(calls: readonly RecordedCall[]): RecordedCall[] {
 
 test('server functions reject requests without a session', async ({ page, browser, request }) => {
   // Walks every screen action twice (once as a visitor, once signed in), which is slow in Firefox.
-  test.setTimeout(120_000);
-  const publicUrls = await learnPublicUrls(page);
+  test.setTimeout(300_000);
+  const publicUrls = new Set((await learnPublicCalls(page)).map((call) => call.url));
   expect(publicUrls.size).toBe(4);
 
   await resetAccount();
   const recorder = recordServerFns(page);
   await driveAuthedFlows(page, browser, request, { signOutAtEnd: true });
   const guarded = distinct(recorder.calls()).filter((call) => !publicUrls.has(call.url));
-  // Every authenticated function the screens use was exercised; a smaller set means the walk-through stopped early.
-  expect(guarded.length).toBeGreaterThanOrEqual(12);
+  const served = serverFnNames();
+  const publicNames = new Set([...publicUrls].map((url) => nameOf(served, url)));
+  // Every function the build serves behind a session is replayed, so a new one the walk-through never reaches fails here by name.
+  expect(namesOf(served, guarded)).toEqual([...new Set(served.values())].filter((name) => !publicNames.has(name)).sort());
 
   const visitor = await playwrightRequest.newContext({ baseURL: BASE_URL });
   try {
@@ -107,11 +118,16 @@ test('server functions reject requests without a session', async ({ page, browse
 });
 
 test('server functions reject a foreign origin', async ({ page, browser, request }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
+  const publicCalls = await learnPublicCalls(page);
+  await resetAccount();
   const recorder = recordServerFns(page);
-  await driveAuthedFlows(page, browser, request, { signOutAtEnd: false });
-  const calls = distinct(recorder.calls());
-  expect(calls.length).toBeGreaterThanOrEqual(12);
+  // Signing out at the end records the logout too; the origin check runs before the session check, so a 401 here would
+  // mean the request got past it.
+  await driveAuthedFlows(page, browser, request, { signOutAtEnd: true });
+  const calls = distinct([...publicCalls, ...recorder.calls()]);
+  const served = serverFnNames();
+  expect(namesOf(served, calls)).toEqual([...new Set(served.values())].sort());
 
   for (const call of calls) {
     const response = await page.context().request.fetch(call.url, {

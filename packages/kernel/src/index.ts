@@ -28,6 +28,7 @@ export type {
   EventHandlerDraft,
   ModuleDraft,
   ModuleRegistry,
+  ModuleServerDeps,
   RegistryErrorCode,
 } from './module';
 export type { OwnerId, OwnerScope, OwnerUnitOfWork, ReadTx, WriteTx } from './uow';

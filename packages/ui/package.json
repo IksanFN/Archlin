@@ -6,7 +6,9 @@
     "./styles/*": "./src/styles/*",
     "./components/*": "./src/components/*.tsx",
     "./lib/*": "./src/lib/*.ts",
-    "./shell/*": "./src/shell/*.tsx"
+    "./shell/*": "./src/shell/*.tsx",
+    "./tree/*": "./src/tree/*.tsx",
+    "./tree/tree-keyboard": "./src/tree/tree-keyboard.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
