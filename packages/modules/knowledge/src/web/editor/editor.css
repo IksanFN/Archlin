@@ -329,3 +329,37 @@ button.kb-link {
     transition: none;
   }
 }
+
+/* Docked side panels (version history, attachments) slide in 16px and fade, and leave a little faster. */
+.kb-dock {
+  transition:
+    opacity 320ms var(--ease-out),
+    transform 320ms var(--ease-out);
+}
+
+@starting-style {
+  .kb-dock {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+.kb-dock[data-leaving='true'] {
+  opacity: 0;
+  transform: translateX(16px);
+  transition-duration: 240ms;
+  transition-timing-function: var(--ease-in);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .kb-dock {
+      transform: none;
+    }
+  }
+
+  .kb-dock[data-leaving='true'] {
+    transform: none;
+  }
+}

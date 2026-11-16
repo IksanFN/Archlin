@@ -17,6 +17,7 @@ export {
   WikiLink,
 } from './document-schema';
 export type { CalloutVariant } from './document-schema';
+export { documentText } from './document-text';
 export { attachmentKindOf, DOCX_MIME, IMAGE_MIMES, PDF_MIME } from './attachment-kind';
 export type { AttachmentKind, ExtractionStatus } from './attachment-kind';
 export {

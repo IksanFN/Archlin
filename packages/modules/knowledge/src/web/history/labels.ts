@@ -1,0 +1,49 @@
+import type { SnapshotReason } from '@archlin/modules-knowledge/shared';
+
+export interface HistoryLabels {
+  title: string;
+  current: string;
+  currentTag: string;
+  reasons: Readonly<Record<SnapshotReason, string>>;
+  fields: {
+    title: string;
+    noteType: string;
+    summary: string;
+    whenToUse: string;
+    source: string;
+    aliases: string;
+  };
+  changes: string;
+  preview: string;
+  added: (count: number) => string;
+  removed: (count: number) => string;
+  fieldChanged: (label: string) => string;
+  skipped: (count: number) => string;
+  restore: string;
+  restoreNote: string;
+  restored: string;
+  saveVersion: string;
+  saveVersionTitle: string;
+  versionName: string;
+  versionNamePlaceholder: string;
+  save: string;
+  saved: string;
+  unchanged: string;
+  empty: string;
+  pick: string;
+  loadFailed: string;
+  retry: string;
+  loadMore: string;
+  readOnly: string;
+  unsavedFirst: string;
+  closePanel: string;
+  srAdded: string;
+  srRemoved: string;
+  comparing: (from: string) => string;
+  versionNameCount: (length: number) => string;
+  restoreConflict: string;
+  versionGone: string;
+  cancel: string;
+  emptyValue: string;
+  identical: string;
+}

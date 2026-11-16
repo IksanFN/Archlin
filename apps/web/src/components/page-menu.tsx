@@ -10,12 +10,17 @@ import {
 import { cn } from '@archlin/ui/lib/utils';
 import { DotsThreeIcon } from '@phosphor-icons/react/ssr';
 import { useState } from 'react';
+import type { Ref } from 'react';
 import { messages } from '~/i18n/id';
 
 export function PageMenu({
   entityId,
   prepareTypeChange,
   noteTypeId,
+  trashed,
+  triggerRef,
+  onOpenHistory,
+  onSaveVersion,
   onMove,
   onTrash,
   onTypeChanged,
@@ -24,6 +29,10 @@ export function PageMenu({
   // Resolves to the saved base version, or null while unsaved edits would make the change conflict with itself.
   prepareTypeChange: () => Promise<number | null>;
   noteTypeId: string;
+  trashed: boolean;
+  triggerRef: Ref<HTMLButtonElement>;
+  onOpenHistory: () => void;
+  onSaveVersion: () => void;
   onMove: () => void;
   onTrash: () => void;
   onTypeChanged: () => void;
@@ -34,12 +43,16 @@ export function PageMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="icon" size="icon-sm" aria-label={messages.page.options} className="bg-transparent hover:bg-overlay">
+          <Button ref={triggerRef} variant="icon" size="icon-sm" aria-label={messages.page.options} className="bg-transparent hover:bg-overlay">
             <DotsThreeIcon aria-hidden="true" size={18} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => setChangingType(true)}>{messages.page.changeType}</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onOpenHistory}>{messages.page.history}</DropdownMenuItem>
+          <DropdownMenuItem disabled={trashed} onSelect={onSaveVersion}>{messages.page.saveVersion}</DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onMove}>{messages.tree.moveTo}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onTrash} className={cn('text-danger data-[highlighted]:text-danger')}>

@@ -4,16 +4,20 @@ import {
   ConflictDialog,
   ContextCard,
   createLinkTargetStore,
+  HistoryMain,
+  HistoryPanel,
   DraftBanner,
   invalidReason,
   leaveSnapshotAllowed,
   MentionedIn,
   PageEditor,
   removeDraft,
+  SaveVersionDialog,
   TitleInput,
   useDraftQueue,
   useKnowledgeClient,
   usePageAutosave,
+  useVersionHistory,
 } from '@archlin/modules-knowledge/web';
 import type { PageEditorLinks } from '@archlin/modules-knowledge/web';
 import type { Breadcrumb, SpaceSummary, TagRef } from '@archlin/platform/contracts';
@@ -27,8 +31,9 @@ import { PageTopBar } from '~/components/page-top-bar';
 import { TrashBanner } from '~/components/trash-banner';
 import { messages } from '~/i18n/id';
 import { messageForError } from '~/lib/client-errors';
-import { formatRelative } from '~/lib/format-time';
+import { formatRelative, formatVersionTime } from '~/lib/format-time';
 import { readExpanded, writeExpanded } from '~/lib/tree-expanded';
+import { usePanelLayout } from '~/lib/use-docked-layout';
 import { notifyTreeMutation, subscribePageChanged } from '~/lib/tree-sync';
 import { AppError } from '~/server/errors';
 import { pageFn } from '~/server/functions/pages';
@@ -111,12 +116,18 @@ function PageBody({
   const [dismissedConflict, setDismissedConflict] = useState(false);
   const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
   const [editorKey, setEditorKey] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [versionListOpen, setVersionListOpen] = useState(true);
+  const [saveVersionOpen, setSaveVersionOpen] = useState(false);
+  const [historyReload, setHistoryReload] = useState(0);
+  const panelLayout = usePanelLayout();
   const [tagState, setTagState] = useState<{ source: TagRef[]; tags: TagRef[] }>({ source: page.tags, tags: page.tags });
   const [linkStore] = useState(() => createLinkTargetStore(linkTargets));
   const [liveSince] = useState(() => new Date().toISOString());
   const { drafts: draftQueue, refresh: refreshDrafts } = useDraftQueue(page, liveSince);
   const lastTreeTitle = useRef(page.title);
   const focusEditor = useRef<(() => void) | null>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
   const flushRef = useRef(autosave.flush);
   const statusRef = useRef(autosave.state.status);
   const trashedRef = useRef(false);
@@ -217,6 +228,53 @@ function PageBody({
     const settled = await flush();
     return settled.status === 'idle' || settled.status === 'saved' ? settled.baseVersion : null;
   }, [flush]);
+
+  const history = useVersionHistory({
+    entityId: page.entityId,
+    open: historyOpen,
+    reloadToken: historyReload,
+    prepare: prepareTypeChange,
+    onRestored: () => {
+      notifyTreeMutation();
+      setEditorKey((key) => key + 1);
+      void router.invalidate();
+      toast(messages.history.restored);
+    },
+    onError: (error) => {
+      const presentation = messageForError(error);
+      if (presentation.kind === 'toast') toast.error(presentation.text);
+    },
+    labels: messages.history,
+  });
+
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const formatTime = useCallback((iso: string) => formatVersionTime(new Date(iso), new Date(), timeZone), [timeZone]);
+
+  const saveVersion = useCallback(
+    async (label: string | null): Promise<boolean> => {
+      const base = await prepareTypeChange();
+      if (base === null) {
+        toast(messages.history.unsavedFirst);
+        return false;
+      }
+      try {
+        const result = await client.snapshotPage({ entityId: page.entityId, reason: 'manual', label });
+        toast(result.status === 'created' ? messages.history.saved : messages.history.unchanged);
+        setHistoryReload((value) => value + 1);
+        return true;
+      } catch (error) {
+        const presentation = messageForError(error);
+        if (presentation.kind === 'toast') toast.error(presentation.text);
+        return false;
+      }
+    },
+    [client, page.entityId, prepareTypeChange],
+  );
+
+  function openHistory(): void {
+    setVersionListOpen(true);
+    setHistoryOpen(true);
+  }
 
   const shouldBlockFn = useCallback(async () => {
     const settled = await flushRef.current();
@@ -319,69 +377,110 @@ function PageBody({
             entityId={page.entityId}
             prepareTypeChange={prepareTypeChange}
             noteTypeId={page.noteType.id}
+            trashed={trashed}
+            triggerRef={menuTrigger}
+            onOpenHistory={openHistory}
+            onSaveVersion={() => setSaveVersionOpen(true)}
             onMove={() => setMoving(true)}
             onTrash={trash}
             onTypeChanged={() => void router.invalidate()}
           />
         }
       />
-      <div className="page-enter flex flex-1 flex-col px-4 pt-10 pb-10 nav:pt-14">
-        <div className="mx-auto w-full max-w-[720px]">
-          {trashed ? <TrashBanner busy={restoring} onRestore={restore} /> : null}
-          {pendingDraft === undefined ? null : (
-            <DraftBanner
-              relativeTime={formatRelative(new Date(pendingDraft.updatedAt), now)}
-              onRestore={restorePending}
-              onDiscard={discardPending}
-              labels={{
-                message: messages.page.draftBanner,
-                restore: messages.page.restoreDraft,
-                discard: messages.page.discardDraft,
-              }}
-            />
-          )}
-          <h1 className="sr-only">{autosave.state.latest.title || messages.page.untitled}</h1>
-          <TitleInput
-            value={autosave.state.latest.title}
-            onChange={(title) => autosave.update({ title })}
-            onEnter={() => focusEditor.current?.()}
-            labels={messages.editor}
-            readOnly={readOnly}
-          />
-          <p className="mt-1.5 text-small text-fg-muted">
-            {page.noteType.name} · {messages.page.edited(formatRelative(new Date(page.updatedAt), now))}
-          </p>
-          <div className="mt-6">
-            <ContextCard
-              key={`${editorKey}:${autosave.adoptedCount}`}
-              page={page}
-              draft={autosave.state.latest}
-              onChange={autosave.update}
-              tags={tagState.tags}
-              onTagsChange={changeTags}
-              issues={autosave.state.issues}
-              readOnly={readOnly}
-              labels={messages.contextCard}
-            />
+      <div className="flex min-h-0 flex-1">
+        <div key={`${editorKey}:${autosave.adoptedCount}`} className="page-enter flex min-w-0 flex-1 flex-col px-4 pt-10 pb-10 nav:pt-14">
+          <div className="mx-auto w-full max-w-[720px]">
+            {trashed ? <TrashBanner busy={restoring} onRestore={restore} /> : null}
+            {historyOpen ? (
+              <HistoryMain
+                history={history}
+                page={page}
+                draft={autosave.state.latest}
+                labels={messages.history}
+                editorLabels={messages.editor}
+                links={links}
+                formatTime={formatTime}
+                layout={panelLayout}
+                trashed={trashed}
+                onShowList={() => setVersionListOpen(true)}
+                onClose={() => setHistoryOpen(false)}
+              />
+            ) : (
+              <>
+                {pendingDraft === undefined ? null : (
+                  <DraftBanner
+                    relativeTime={formatRelative(new Date(pendingDraft.updatedAt), now)}
+                    onRestore={restorePending}
+                    onDiscard={discardPending}
+                    labels={{
+                      message: messages.page.draftBanner,
+                      restore: messages.page.restoreDraft,
+                      discard: messages.page.discardDraft,
+                    }}
+                  />
+                )}
+                <h1 className="sr-only">{autosave.state.latest.title || messages.page.untitled}</h1>
+                <TitleInput
+                  value={autosave.state.latest.title}
+                  onChange={(title) => autosave.update({ title })}
+                  onEnter={() => focusEditor.current?.()}
+                  labels={messages.editor}
+                  readOnly={readOnly}
+                />
+                <p className="mt-1.5 text-small text-fg-muted">
+                  {page.noteType.name} · {messages.page.edited(formatRelative(new Date(page.updatedAt), now))}
+                </p>
+                <div className="mt-6">
+                  <ContextCard
+                    key={`${editorKey}:${autosave.adoptedCount}`}
+                    page={page}
+                    draft={autosave.state.latest}
+                    onChange={autosave.update}
+                    tags={tagState.tags}
+                    onTagsChange={changeTags}
+                    issues={autosave.state.issues}
+                    readOnly={readOnly}
+                    labels={messages.contextCard}
+                  />
+                </div>
+                <div className="mt-8">
+                  <PageEditor
+                    key={`${editorKey}:${autosave.adoptedCount}`}
+                    content={autosave.state.latest.content}
+                    editable={!readOnly}
+                    labels={messages.editor}
+                    links={links}
+                    onChange={(content) => autosave.update({ content })}
+                    onEditorReady={(editor) => {
+                      focusEditor.current = () => {
+                        editor.commands.focus('start');
+                      };
+                    }}
+                  />
+                </div>
+                <MentionedIn backlinks={backlinks} labels={messages.mentionedIn} navigate={links.navigate} />
+              </>
+            )}
           </div>
-          <div className="mt-8">
-            <PageEditor
-              key={`${editorKey}:${autosave.adoptedCount}`}
-              content={autosave.state.latest.content}
-              editable={!readOnly}
-              labels={messages.editor}
-              links={links}
-              onChange={(content) => autosave.update({ content })}
-              onEditorReady={(editor) => {
-                focusEditor.current = () => {
-                  editor.commands.focus('start');
-                };
-              }}
-            />
-          </div>
-          <MentionedIn backlinks={backlinks} labels={messages.mentionedIn} navigate={links.navigate} />
         </div>
+        <HistoryPanel
+          history={history}
+          labels={messages.history}
+          trashed={trashed}
+          open={historyOpen && (panelLayout === 'docked' || versionListOpen)}
+          onOpenChange={(open) => {
+            if (open) return;
+            if (panelLayout === 'sheet' && history.selectedId !== null) setVersionListOpen(false);
+            else setHistoryOpen(false);
+          }}
+          onSaveVersion={() => setSaveVersionOpen(true)}
+          onPicked={() => setVersionListOpen(false)}
+          layout={panelLayout}
+          returnFocus={menuTrigger}
+          formatTime={formatTime}
+        />
       </div>
+      <SaveVersionDialog open={saveVersionOpen} onOpenChange={setSaveVersionOpen} onSave={saveVersion} labels={messages.history} />
       <MoveDialog
         entity={moving ? { id: page.entityId, title: autosave.state.latest.title, spaceId: page.spaceId, parentId } : null}
         spaces={moveSpaces}

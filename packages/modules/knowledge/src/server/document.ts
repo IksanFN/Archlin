@@ -4,6 +4,7 @@ import { normalizeTitle } from '@archlin/platform/server';
 import type { JSONContent } from '@tiptap/core';
 import { Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model';
 import { z } from 'zod';
+import { documentText } from '../shared/document-text';
 import { CALLOUT_VARIANTS, getDocumentSchema, isAllowedImageSrc, isAllowedLink } from '../shared/document-schema';
 
 function invalidDocument(): never {
@@ -93,13 +94,4 @@ export function normalizeDocument(json: unknown): JSONContent {
   return parseDocument(json).toJSON() as JSONContent;
 }
 
-// Links read as their title and any other leaf node as a line break, the same as before links existed.
-function leafText(node: ProseMirrorNode): string {
-  if (node.type.name === 'wikiLink') return node.attrs.title as string;
-  if (node.type.name === 'mention') return `@${node.attrs.title as string}`;
-  return '\n';
-}
-
-export function documentText(doc: ProseMirrorNode): string {
-  return doc.textBetween(0, doc.content.size, '\n', leafText);
-}
+export { documentText };

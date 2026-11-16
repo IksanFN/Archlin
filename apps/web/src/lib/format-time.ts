@@ -24,3 +24,10 @@ export function formatDateTime(date: Date, timeZone: string): string {
     timeZone,
   }).format(date);
 }
+
+const WEEK = 7 * DAY;
+
+// Version rows read as "3 jam lalu" while recent and as a date and time once the age stops being useful to count.
+export function formatVersionTime(date: Date, now: Date, timeZone: string): string {
+  return now.getTime() - date.getTime() < WEEK ? formatRelative(date, now) : formatDateTime(date, timeZone);
+}

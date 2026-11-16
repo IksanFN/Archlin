@@ -14,8 +14,18 @@ function SheetClose(props: ComponentProps<typeof SheetPrimitive.Close>) {
   return <SheetPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
-// Left-hand navigation drawer: the only sheet M0 needs.
-function SheetContent({ className, children, ...props }: ComponentProps<typeof SheetPrimitive.Content>) {
+const SIDES = {
+  left: 'inset-y-0 left-0 w-[300px] max-w-[85vw] rounded-r-lg data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left',
+  right: 'inset-y-0 right-0 w-[400px] max-w-full rounded-l-lg data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+} as const;
+
+// The left side is the navigation drawer; the right side carries panels such as version history and attachments.
+function SheetContent({
+  className,
+  children,
+  side = 'left',
+  ...props
+}: ComponentProps<typeof SheetPrimitive.Content> & { side?: keyof typeof SIDES }) {
   return (
     <SheetPrimitive.Portal>
       <SheetPrimitive.Overlay
@@ -25,8 +35,9 @@ function SheetContent({ className, children, ...props }: ComponentProps<typeof S
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[300px] max-w-[85vw] flex-col rounded-r-lg bg-surface shadow-overlay',
-          'data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=closed]:duration-[240ms] data-[state=closed]:ease-in data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=open]:duration-[320ms] data-[state=open]:ease-out',
+          'fixed z-50 flex flex-col bg-surface shadow-overlay',
+          SIDES[side],
+          'data-[state=closed]:animate-out data-[state=closed]:duration-[240ms] data-[state=closed]:ease-in data-[state=open]:animate-in data-[state=open]:duration-[320ms] data-[state=open]:ease-out',
           className,
         )}
         {...props}
