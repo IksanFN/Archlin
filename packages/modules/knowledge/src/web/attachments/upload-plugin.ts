@@ -269,7 +269,7 @@ function startUploads(
       }
     }
     // The user may have cancelled or discarded the placeholder while the image was measured.
-    if (findPlaceholder(editor.state, id) === null) return;
+    if (editor.isDestroyed || findPlaceholder(editor.state, id) === null) return;
 
     options.queue.enqueue(
       { id, uploadId, file },
