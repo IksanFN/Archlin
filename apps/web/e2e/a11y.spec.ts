@@ -231,6 +231,10 @@ test('M2 surfaces pass axe in light and dark', async ({ page }) => {
     await expect(page.getByText('Halaman “Belum ada” belum ada.')).toBeVisible();
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
+    // The popover leaves with an exit transition and only then hands focus back to the editor, which scrolls the caret into
+    // view; opening the page menu before that would have the page jump under it.
+    await expect(page.getByText('Halaman “Belum ada” belum ada.')).toBeHidden();
+    await expect(editorOf(page)).toBeFocused();
 
     await menu(page, 'Riwayat versi');
     await page.getByRole('button', { name: /Titik awal/ }).click();
