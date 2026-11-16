@@ -19,6 +19,7 @@ export function PageMenu({
   noteTypeId,
   trashed,
   triggerRef,
+  onOpenAttachments,
   onOpenHistory,
   onSaveVersion,
   onMove,
@@ -31,6 +32,7 @@ export function PageMenu({
   noteTypeId: string;
   trashed: boolean;
   triggerRef: Ref<HTMLButtonElement>;
+  onOpenAttachments: () => void;
   onOpenHistory: () => void;
   onSaveVersion: () => void;
   onMove: () => void;
@@ -50,6 +52,7 @@ export function PageMenu({
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={() => setChangingType(true)}>{messages.page.changeType}</DropdownMenuItem>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onOpenAttachments}>{messages.page.attachments}</DropdownMenuItem>
           <DropdownMenuItem onSelect={onOpenHistory}>{messages.page.history}</DropdownMenuItem>
           <DropdownMenuItem disabled={trashed} onSelect={onSaveVersion}>{messages.page.saveVersion}</DropdownMenuItem>
           <DropdownMenuSeparator />

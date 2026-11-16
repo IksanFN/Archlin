@@ -16,7 +16,7 @@ import { toast } from '@archlin/ui/components/sonner';
 import { cn } from '@archlin/ui/lib/utils';
 import { useLeaving } from '@archlin/ui/lib/use-leaving';
 import { EmptyState } from '@archlin/ui/shell/empty-state';
-import { FileTextIcon, TrashIcon } from '@phosphor-icons/react/ssr';
+import { FileTextIcon, PaperclipIcon, TrashIcon } from '@phosphor-icons/react/ssr';
 import { useRouter } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { messages } from '~/i18n/id';
@@ -36,8 +36,12 @@ function displayTitle(title: string): string {
   return title === '' ? messages.page.untitled : title;
 }
 
+const ATTACHMENT_KIND = 'kb.attachment';
+
 function pathOf(item: TrashRoot): string {
   const parent = item.parentTitle === null ? null : displayTitle(item.parentTitle);
+  // An attachment trashed on its own is named after the page that carries it.
+  if (item.kind === ATTACHMENT_KIND) return copy.attachmentOf(parent ?? messages.page.untitled);
   return copy.path(item.spaceName, parent);
 }
 
@@ -193,13 +197,18 @@ export function TrashList() {
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="mt-0.5 flex size-[18px] shrink-0 items-center justify-center text-fg-muted">
-                      {item.icon ?? <FileTextIcon aria-hidden="true" size={18} />}
+                      {item.kind === ATTACHMENT_KIND ? (
+                        <PaperclipIcon aria-hidden="true" size={18} />
+                      ) : (
+                        (item.icon ?? <FileTextIcon aria-hidden="true" size={18} />)
+                      )}
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-ui font-medium text-fg">{displayTitle(item.title)}</p>
                       <p className="text-micro text-fg-muted">
                         {pathOf(item)}
                         {item.descendantCount > 0 ? ` ${copy.subpages(item.descendantCount)}` : ''}
+                        {item.attachedCount > 0 ? ` ${copy.attachedCount(item.attachedCount)}` : ''}
                       </p>
                     </div>
                   </div>

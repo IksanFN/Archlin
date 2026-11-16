@@ -11,8 +11,11 @@ export interface AttachmentStore {
 // Cards in the document hold only an attachment id; name, size and extraction status are read from here.
 export function createAttachmentStore(initial: readonly AttachmentView[]): AttachmentStore {
   let entries = new Map(initial.map((view) => [view.id, view]));
+  // useSyncExternalStore needs the same array back until something changes.
+  let list: AttachmentView[] | null = null;
   const listeners = new Set<() => void>();
   const notify = (): void => {
+    list = null;
     for (const listener of listeners) listener();
   };
   return {
@@ -25,7 +28,7 @@ export function createAttachmentStore(initial: readonly AttachmentView[]): Attac
       entries = new Map(views.map((view) => [view.id, view]));
       notify();
     },
-    all: () => [...entries.values()],
+    all: () => (list ??= [...entries.values()]),
     subscribe(listener) {
       listeners.add(listener);
       return () => {

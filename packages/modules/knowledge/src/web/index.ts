@@ -43,6 +43,7 @@ export { editorExtensions } from './editor/extensions';
 export { ImageDialog, loadImageSize } from './editor/image-dialog';
 export type { EditorLabels } from './editor/labels';
 export { PageEditor } from './editor/page-editor';
+export { AttachmentsPanel } from './attachments/attachments-panel';
 export { createAttachmentStore } from './attachments/attachment-store';
 export type { AttachmentStore } from './attachments/attachment-store';
 export type { AttachmentLabels } from './attachments/labels';

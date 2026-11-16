@@ -1,4 +1,4 @@
-import { Callout, contentExtensions, Mention, WikiLink } from '@archlin/modules-knowledge/shared';
+import { AttachmentNode, Callout, contentExtensions, Mention, WikiLink } from '@archlin/modules-knowledge/shared';
 import type { Extensions } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Placeholder } from '@tiptap/extensions';
@@ -11,7 +11,9 @@ import { CalloutView } from './callout-view';
 import { CodeBlockView } from './code-block-view';
 import { FindReplace } from './find-replace';
 import type { EditorLabels } from './labels';
+import { AttachmentCard } from '../attachments/attachment-view';
 import { AttachmentUpload } from '../attachments/upload-plugin';
+import type { AttachmentStore } from '../attachments/attachment-store';
 import type { PageEditorAttachments } from '../attachments/page-editor-attachments';
 import { LinkNodeView } from '../links/wiki-link-view';
 import { LinkSuggestions } from '../links/link-suggestion';
@@ -33,6 +35,14 @@ function bindLabels(
 }
 
 // Editors that are not a page (the note type template) pass no links and keep plain link nodes without a picker.
+function bindAttachmentCard(store: AttachmentStore, labels: EditorLabels): ComponentType<ReactNodeViewProps> {
+  function Bound(props: ReactNodeViewProps) {
+    return createElement(AttachmentCard, { ...props, store, labels: labels.attachments });
+  }
+  Bound.displayName = 'AttachmentCard';
+  return Bound;
+}
+
 export interface EditorExtensionOptions {
   links?: PageEditorLinks | undefined;
   // Without it (the note type template) the editor takes no files.
@@ -56,6 +66,12 @@ export function editorExtensions(labels: EditorLabels, options: EditorExtensionO
       if (extension.name === 'callout') {
         return Callout.extend({
           addNodeView: () => ReactNodeViewRenderer(bindLabels(CalloutView, labels)),
+        });
+      }
+      if (options.attachments !== undefined && extension.name === 'attachment') {
+        const { store } = options.attachments;
+        return AttachmentNode.extend({
+          addNodeView: () => ReactNodeViewRenderer(bindAttachmentCard(store, labels)),
         });
       }
       if (options.links !== undefined && (extension.name === 'wikiLink' || extension.name === 'mention')) {

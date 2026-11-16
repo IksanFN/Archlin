@@ -3,6 +3,7 @@ import {
   browserStorage,
   ConflictDialog,
   ContextCard,
+  AttachmentsPanel,
   createAttachmentStore,
   createLinkTargetStore,
   createUploadQueue,
@@ -122,6 +123,7 @@ function PageBody({
   const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [versionListOpen, setVersionListOpen] = useState(true);
   const [saveVersionOpen, setSaveVersionOpen] = useState(false);
   const [historyReload, setHistoryReload] = useState(0);
@@ -133,6 +135,7 @@ function PageBody({
   const { drafts: draftQueue, refresh: refreshDrafts } = useDraftQueue(page, liveSince);
   const lastTreeTitle = useRef(page.title);
   const focusEditor = useRef<(() => void) | null>(null);
+  const insertAtEnd = useRef<((files: File[]) => void) | null>(null);
   const menuTrigger = useRef<HTMLButtonElement>(null);
   const flushRef = useRef(autosave.flush);
   const statusRef = useRef(autosave.state.status);
@@ -294,9 +297,21 @@ function PageBody({
     [client, page.entityId, prepareTypeChange],
   );
 
+  // History and attachments share the side column and the sheet, so opening one closes the other.
   function openHistory(): void {
+    setAttachmentsOpen(false);
     setVersionListOpen(true);
     setHistoryOpen(true);
+  }
+
+  function openAttachments(): void {
+    setHistoryOpen(false);
+    setAttachmentsOpen(true);
+  }
+
+  // New files go to the end of the content, so each one is referenced by a card as soon as it lands.
+  function uploadFromPanel(files: File[]): void {
+    insertAtEnd.current?.(files);
   }
 
   const shouldBlockFn = useCallback(async () => {
@@ -402,6 +417,7 @@ function PageBody({
             noteTypeId={page.noteType.id}
             trashed={trashed}
             triggerRef={menuTrigger}
+            onOpenAttachments={openAttachments}
             onOpenHistory={openHistory}
             onSaveVersion={() => setSaveVersionOpen(true)}
             onMove={() => setMoving(true)}
@@ -477,6 +493,9 @@ function PageBody({
                     attachments={pageAttachments}
                     onChange={(content) => autosave.update({ content })}
                     onEditorReady={(editor) => {
+                      insertAtEnd.current = (files) => {
+                        if (!editor.isDestroyed) editor.commands.insertFiles(files, editor.state.doc.content.size);
+                      };
                       focusEditor.current = () => {
                         editor.commands.focus('start');
                       };
@@ -488,6 +507,18 @@ function PageBody({
             )}
           </div>
         </div>
+        <AttachmentsPanel
+          pageId={page.entityId}
+          store={attachmentStore}
+          open={attachmentsOpen}
+          onOpenChange={setAttachmentsOpen}
+          onUploadFiles={uploadFromPanel}
+          trashed={trashed}
+          client={client}
+          labels={messages.attachments}
+          layout={panelLayout}
+          returnFocus={menuTrigger}
+        />
         <HistoryPanel
           history={history}
           labels={messages.history}
