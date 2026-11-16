@@ -21,4 +21,6 @@ export interface WorkerModuleDeps {
   links: LinkService;
   files: FileStorage;
   blobs: BlobService;
+  // Where the worker bundle keeps its sibling files, so a task can start a bundled child process by name.
+  workerAssetUrl(fileName: string): URL;
 }

@@ -18,6 +18,8 @@ import { loadWorkerEnv, WorkerConfigError } from './env';
 import { createPgBossQueue } from './pg-boss-queue';
 import { createWorkerRuntime } from './runtime';
 
+const workerAssetUrl = (fileName: string): URL => new URL(`./${fileName}`, import.meta.url);
+
 // Composition root of the worker: wires the database, the module registry and pg-boss, then runs until a signal.
 async function main(): Promise<void> {
   const env = loadWorkerEnv();
@@ -62,7 +64,7 @@ async function main(): Promise<void> {
     listOwnerIds: () => gateway.listOwnerIds(),
     tasks: [
       createBlobMaintenanceTask({ uow, blobs, logger }),
-      ...workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files, blobs }),
+      ...workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files, blobs, workerAssetUrl }),
     ],
   });
 

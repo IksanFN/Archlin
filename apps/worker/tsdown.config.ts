@@ -2,7 +2,8 @@ import { defineConfig } from 'tsdown';
 
 // Everything is bundled so the Docker image can run the output without node_modules.
 export default defineConfig({
-  entry: ['src/main.ts'],
+  // The second entry is the extraction child process the worker starts for every file it reads.
+  entry: ['src/main.ts', 'src/extract-child.ts'],
   format: 'esm',
   platform: 'node',
   target: 'node24',

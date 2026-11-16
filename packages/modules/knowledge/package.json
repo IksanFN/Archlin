@@ -5,6 +5,7 @@
   "exports": {
     "./server": "./src/server/index.ts",
     "./shared": "./src/shared/index.ts",
+    "./extraction": "./src/server/extraction/index.ts",
     "./web": "./src/web/index.ts",
     "./web/editor.css": "./src/web/editor/editor.css",
     "./migrations": "./src/migrations/index.ts"
@@ -41,8 +42,10 @@
     "highlight.js": "catalog:",
     "kysely": "catalog:",
     "lowlight": "catalog:",
+    "mammoth": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "unpdf": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
