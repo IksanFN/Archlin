@@ -2,6 +2,7 @@ export { documentAttachmentIds, syncAttachmentRefs } from './attachment-refs';
 export { createAttachmentService } from './attachment-service';
 export type { AttachmentFile, AttachmentService, RegisterAttachmentInput } from './attachment-service';
 export { createKnowledgeApi } from './api';
+export { remapDocument } from './duplicate';
 export type { KnowledgeApi } from './api';
 export { documentText, parseDocument } from './document';
 export { pageStateHash } from './hash';

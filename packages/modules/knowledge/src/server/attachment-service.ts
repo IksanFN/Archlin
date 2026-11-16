@@ -9,7 +9,7 @@ import type { AttachmentIdInput, CopyAttachmentsInput, TrashOrphansInput } from 
 import type { AttachmentView } from '../shared/types';
 import { normalizeFilename } from './filename';
 import { classifyFile } from './mime';
-import { ATTACHMENT_KIND } from './module';
+import { ATTACHMENT_KIND, PAGE_KIND } from './module';
 import { pageInTrash } from './page-writer';
 import type { KnowledgeDatabase } from './schema';
 
@@ -106,11 +106,10 @@ export function createAttachmentService(deps: { tree: TreeService; blobs: BlobSe
     return view;
   }
 
+  // Reads the entity, not kb_pages: a page being duplicated has its entity before its page row.
   async function requireLivePage(tx: ReadTx, pageId: string): Promise<{ spaceId: string }> {
     const { rows } = await sql<{ space_id: string; deleted_at: Date | null }>`
-      select e.space_id, e.deleted_at from kb_pages p
-      inner join entities e on e.owner_id = p.owner_id and e.id = p.entity_id
-      where p.entity_id = ${pageId}`.execute(dbOf(tx));
+      select space_id, deleted_at from entities where id = ${pageId} and kind = ${PAGE_KIND}`.execute(dbOf(tx));
     const page = rows[0];
     if (!page) throw pageNotFound();
     if (page.deleted_at !== null) pageInTrash();

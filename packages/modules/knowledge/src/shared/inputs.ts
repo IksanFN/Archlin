@@ -141,3 +141,6 @@ export const copyAttachmentsInputSchema = z.strictObject({
   attachmentIds: z.array(z.uuid()).min(1).max(50),
 });
 export type CopyAttachmentsInput = z.infer<typeof copyAttachmentsInputSchema>;
+
+export const duplicatePageInputSchema = z.strictObject({ entityId: z.uuid(), rootTitle: z.string().max(500) });
+export type DuplicatePageInput = z.infer<typeof duplicatePageInputSchema>;

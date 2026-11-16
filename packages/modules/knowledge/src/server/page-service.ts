@@ -1,7 +1,7 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
 import { NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
-import type { EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
+import type { BlobService, EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { normalizeTitle } from '@archlin/platform/server';
 import { sql } from 'kysely';
 import { fieldSchemaSchema, legacyKeys, missingRequired, validateProperties } from '../shared/field-schema';
@@ -11,6 +11,7 @@ import type {
   ContextFields,
   CreateLinkedPageInput,
   CreatePageInput,
+  DuplicatePageInput,
   OverwritePageInput,
   PageScreenInput,
   RenamePageInput,
@@ -20,6 +21,7 @@ import type {
 import type { PageScreen, PageSuggestion, PageView, SaveResult } from '../shared/types';
 import type { AttachmentService } from './attachment-service';
 import { documentText, normalizeDocument, parseDocument } from './document';
+import { createPageDuplicator } from './duplicate';
 import { pageStateHash, type PageState } from './hash';
 import { documentLinkRefs } from './links';
 import { PAGE_KIND } from './module';
@@ -46,6 +48,7 @@ const SUGGESTION_LIMIT = 10;
 export interface PageService {
   createPage(tx: WriteTx, input: CreatePageInput): Promise<{ entityId: string; spaceSlug: string }>;
   createLinkedPage(tx: WriteTx, input: CreateLinkedPageInput): Promise<{ entityId: string; spaceSlug: string }>;
+  duplicatePage(tx: WriteTx, input: DuplicatePageInput): Promise<{ entityId: string; spaceSlug: string; count: number }>;
   getPage(tx: ReadTx, entityId: string): Promise<PageView>;
   screen(tx: WriteTx, input: PageScreenInput): Promise<PageScreen>;
   suggestPages(tx: ReadTx, input: SuggestPagesInput): Promise<PageSuggestion[]>;
@@ -139,10 +142,11 @@ export function createPageService(deps: {
   tags: TagService;
   links: LinkService;
   attachments: AttachmentService;
+  blobs: BlobService;
   clock: Clock;
   ids: Ids;
 }): PageService {
-  const { tree, tags, links, attachments, clock, ids } = deps;
+  const { tree, tags, links, attachments, blobs, clock, ids } = deps;
   const writer = createPageWriter({ tree, links, clock, ids });
 
   async function loadNoteType(tx: ReadTx, noteTypeId: string): Promise<NoteTypeRow> {
@@ -310,6 +314,8 @@ export function createPageService(deps: {
         title: input.title,
       });
     },
+
+    duplicatePage: createPageDuplicator({ tree, tags, links, attachments, blobs, clock }),
 
     getPage,
 
