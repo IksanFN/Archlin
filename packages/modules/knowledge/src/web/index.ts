@@ -9,6 +9,9 @@ export {
 } from './autosave/autosave-machine';
 export type { AutosaveEvent, AutosaveState, AutosaveStatus, PageDraftState } from './autosave/autosave-machine';
 export { flushActiveAutosaves } from './autosave/active-autosave';
+export { leaveSnapshotAllowed } from './autosave/leave-snapshot';
+export { MentionedIn } from './mentioned-in/mentioned-in';
+export type { MentionedInLabels } from './mentioned-in/mentioned-in';
 export { useDraftQueue } from './autosave/draft-queue';
 export { ConflictDialog } from './autosave/conflict-dialog';
 export type { ConflictDialogLabels } from './autosave/conflict-dialog';

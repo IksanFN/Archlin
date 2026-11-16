@@ -6,6 +6,8 @@ import {
   createLinkTargetStore,
   DraftBanner,
   invalidReason,
+  leaveSnapshotAllowed,
+  MentionedIn,
   PageEditor,
   removeDraft,
   TitleInput,
@@ -39,7 +41,7 @@ const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'inv
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   loader: async ({ params, cause }) => {
     try {
-      const { page, breadcrumbs, linkTargets } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
+      const { page, breadcrumbs, linkTargets, backlinks } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
       if (params.spaceSlug !== page.spaceSlug) {
         throw redirect({
           to: '/s/$spaceSlug/p/$entityId',
@@ -53,6 +55,7 @@ export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
         page,
         breadcrumbs,
         linkTargets,
+        backlinks,
         spaces,
         spaceName: space?.name ?? page.spaceSlug,
         mobileTitle: page.title || messages.page.untitled,
@@ -86,6 +89,7 @@ function PageBody({
   page,
   breadcrumbs,
   linkTargets,
+  backlinks,
   spaces,
   spaceName,
   nowIso,
@@ -93,6 +97,7 @@ function PageBody({
   page: PageView;
   breadcrumbs: readonly Breadcrumb[];
   linkTargets: PageScreen['linkTargets'];
+  backlinks: PageScreen['backlinks'];
   spaces: readonly SpaceSummary[];
   spaceName: string;
   nowIso: string;
@@ -114,6 +119,7 @@ function PageBody({
   const focusEditor = useRef<(() => void) | null>(null);
   const flushRef = useRef(autosave.flush);
   const statusRef = useRef(autosave.state.status);
+  const trashedRef = useRef(false);
   const now = new Date(nowIso);
   const inConflict = autosave.state.status === 'conflict';
   const conflictVersion = autosave.state.conflictVersion;
@@ -150,7 +156,8 @@ function PageBody({
   useEffect(() => {
     flushRef.current = autosave.flush;
     statusRef.current = autosave.state.status;
-  }, [autosave.flush, autosave.state.status]);
+    trashedRef.current = trashed;
+  }, [autosave.flush, autosave.state.status, trashed]);
 
   useEffect(() => {
     if (autosave.state.status !== 'saved') return;
@@ -212,9 +219,15 @@ function PageBody({
   }, [flush]);
 
   const shouldBlockFn = useCallback(async () => {
-    await flushRef.current();
+    const settled = await flushRef.current();
+    // A failed snapshot never holds the navigation back; the idle policy covers what a leave misses.
+    if (leaveSnapshotAllowed(settled.status, trashedRef.current)) {
+      client.snapshotPage({ entityId: page.entityId, reason: 'leave', label: null }).catch(() => {
+        toast.error(messages.history.leaveFailed);
+      });
+    }
     return false;
-  }, []);
+  }, [client, page.entityId]);
   const enableBeforeUnload = useCallback(() => UNSAVED.has(statusRef.current), []);
   useBlocker({ shouldBlockFn, enableBeforeUnload });
 
@@ -366,6 +379,7 @@ function PageBody({
               }}
             />
           </div>
+          <MentionedIn backlinks={backlinks} labels={messages.mentionedIn} navigate={links.navigate} />
         </div>
       </div>
       <MoveDialog
