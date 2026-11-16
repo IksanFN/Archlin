@@ -363,3 +363,131 @@ button.kb-link {
     transform: none;
   }
 }
+
+.kb-editor {
+  position: relative;
+}
+
+.kb-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--grok-radius-md);
+  background: var(--grok-color-surface);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+
+@starting-style {
+  .kb-upload {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.kb-upload-name {
+  min-width: 0;
+  flex: 1 1 12rem;
+  overflow: hidden;
+  color: var(--grok-color-text);
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-upload-bar {
+  flex: 1 1 8rem;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--grok-color-surface-hover);
+}
+
+.kb-upload-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--grok-color-inverse-bg);
+  transform-origin: left;
+  transition: transform 200ms linear;
+}
+
+.kb-upload-failure {
+  display: none;
+  flex: 1 1 12rem;
+  color: var(--grok-color-danger);
+  font-size: 14px;
+}
+
+.kb-upload-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.kb-upload-action {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--grok-color-text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 120ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kb-upload-action:hover {
+    background: var(--grok-color-overlay);
+  }
+}
+
+.kb-upload[data-state='failed'] .kb-upload-bar {
+  display: none;
+}
+
+.kb-upload[data-state='failed'] .kb-upload-failure {
+  display: block;
+}
+
+.kb-drop-overlay {
+  position: absolute;
+  inset: -8px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  border-radius: var(--grok-radius-lg);
+  background: transparent;
+  color: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: none;
+  transition:
+    border-color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out),
+    color 120ms var(--ease-out);
+}
+
+.kb-editor[data-dropping='true'] .kb-drop-overlay {
+  border-color: var(--grok-color-focus);
+  background: var(--grok-color-overlay);
+  color: var(--grok-color-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kb-upload {
+    transition: none;
+  }
+}
+
+.kb-upload[data-state='failed'] .kb-upload-name {
+  display: none;
+}

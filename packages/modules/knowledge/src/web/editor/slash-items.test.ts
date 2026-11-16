@@ -15,6 +15,34 @@ const testLabels: EditorLabels = {
     inTrash: 'Ada di Trash',
     pickerLabel: 'Pilih halaman untuk ditautkan',
   },
+  attachments: {
+    title: 'Lampiran',
+    upload: 'Unggah file',
+    open: 'Buka',
+    download: 'Unduh',
+    status: { pending: 'Menunggu ekstraksi teks', done: 'Teks terekstrak', no_text: 'Teks tidak ditemukan', unsupported: 'Tidak diekstrak', failed: 'Ekstraksi gagal' },
+    retry: 'Coba lagi',
+    unusedTitle: 'Tidak dipakai',
+    unusedBody: 'Tidak ada di isi halaman maupun di versi tersimpan.',
+    moveUnused: 'Pindahkan ke Trash',
+    movedUnused: (count) => `${count} lampiran dipindahkan ke Trash.`,
+    emptyTitle: 'Belum ada lampiran',
+    emptyBody: 'Tempel atau seret file ke isi halaman.',
+    uploading: (name) => `Mengunggah ${name}…`,
+    uploaded: (name) => `${name} terunggah.`,
+    uploadFailed: (name) => `${name} gagal diunggah.`,
+    cancel: 'Batal',
+    discard: 'Buang',
+    dropHere: 'Lepaskan untuk mengunggah',
+    missing: 'Lampiran tidak tersedia',
+    inTrash: 'Lampiran ada di Trash',
+    tooLarge: (name) => `${name} lebih dari 50 MB dan tidak diunggah.`,
+    fileEmpty: 'File kosong tidak bisa diunggah.',
+    copyFailed: 'Lampiran dari halaman lain tetap merujuk halaman asalnya.',
+    loadFailed: 'Daftar lampiran gagal dimuat.',
+    closePanel: 'Tutup panel lampiran',
+    uploadProgress: (name) => `Progres unggah ${name}`,
+  },
   title: 'Judul',
   body: 'Isi halaman',
   untitled: 'Tanpa judul',
@@ -52,6 +80,7 @@ const testLabels: EditorLabels = {
     altHelper: 'Dibacakan pembaca layar. Kosongkan bila hanya hiasan.',
     insert: 'Sisipkan',
     loadFailed: 'Gambar tidak bisa dimuat dari alamat ini.',
+    upload: 'Unggah dari perangkat',
   },
   slashEmpty: 'Tidak ada blok yang cocok',
   slash: {
@@ -72,6 +101,7 @@ const testLabels: EditorLabels = {
     table: 'Tabel',
     divider: 'Garis pemisah',
     image: 'Gambar dari URL',
+    attachment: 'Lampiran',
   },
   block: {
     handle: 'Opsi blok',
@@ -130,7 +160,13 @@ describe('slash items', () => {
       { id: 'table', label: 'Tabel' },
       { id: 'divider', label: 'Garis pemisah' },
       { id: 'image', label: 'Gambar dari URL' },
+      { id: 'attachment', label: 'Lampiran' },
     ]);
+  });
+
+  it('the attachment item is found by file and unggah', () => {
+    expect(filterSlashItems(items, 'unggah').map((item) => item.id)).toContain('attachment');
+    expect(filterSlashItems(items, 'file').map((item) => item.id)[0]).toBe('attachment');
   });
 
   it('finds the task list through the english keyword todo', () => {

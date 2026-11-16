@@ -81,7 +81,11 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         char: '/',
         allowSpaces: false,
         placement: 'bottom-start',
-        items: ({ query }) => filterSlashItems(slashItems(labels), query),
+        // Editors that cannot upload (the note type template) never list the attachment item.
+        items: ({ query, editor }) =>
+          filterSlashItems(slashItems(labels), query).filter(
+            (item) => item.id !== 'attachment' || editor.extensionManager.extensions.some((extension) => extension.name === 'attachmentUpload'),
+          ),
         command: ({ editor, range, props }) => {
           props.run(editor, range);
         },

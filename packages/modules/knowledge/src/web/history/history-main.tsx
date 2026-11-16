@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import type { PageDraftState } from '../autosave/autosave-machine';
 import type { EditorLabels } from '../editor/labels';
 import { PageEditor } from '../editor/page-editor';
+import type { PageEditorAttachments } from '../attachments/page-editor-attachments';
 import type { PageEditorLinks } from '../links/page-editor-links';
 import type { PanelLayout } from '../panel/panel-frame';
 import { DiffView } from './diff-view';
@@ -25,6 +26,7 @@ export function HistoryMain({
   labels,
   editorLabels,
   links,
+  attachments,
   formatTime,
   layout,
   trashed,
@@ -37,6 +39,7 @@ export function HistoryMain({
   labels: HistoryLabels;
   editorLabels: EditorLabels;
   links: PageEditorLinks;
+  attachments: PageEditorAttachments;
   formatTime: (iso: string) => string;
   layout: PanelLayout;
   trashed: boolean;
@@ -116,7 +119,7 @@ export function HistoryMain({
       {history.view === 'changes' ? (
         <DiffView diff={diff} fieldLabel={(field: FieldKey) => fieldLabel(field, page.noteType.fieldSchema, labels)} labels={labels} />
       ) : (
-        <PageEditor content={version.content} editable={false} labels={editorLabels} links={links} onChange={noop} />
+        <PageEditor content={version.content} editable={false} labels={editorLabels} links={links} attachments={attachments} onChange={noop} />
       )}
     </div>
   );

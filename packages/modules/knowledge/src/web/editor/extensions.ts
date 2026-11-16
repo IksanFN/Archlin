@@ -11,6 +11,8 @@ import { CalloutView } from './callout-view';
 import { CodeBlockView } from './code-block-view';
 import { FindReplace } from './find-replace';
 import type { EditorLabels } from './labels';
+import { AttachmentUpload } from '../attachments/upload-plugin';
+import type { PageEditorAttachments } from '../attachments/page-editor-attachments';
 import { LinkNodeView } from '../links/wiki-link-view';
 import { LinkSuggestions } from '../links/link-suggestion';
 import type { PageEditorLinks } from '../links/page-editor-links';
@@ -33,6 +35,8 @@ function bindLabels(
 // Editors that are not a page (the note type template) pass no links and keep plain link nodes without a picker.
 export interface EditorExtensionOptions {
   links?: PageEditorLinks | undefined;
+  // Without it (the note type template) the editor takes no files.
+  attachments?: (PageEditorAttachments & { announce(message: string): void; notify(message: string): void }) | undefined;
 }
 
 function linkNode(kind: 'wikiLink' | 'mention', labels: EditorLabels, links: PageEditorLinks) {
@@ -65,6 +69,7 @@ export function editorExtensions(labels: EditorLabels, options: EditorExtensionO
     }),
     SlashCommand.configure({ labels }),
     ...(options.links === undefined ? [] : [LinkSuggestions.configure({ links: options.links, labels })]),
+    ...(options.attachments === undefined ? [] : [AttachmentUpload.configure({ ...options.attachments, labels })]),
     BlockCommands,
     BlockHandleExtension,
     MarkdownPaste,

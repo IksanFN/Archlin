@@ -3,7 +3,9 @@ import {
   browserStorage,
   ConflictDialog,
   ContextCard,
+  createAttachmentStore,
   createLinkTargetStore,
+  createUploadQueue,
   HistoryMain,
   HistoryPanel,
   DraftBanner,
@@ -19,7 +21,7 @@ import {
   usePageAutosave,
   useVersionHistory,
 } from '@archlin/modules-knowledge/web';
-import type { PageEditorLinks } from '@archlin/modules-knowledge/web';
+import type { PageEditorAttachments, PageEditorLinks } from '@archlin/modules-knowledge/web';
 import type { Breadcrumb, SpaceSummary, TagRef } from '@archlin/platform/contracts';
 import { Button } from '@archlin/ui/components/button';
 import { toast } from '@archlin/ui/components/sonner';
@@ -46,7 +48,7 @@ const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'inv
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   loader: async ({ params, cause }) => {
     try {
-      const { page, breadcrumbs, linkTargets, backlinks } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
+      const { page, breadcrumbs, linkTargets, backlinks, attachments } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
       if (params.spaceSlug !== page.spaceSlug) {
         throw redirect({
           to: '/s/$spaceSlug/p/$entityId',
@@ -61,6 +63,7 @@ export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
         breadcrumbs,
         linkTargets,
         backlinks,
+        attachments,
         spaces,
         spaceName: space?.name ?? page.spaceSlug,
         mobileTitle: page.title || messages.page.untitled,
@@ -95,6 +98,7 @@ function PageBody({
   breadcrumbs,
   linkTargets,
   backlinks,
+  attachments,
   spaces,
   spaceName,
   nowIso,
@@ -103,6 +107,7 @@ function PageBody({
   breadcrumbs: readonly Breadcrumb[];
   linkTargets: PageScreen['linkTargets'];
   backlinks: PageScreen['backlinks'];
+  attachments: PageScreen['attachments'];
   spaces: readonly SpaceSummary[];
   spaceName: string;
   nowIso: string;
@@ -123,6 +128,7 @@ function PageBody({
   const panelLayout = usePanelLayout();
   const [tagState, setTagState] = useState<{ source: TagRef[]; tags: TagRef[] }>({ source: page.tags, tags: page.tags });
   const [linkStore] = useState(() => createLinkTargetStore(linkTargets));
+  const [attachmentStore] = useState(() => createAttachmentStore(attachments));
   const [liveSince] = useState(() => new Date().toISOString());
   const { drafts: draftQueue, refresh: refreshDrafts } = useDraftQueue(page, liveSince);
   const lastTreeTitle = useRef(page.title);
@@ -197,6 +203,23 @@ function PageBody({
   useEffect(() => {
     linkStore.replace(linkTargets);
   }, [linkStore, linkTargets]);
+
+  useEffect(() => {
+    attachmentStore.replace(attachments);
+  }, [attachmentStore, attachments]);
+
+  // One queue per open page: it is created once so a retry still finds the job that failed.
+  const [uploadQueue] = useState(() =>
+    createUploadQueue({
+      concurrency: 2,
+      run: async (job, onProgress, signal) =>
+        (await client.uploadFile({ pageId: page.entityId, uploadId: job.uploadId, file: job.file }, onProgress, signal)).attachment,
+    }),
+  );
+  const pageAttachments = useMemo<PageEditorAttachments>(
+    () => ({ pageId: page.entityId, store: attachmentStore, queue: uploadQueue }),
+    [attachmentStore, page.entityId, uploadQueue],
+  );
 
   const links = useMemo<PageEditorLinks>(
     () => ({
@@ -399,6 +422,7 @@ function PageBody({
                 labels={messages.history}
                 editorLabels={messages.editor}
                 links={links}
+                attachments={pageAttachments}
                 formatTime={formatTime}
                 layout={panelLayout}
                 trashed={trashed}
@@ -450,6 +474,7 @@ function PageBody({
                     editable={!readOnly}
                     labels={messages.editor}
                     links={links}
+                    attachments={pageAttachments}
                     onChange={(content) => autosave.update({ content })}
                     onEditorReady={(editor) => {
                       focusEditor.current = () => {
