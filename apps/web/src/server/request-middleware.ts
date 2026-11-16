@@ -16,6 +16,7 @@ export const requestContextMiddleware = createMiddleware({ type: 'request' }).se
 
   const headers = buildSecurityHeaders({
     nonce: cspNonce,
+    surface: new URL(request.url).pathname.startsWith('/files/') ? 'file' : 'app',
     https: getRequestProtocol() === 'https',
     mode: env.nodeEnv === 'development' ? 'vite-dev' : 'strict',
   });

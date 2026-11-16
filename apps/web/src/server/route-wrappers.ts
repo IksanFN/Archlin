@@ -132,6 +132,20 @@ export function authedRoute<T>(
     });
 }
 
+// For routes that read the body themselves as a stream (file uploads): authenticates and leaves the body untouched.
+export function authedStreamRoute(
+  handler: (args: { request: Request; auth: AuthContext }) => Promise<Response>,
+  deps?: RouteDeps,
+): RouteHandler {
+  return (ctx) =>
+    respond(ctx, deps, {}, async (resolved) => {
+      const token = readCookie(ctx.request, SESSION_COOKIE);
+      if (token === null) throw new UnauthorizedError();
+      const auth = await resolved.auth.authenticate(token);
+      return handler({ request: ctx.request, auth });
+    });
+}
+
 export function tokenRoute<T>(
   scope: ApiScope,
   schema: z.ZodType<T>,

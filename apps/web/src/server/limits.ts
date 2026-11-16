@@ -10,8 +10,14 @@ export const LARGE_BODY_FUNCTION_IDS = {
   overwritePageFn: 'kb-overwrite-page',
 } as const;
 
+// Raw file bytes, not JSON: the route counts what it really reads, this only turns away an honest oversized content-length.
+// vite.config.ts loads this file without the workspace packages, so the shared ATTACHMENT_MAX_BYTES is mirrored and pinned by a test.
+export const FILE_UPLOAD_BYTES = 52_428_800;
+const FILE_UPLOAD_PATH = '/files';
+
 const LARGE_BODY_PATHS = new Set(Object.values(LARGE_BODY_FUNCTION_IDS).map((id) => `/_serverFn/${id}`));
 
 export function bodyLimitFor(pathname: string): number {
+  if (pathname === FILE_UPLOAD_PATH) return FILE_UPLOAD_BYTES;
   return LARGE_BODY_PATHS.has(pathname) ? LARGE_BODY_BYTES : MAX_BODY_BYTES;
 }
