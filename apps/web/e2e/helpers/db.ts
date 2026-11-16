@@ -50,6 +50,43 @@ export async function conflictCopies(entityId: string): Promise<{ title: string;
   });
 }
 
+// The E2E server runs no worker, so a spec sets the outcome the worker would have written.
+export async function setAttachmentExtraction(
+  entityId: string,
+  status: 'done' | 'no_text' | 'failed',
+  error?: 'timeout' | 'crashed' | 'corrupt' | 'archive_limits' | 'blob_missing',
+): Promise<void> {
+  await withClient(async (client) => {
+    const result = await client.query(
+      `update public.kb_attachments
+          set extraction_status = $2, extraction_error = $3, extraction_lease_until = null
+        where entity_id = $1`,
+      [entityId, status, status === 'failed' ? (error ?? 'timeout') : null],
+    );
+    if (result.rowCount !== 1) throw new Error(`no attachment ${entityId}`);
+  });
+}
+
+export async function attachmentIdsOf(pageId: string): Promise<string[]> {
+  return withClient(async (client) => {
+    const result = await client.query<{ id: string }>(
+      `select id from public.entities where parent_id = $1 and kind = 'kb.attachment' order by created_at`,
+      [pageId],
+    );
+    return result.rows.map((row) => row.id);
+  });
+}
+
+export async function versionReasons(entityId: string): Promise<string[]> {
+  return withClient(async (client) => {
+    const result = await client.query<{ reason: string }>(
+      'select reason from public.kb_page_versions where entity_id = $1 order by created_at desc, id desc',
+      [entityId],
+    );
+    return result.rows.map((row) => row.reason);
+  });
+}
+
 export async function pageVersion(entityId: string): Promise<number> {
   return withClient(async (client) => {
     const result = await client.query<{ version: number }>('select version from public.kb_pages where entity_id = $1', [entityId]);

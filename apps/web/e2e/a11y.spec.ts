@@ -1,9 +1,11 @@
+import { pdfFixture } from '@archlin/testing/files';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetAccount } from './helpers/db';
 import { expectNoA11yViolations } from './helpers/a11y';
 import { ACCOUNT, completeSetup, openAccountMenu, signOut, gotoSettled, reloadSettled } from './helpers/flows';
-import { createPage, createSpace, editorOf, waitSaved } from './helpers/knowledge';
+import { filePayload } from './helpers/files';
+import { createPage, createSpace, editorOf, insertWikiLink, menu, typeInEditor, waitSaved } from './helpers/knowledge';
 
 for (const theme of ['light', 'dark'] as const) {
   test(`has no axe violations in ${theme} mode`, async ({ page }) => {
@@ -173,4 +175,72 @@ test('the save status is announced politely', async ({ page }) => {
   await editorOf(page).click();
   await page.keyboard.type('gagal disimpan');
   await expect(status).toHaveText('Gagal menyimpan. Mencoba lagi…');
+});
+
+test('M2 surfaces pass axe in light and dark', async ({ page }) => {
+  test.setTimeout(300_000);
+  await resetAccount();
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Rollback Postgres' });
+  const source = await createPage(page, { space: slug, type: 'Quick Note', title: 'Sumber' });
+  // Each link sits in a sentence of its own: two links side by side are not the shape of a page worth judging by target size.
+  await typeInEditor(page, 'Prosedur pemulihan ada di ');
+  await insertWikiLink(page, 'Rollback', 'Rollback Postgres');
+  await typeInEditor(page, ' untuk dibaca sebelum rilis.');
+  await page.keyboard.press('Enter');
+  await typeInEditor(page, 'Bagian berikutnya masih disusun di ');
+  await insertWikiLink(page, 'Belum ada', 'create');
+  await typeInEditor(page, ' dan belum bisa dibuka.');
+  await menu(page, 'Lampiran');
+  await page
+    .getByRole('complementary', { name: 'Lampiran' })
+    .or(page.getByRole('dialog', { name: 'Lampiran' }))
+    .locator('input[type="file"]')
+    .setInputFiles(filePayload('laporan.pdf', 'application/pdf', pdfFixture('Halo')));
+  await expect(editorOf(page).locator('[data-attachment]', { hasText: 'laporan.pdf' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await waitSaved(page);
+  await menu(page, 'Simpan versi');
+  await page.getByLabel('Nama versi (opsional)').fill('Titik awal');
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
+  await expect(page.getByText('Versi disimpan.')).toBeVisible();
+  await typeInEditor(page, ' tambahan');
+  await waitSaved(page);
+
+  for (const theme of ['light', 'dark'] as const) {
+    await applyTheme(page, theme);
+    await gotoSettled(page, source.url);
+    await expect(editorOf(page)).toBeVisible();
+
+    await editorOf(page).click();
+    await page.keyboard.press('ControlOrMeta+End');
+    await page.keyboard.type(' [[Roll');
+    await expect(page.getByRole('option', { name: /^Rollback Postgres/ })).toBeVisible();
+    await expectNoA11yViolations(page);
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Backspace', { delay: 0 });
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+
+    await editorOf(page).getByRole('button', { name: 'Belum ada' }).click();
+    await expect(page.getByText('Halaman “Belum ada” belum ada.')).toBeVisible();
+    await expectNoA11yViolations(page);
+    await page.keyboard.press('Escape');
+
+    await menu(page, 'Riwayat versi');
+    await page.getByRole('button', { name: /Titik awal/ }).click();
+    await expect(page.getByText('Ditambah: ').first()).toBeVisible();
+    await expectNoA11yViolations(page);
+    await page.keyboard.press('Escape');
+
+    await menu(page, 'Lampiran');
+    await expect(page.getByRole('complementary', { name: 'Lampiran' })).toContainText('laporan.pdf');
+    await expectNoA11yViolations(page);
+    await page.keyboard.press('Escape');
+  }
 });
