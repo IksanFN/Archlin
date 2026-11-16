@@ -7,6 +7,7 @@ import { sql } from 'kysely';
 import { canonicalJson } from '../shared/canonical-json';
 import type { ContextFields } from '../shared/inputs';
 import type { SaveResult } from '../shared/types';
+import { documentAttachmentIds, syncAttachmentRefs } from './attachment-refs';
 import { documentText, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
 import { documentLinkRefs } from './links';
@@ -207,6 +208,7 @@ export function createPageWriter(deps: { tree: TreeService; links: LinkService; 
       }
       if (fields.includes('content')) {
         await links.sync(tx, { sourceId: locked.entityId, spaceId: locked.spaceId, refs: documentLinkRefs(doc) });
+        await syncAttachmentRefs(tx, locked.entityId, documentAttachmentIds(doc));
       }
       if (fields.includes('title')) {
         await links.resolvePending(tx, { entityId: locked.entityId, title: next.title });

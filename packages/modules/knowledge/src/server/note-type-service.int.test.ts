@@ -6,6 +6,7 @@ import type { EventEnvelope } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import {
   PLATFORM_EVENTS,
+  createBlobService,
   createEventPublisher,
   createLinkService,
   createSpaceService,
@@ -14,7 +15,7 @@ import {
 } from '@archlin/platform/server';
 import { createTwoOwnerDatabase } from '@archlin/testing/db';
 import type { TestDbUrls } from '@archlin/testing/db';
-import { FakeClock, SequenceIds } from '@archlin/testing/fakes';
+import { createInMemoryStorage, FakeClock, SequenceIds } from '@archlin/testing/fakes';
 import { fixtureMigrations } from '@archlin/testing/fixture-module';
 import pg from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -51,7 +52,8 @@ const spaces = createSpaceService({ registry, ids: systemIds, clock });
 const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
 const tags = createTagService({ tree, ids: systemIds, clock });
 const links = createLinkService({ registry, ids: systemIds, clock });
-const api = createKnowledgeApi({ tree, tags, links, publisher, clock, ids });
+const blobs = createBlobService({ registry, files: createInMemoryStorage(clock), clock });
+const api = createKnowledgeApi({ tree, tags, links, blobs, publisher, clock, ids });
 
 let urls: TestDbUrls;
 let ownerA: string;

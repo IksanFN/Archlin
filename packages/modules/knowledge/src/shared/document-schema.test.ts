@@ -1,6 +1,9 @@
 import type { TagParseRule } from '@tiptap/pm/model';
 import { describe, expect, it } from 'vitest';
-import { getDocumentSchema, isAllowedImageSrc, isAllowedLink } from './document-schema';
+import { attachmentUrl, getDocumentSchema, isAllowedImageSrc, isAllowedLink } from './document-schema';
+
+const ID = '0197b2a0-0000-7000-8000-000000000001';
+const OTHER_ID = '0197b2a0-0000-7000-8000-000000000002';
 
 describe('document schema', () => {
   it('heading level 1 renders as h2', () => {
@@ -56,9 +59,9 @@ describe('document schema', () => {
   });
 
   it('isAllowedImageSrc accepts https only', () => {
-    expect(isAllowedImageSrc('https://cdn.contoh.id/x.png')).toBe(true);
-    expect(isAllowedImageSrc('http://cdn.contoh.id/x.png')).toBe(false);
-    expect(isAllowedImageSrc('data:image/png;base64,aaaa')).toBe(false);
+    expect(isAllowedImageSrc('https://cdn.contoh.id/x.png', null)).toBe(true);
+    expect(isAllowedImageSrc('http://cdn.contoh.id/x.png', null)).toBe(false);
+    expect(isAllowedImageSrc('data:image/png;base64,aaaa', null)).toBe(false);
   });
 });
 
@@ -99,5 +102,43 @@ describe('link nodes', () => {
       entityId: '0197b2a0-0000-7000-8000-000000000001',
       title: 'Rudi',
     });
+  });
+});
+
+describe('attachment images', () => {
+  it('attachmentUrl points at the file route', () => {
+    expect(attachmentUrl(ID)).toBe(`/files/${ID}`);
+  });
+
+  it('an image of an attachment is allowed only with its own url', () => {
+    expect(isAllowedImageSrc(attachmentUrl(ID), ID)).toBe(true);
+    expect(isAllowedImageSrc(attachmentUrl(ID), null)).toBe(false);
+    expect(isAllowedImageSrc(attachmentUrl(OTHER_ID), ID)).toBe(false);
+    expect(isAllowedImageSrc('https://cdn.contoh.id/x.png', ID)).toBe(false);
+    expect(isAllowedImageSrc('/files/bukan-uuid', 'bukan-uuid')).toBe(false);
+  });
+
+  it('image carries an attachmentId and the paste rule keeps an own attachment image', () => {
+    const image = getDocumentSchema().nodes.image;
+    expect(Object.keys(image?.spec.attrs ?? {})).toContain('attachmentId');
+    const rule = image?.spec.parseDOM?.[0];
+    const img = (src: string, attachmentId: string | null) => ({
+      getAttribute: (name: string) => (name === 'src' ? src : name === 'data-attachment-id' ? attachmentId : null),
+    });
+    expect(rule?.getAttrs?.(img(attachmentUrl(ID), ID) as never)).toMatchObject({ attachmentId: ID });
+    expect(rule?.getAttrs?.(img(attachmentUrl(ID), null) as never)).toBe(false);
+  });
+
+  it('attachment is a draggable block atom with an attachmentId attribute', () => {
+    const attachment = getDocumentSchema().nodes.attachment;
+    expect(attachment?.isAtom && attachment.isBlock).toBe(true);
+    expect(Object.keys(attachment?.spec.attrs ?? {})).toEqual(['attachmentId']);
+    expect(attachment?.spec.draggable).toBe(true);
+  });
+
+  it('attachment parses its id from the rendered block', () => {
+    const rule = (getDocumentSchema().nodes.attachment?.spec.parseDOM ?? []).find((candidate) => 'tag' in candidate && candidate.tag === 'div[data-attachment]');
+    const div = { getAttribute: (name: string) => (name === 'data-attachment-id' ? ID : null) };
+    expect((rule as { getAttrs?: (node: unknown) => unknown } | undefined)?.getAttrs?.(div)).toMatchObject({ attachmentId: ID });
   });
 });

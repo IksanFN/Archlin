@@ -1,6 +1,7 @@
 import { ValidationError } from '@archlin/kernel';
 import { describe, expect, it } from 'vitest';
 import { emptyDocument, headingDocument } from '../shared/document-schema';
+import { documentAttachmentIds } from './attachment-refs';
 import { documentText, normalizeDocument, parseDocument } from './document';
 
 function expectRejected(json: unknown, code: 'invalid_document' | 'unsafe_url') {
@@ -191,5 +192,49 @@ describe('link nodes', () => {
   it('keeps a valid wikiLink and mention through normalizeDocument', () => {
     const json = para([wiki(null, 'Deploy'), mention(LINK_ID, 'Rudi')]);
     expect(normalizeDocument(json)).toEqual(json);
+  });
+});
+
+describe('attachment nodes', () => {
+  const ID = '0197b2a0-0000-7000-8000-000000000001';
+  const OTHER = '0197b2a0-0000-7000-8000-000000000002';
+  const attachmentBlock = (attachmentId: unknown) => ({ type: 'attachment', attrs: { attachmentId } });
+  const imageNode = (attachmentId: string | null, src: string) => ({ type: 'image', attrs: { src, attachmentId } });
+
+  it('keeps an attachment block and an attachment image through normalizeDocument', () => {
+    const json = { type: 'doc', content: [attachmentBlock(ID), imageNode(OTHER, `/files/${OTHER}`)] };
+    expect(normalizeDocument(json).content).toMatchObject([
+      { type: 'attachment', attrs: { attachmentId: ID } },
+      { type: 'image', attrs: { src: `/files/${OTHER}`, attachmentId: OTHER } },
+    ]);
+  });
+
+  it('rejects an attachment block without a uuid', () => {
+    expectRejected({ type: 'doc', content: [attachmentBlock(null)] }, 'invalid_document');
+    expectRejected({ type: 'doc', content: [attachmentBlock('bukan-uuid')] }, 'invalid_document');
+  });
+
+  it('rejects an attachment image whose src is not its own file url', () => {
+    expectRejected({ type: 'doc', content: [imageNode(ID, `/files/${OTHER}`)] }, 'unsafe_url');
+    expectRejected({ type: 'doc', content: [imageNode(ID, 'https://cdn.contoh.id/x.png')] }, 'unsafe_url');
+    expectRejected({ type: 'doc', content: [imageNode(null, `/files/${ID}`)] }, 'unsafe_url');
+  });
+
+  it('documentAttachmentIds lists each id once in document order from images and attachment blocks', () => {
+    const doc = parseDocument({
+      type: 'doc',
+      content: [
+        attachmentBlock(OTHER),
+        { type: 'paragraph', content: [{ type: 'text', text: 'x' }] },
+        imageNode(ID, `/files/${ID}`),
+        attachmentBlock(OTHER),
+        imageNode(null, 'https://cdn.contoh.id/x.png'),
+      ],
+    });
+    expect(documentAttachmentIds(doc)).toEqual([OTHER, ID]);
+  });
+
+  it('documentAttachmentIds is empty for a document without attachments', () => {
+    expect(documentAttachmentIds(parseDocument(emptyDocument()))).toEqual([]);
   });
 });

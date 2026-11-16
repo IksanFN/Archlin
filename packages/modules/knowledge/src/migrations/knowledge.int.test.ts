@@ -79,7 +79,7 @@ describe('knowledge migrations', () => {
     await assertModuleMigrationContract({
       urls,
       namespace: 'kb',
-      tablesCreated: ['kb_note_types', 'kb_pages', 'kb_page_versions'],
+      tablesCreated: ['kb_note_types', 'kb_pages', 'kb_page_versions', 'kb_attachments', 'kb_attachment_refs'],
     });
   });
 

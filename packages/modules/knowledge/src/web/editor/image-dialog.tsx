@@ -68,7 +68,7 @@ function ImageDialogForm({
     event.preventDefault();
     if (loading) return;
     const src = url.trim();
-    if (!isAllowedImageSrc(src)) {
+    if (!isAllowedImageSrc(src, null)) {
       setError(labels.image.urlInvalid);
       setInvalidAttempt((current) => current + 1);
       return;

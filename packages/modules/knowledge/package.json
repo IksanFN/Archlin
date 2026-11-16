@@ -36,6 +36,7 @@
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/suggestion": "catalog:",
     "diff-match-patch": "catalog:",
+    "file-type": "catalog:",
     "fractional-indexing": "catalog:",
     "highlight.js": "catalog:",
     "kysely": "catalog:",

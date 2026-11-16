@@ -1,5 +1,8 @@
 import type { ColumnType, Generated } from 'kysely';
+import type { ExtractionStatus } from '../shared/attachment-kind';
 import type { SnapshotReason } from '../shared/inputs';
+
+export type ExtractionError = 'timeout' | 'crashed' | 'corrupt' | 'archive_limits' | 'blob_missing';
 
 export type ReviewMode = 'none' | 'daily' | 'spaced';
 
@@ -56,11 +59,37 @@ export interface KbPageVersionsTable {
   aliases: string[];
   reason: SnapshotReason;
   label: string | null;
+  attachment_ids: Generated<string[]>;
   created_at: Date;
+}
+
+export interface KbAttachmentsTable {
+  owner_id: string;
+  entity_id: string;
+  kind: Generated<string>;
+  blob_sha256: string;
+  upload_id: string;
+  filename: string;
+  mime: string;
+  size: ColumnType<string, number, never>;
+  extraction_status: ExtractionStatus;
+  extraction_error: ExtractionError | null;
+  extracted_text: string | null;
+  extraction_attempts: Generated<number>;
+  extraction_lease_until: Date | null;
+  created_at: Date;
+}
+
+export interface KbAttachmentRefsTable {
+  owner_id: string;
+  page_id: string;
+  attachment_id: string;
 }
 
 export interface KnowledgeDatabase {
   kb_note_types: KbNoteTypesTable;
   kb_pages: KbPagesTable;
   kb_page_versions: KbPageVersionsTable;
+  kb_attachments: KbAttachmentsTable;
+  kb_attachment_refs: KbAttachmentRefsTable;
 }

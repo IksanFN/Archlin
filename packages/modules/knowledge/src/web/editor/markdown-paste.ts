@@ -29,7 +29,7 @@ export function looksLikeMarkdown(text: string): boolean {
 function sanitizeNode(node: JSONContent): JSONContent | null {
   if (node.type === 'image') {
     const src: unknown = node.attrs?.src;
-    return typeof src === 'string' && isAllowedImageSrc(src) ? node : null;
+    return typeof src === 'string' && isAllowedImageSrc(src, null) ? node : null;
   }
   const next: JSONContent = { ...node };
   if (node.marks !== undefined) {

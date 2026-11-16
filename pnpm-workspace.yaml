@@ -12,6 +12,7 @@ catalog:
   zod: 4.6.7
   kysely: 0.29.8
   fractional-indexing: 4.0.0
+  file-type: 22.3.0
   diff-match-patch: 1.0.5
   "@types/diff-match-patch": 1.0.36
   pg: 8.23.1

@@ -126,3 +126,18 @@ export const restoreVersionInputSchema = z.strictObject({
   baseVersion: z.int().min(1),
 });
 export type RestoreVersionInput = z.infer<typeof restoreVersionInputSchema>;
+
+export const trashOrphansInputSchema = z.strictObject({
+  pageId: z.uuid(),
+  attachmentIds: z.array(z.uuid()).min(1).max(100),
+});
+export type TrashOrphansInput = z.infer<typeof trashOrphansInputSchema>;
+
+export const attachmentIdInputSchema = z.strictObject({ attachmentId: z.uuid() });
+export type AttachmentIdInput = z.infer<typeof attachmentIdInputSchema>;
+
+export const copyAttachmentsInputSchema = z.strictObject({
+  pageId: z.uuid(),
+  attachmentIds: z.array(z.uuid()).min(1).max(50),
+});
+export type CopyAttachmentsInput = z.infer<typeof copyAttachmentsInputSchema>;

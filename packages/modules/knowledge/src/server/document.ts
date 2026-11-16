@@ -70,8 +70,11 @@ export function parseDocument(json: unknown): ProseMirrorNode {
 
   node.descendants((child) => {
     if (child.type.name === 'image') {
-      if (typeof child.attrs.src !== 'string' || !isAllowedImageSrc(child.attrs.src)) unsafeUrl();
+      const attachmentId: unknown = child.attrs.attachmentId;
+      const ownImage = attachmentId === null || typeof attachmentId === 'string';
+      if (typeof child.attrs.src !== 'string' || !ownImage || !isAllowedImageSrc(child.attrs.src, attachmentId)) unsafeUrl();
     }
+    if (child.type.name === 'attachment' && !uuidSchema.safeParse(child.attrs.attachmentId).success) invalidDocument();
     if ((child.type.name === 'wikiLink' || child.type.name === 'mention') && !validLinkNode(child)) invalidDocument();
     if (child.type.name === 'callout' && !(CALLOUT_VARIANTS as readonly string[]).includes(child.attrs.variant as string)) {
       invalidDocument();

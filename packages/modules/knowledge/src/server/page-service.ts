@@ -18,6 +18,7 @@ import type {
   SuggestPagesInput,
 } from '../shared/inputs';
 import type { PageScreen, PageSuggestion, PageView, SaveResult } from '../shared/types';
+import type { AttachmentService } from './attachment-service';
 import { documentText, normalizeDocument, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
 import { documentLinkRefs } from './links';
@@ -137,10 +138,11 @@ export function createPageService(deps: {
   tree: TreeService;
   tags: TagService;
   links: LinkService;
+  attachments: AttachmentService;
   clock: Clock;
   ids: Ids;
 }): PageService {
-  const { tree, tags, links, clock, ids } = deps;
+  const { tree, tags, links, attachments, clock, ids } = deps;
   const writer = createPageWriter({ tree, links, clock, ids });
 
   async function loadNoteType(tx: ReadTx, noteTypeId: string): Promise<NoteTypeRow> {
@@ -317,7 +319,8 @@ export function createPageService(deps: {
       const linkTargets = await links.outbound(tx, input.entityId);
       const backlinks = await links.inbound(tx, { entityId: input.entityId, title: page.title });
       if (input.recordView) await tree.recordView(tx, input.entityId);
-      return { page, breadcrumbs, linkTargets, backlinks };
+      const pageAttachments = await attachments.listForPage(tx, input.entityId);
+      return { page, breadcrumbs, linkTargets, backlinks, attachments: pageAttachments };
     },
 
     async suggestPages(tx, input) {

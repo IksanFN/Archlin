@@ -3,6 +3,8 @@ export {
   ALLOWED_LINK_PROTOCOLS,
   ArchlinHeading,
   ArchlinImage,
+  AttachmentNode,
+  attachmentUrl,
   CALLOUT_VARIANTS,
   Callout,
   contentExtensions,
@@ -15,6 +17,8 @@ export {
   WikiLink,
 } from './document-schema';
 export type { CalloutVariant } from './document-schema';
+export { attachmentKindOf, DOCX_MIME, IMAGE_MIMES, PDF_MIME } from './attachment-kind';
+export type { AttachmentKind, ExtractionStatus } from './attachment-kind';
 export {
   FIELD_TYPES,
   PROPERTY_KEY,
@@ -29,8 +33,10 @@ export type { FieldDefinition, FieldType, PropertyIssue } from './field-schema';
 export {
   REVIEW_MODES,
   SNAPSHOT_REASONS,
+  attachmentIdInputSchema,
   changeNoteTypeInputSchema,
   contextFieldsSchema,
+  copyAttachmentsInputSchema,
   createNoteTypeInputSchema,
   createLinkedPageInputSchema,
   createPageInputSchema,
@@ -47,12 +53,15 @@ export {
   savePageInputSchema,
   snapshotPageInputSchema,
   suggestPagesInputSchema,
+  trashOrphansInputSchema,
   updateNoteTypeInputSchema,
   versionInputSchema,
 } from './inputs';
 export type {
+  AttachmentIdInput,
   ChangeNoteTypeInput,
   ContextFields,
+  CopyAttachmentsInput,
   CreateLinkedPageInput,
   CreateNoteTypeInput,
   CreatePageInput,
@@ -69,12 +78,14 @@ export type {
   SnapshotPageInput,
   SnapshotReason,
   SuggestPagesInput,
+  TrashOrphansInput,
   UpdateNoteTypeInput,
   VersionInput,
 } from './inputs';
-export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES, VERSION_PAGE_SIZE } from './limits';
+export { ATTACHMENT_MAX_BYTES, PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES, VERSION_PAGE_SIZE } from './limits';
 export { deriveTypeKey } from './type-key';
 export type {
+  AttachmentView,
   NoteTypeDetail,
   NoteTypeRef,
   NoteTypeSummary,

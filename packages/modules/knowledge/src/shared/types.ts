@@ -1,5 +1,6 @@
 import type { Breadcrumb, InboundLink, OutboundLink, TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
+import type { AttachmentKind, ExtractionStatus } from './attachment-kind';
 import type { FieldDefinition } from './field-schema';
 import type { ContextFields, ReviewMode, SavePageInput, SnapshotReason } from './inputs';
 
@@ -58,11 +59,26 @@ export interface PageSuggestion {
   spaceName: string;
 }
 
+export interface AttachmentView {
+  id: string;
+  pageId: string;
+  filename: string;
+  mime: string;
+  size: number;
+  kind: AttachmentKind;
+  extraction: ExtractionStatus;
+  // True while live content or a retained version of any page points at it; only the others are orphans.
+  referenced: boolean;
+  trashed: boolean;
+  createdAt: string;
+}
+
 export interface PageScreen {
   page: PageView;
   breadcrumbs: Breadcrumb[];
   linkTargets: OutboundLink[];
   backlinks: InboundLink[];
+  attachments: AttachmentView[];
 }
 
 export type SnapshotResult =

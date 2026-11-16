@@ -78,7 +78,7 @@ function buildContainer(): WebContainer {
   const files = createLocalDiskStorage(env.filesDir);
   const blobs = createBlobService({ registry, files, clock });
   const links = createLinkService({ registry, ids: systemIds, clock });
-  const knowledge = createKnowledgeApi({ tree, tags, links, publisher, clock, ids: systemIds });
+  const knowledge = createKnowledgeApi({ tree, tags, links, blobs, publisher, clock, ids: systemIds });
 
   const authDeps: AuthDeps = {
     db,

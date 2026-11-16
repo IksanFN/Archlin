@@ -3,6 +3,8 @@ import { NotFoundError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { JSONContent } from '@tiptap/core';
 import type { ContextFields, SnapshotReason } from '../shared/inputs';
+import { documentAttachmentIds } from './attachment-refs';
+import { parseDocument } from './document';
 import type { KnowledgeDatabase } from './schema';
 
 export interface PageSnapshot {
@@ -56,6 +58,8 @@ export async function insertVersion(
       aliases: [...snapshot.context.aliases],
       reason: input.reason,
       label: input.label,
+      // Kept per version so an attachment an old version shows is never treated as an orphan while that version exists.
+      attachment_ids: documentAttachmentIds(parseDocument(snapshot.content)),
       created_at: now,
     })
     .execute();

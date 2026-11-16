@@ -5,3 +5,6 @@ export const PAGE_SAVE_MAX_BYTES = 5_242_880;
 export const PAGE_SAVE_CLIENT_MAX_BYTES = 5_000_000;
 
 export const VERSION_PAGE_SIZE = 30;
+
+// Spec 10.7. The web body limit for /files and the client's own check read this one value.
+export const ATTACHMENT_MAX_BYTES = 52_428_800;
