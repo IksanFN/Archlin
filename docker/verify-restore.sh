@@ -13,7 +13,7 @@ fi
 identity=$1
 
 compose=(docker compose -f docker/compose.yml --env-file .env)
-snapshot_sql="select (select count(*) from users) || ':' || (select count(*) from security_events) || ':' || (select string_agg(name, ',' order by name) from kysely_migration)"
+snapshot_sql="select (select count(*) from users) || ':' || (select count(*) from security_events) || ':' || (select string_agg(name, ',' order by name) from kysely_migration) || ':' || (select count(*) from blobs) || ':' || (select count(*) from kb_attachments) || ':' || coalesce((select string_agg(sha256, ',' order by sha256) from blobs), '')"
 snapshot() {
   "${compose[@]}" exec -T postgres psql -U postgres -d cortex -At -c "$snapshot_sql"
 }
@@ -44,6 +44,13 @@ after=$(snapshot)
 echo "Sesudah: $after"
 if [ "$before" != "$after" ]; then
   echo "Snapshot berbeda setelah restore." >&2
+  exit 1
+fi
+blob_count=$("${compose[@]}" exec -T postgres psql -U postgres -d cortex -At -c "select count(*) from blobs")
+checked=$("${compose[@]}" run --rm --entrypoint check-blobs.sh backup /data/files | tr -d '\r')
+echo "Blob: $checked"
+if [ "$checked" != "blobs-ok $blob_count" ]; then
+  echo "Blob di volume tidak cocok: diharapkan blobs-ok $blob_count." >&2
   exit 1
 fi
 curl -fsS "http://localhost:${ARCHLIN_STACK_PORT:-8080}/health" > /dev/null

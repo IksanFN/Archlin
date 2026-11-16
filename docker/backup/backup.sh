@@ -13,7 +13,8 @@ mkdir -p "$work"
 trap 'rm -rf "$work"' EXIT
 
 pg_dump --format=custom --dbname="$BACKUP_DATABASE_URL" --file="$work/db.dump"
-tar -C /data/files -cf "$work/files.tar" .
+# Staging holds half-written uploads; they are not part of any committed state.
+tar -C /data/files --exclude=./.staging -cf "$work/files.tar" .
 
 migrations=$(psql "$BACKUP_DATABASE_URL" -At -c "select coalesce(json_agg(name order by name), '[]'::json) from kysely_migration")
 

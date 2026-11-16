@@ -71,6 +71,14 @@ Backup harian jam 02:00 (`BACKUP_TZ`) disimpan 14 hari di volume `backups` sebag
 4. Restore: `bash docker/restore.sh <file-backup> <file-identity>`. Skrip menghentikan web, worker, dan backup, memeriksa checksum sebelum menyentuh database, memulihkan database dan file, lalu menyalakan semuanya lagi. Backup yang rusak atau dimanipulasi ditolak dan database lama tetap utuh.
 5. Verifikasi berkala: `bash docker/verify-restore.sh "$USERPROFILE/archlin-backup.agekey" --confirm-destroy`. Skrip ini **menghapus** volume `archlin_pgdata` dan `archlin_files` lalu memulihkannya dari backup baru, jadi jalankan hanya di stack lokal. Setelah selesai, uji login dengan TOTP secara manual.
 
+## Lampiran dan backup
+
+- Lampiran disimpan di volume `files` sebagai blob yang tidak pernah diubah: `blobs/<owner>/<aa>/<sha256>`. Nama file adalah hash isinya, jadi file yang sama di dua halaman memakai satu blob.
+- Pembersih (GC) menghapus blob hanya setelah tidak dirujuk selama 24 jam sejak ditandai. Karena itu backup yang selesai kurang dari 24 jam selalu memuat setiap blob yang dirujuk dump-nya. File staging (`.staging`) tidak ikut backup; worker membersihkan yang tertinggal setelah 24 jam.
+- `verify-restore.sh` membandingkan jumlah dan daftar hash blob sebelum dan sesudah restore, lalu menjalankan `check-blobs.sh` yang menghitung ulang hash setiap file di volume dan membandingkannya dengan namanya.
+- Ekstraksi teks PDF dan DOCX berjalan di proses anak dengan batas heap 512 MB dan timeout 60 detik. Memori native proses itu tidak dibatasi oleh flag heap. Bila perlu batas keras, beri container `worker` `mem_limit` di `docker/compose.yml` (opsional, spec 13.5). Risiko ini belum ditutup.
+- Ekstraksi memerlukan hasil build worker (`pnpm --filter @archlin/worker build`) karena proses anaknya adalah `dist/extract-child.mjs`; image Docker sudah memuatnya.
+
 ## Keamanan dan privasi
 
 - Isi catatan, kueri pencarian, dan embedding tidak keluar dari server; tidak ada telemetri dan tidak ada CDN. Log tidak mencatat isi catatan.
