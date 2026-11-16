@@ -43,15 +43,25 @@ function findEndRecord(view: DataView): number {
 const viewOf = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
 // 'zip64' stands for an archive this reader does not parse; null for bytes that are not a complete zip.
+// The zip library behind mammoth reads directory records until their signature stops matching and shifts every offset by
+// the bytes in front of the end record. Only an archive where that and this reader see the same thing is accepted:
+// one disk, the directory ending exactly at the end record, and nothing after the last counted record.
 function readEntries(bytes: Uint8Array): ZipEntryInfo[] | 'zip64' | null {
   if (bytes.byteLength < END_RECORD_BYTES) return null;
   const view = viewOf(bytes);
   const end = findEndRecord(view);
   if (end < 0) return null;
 
+  const disk = view.getUint16(end + 4, true);
+  const directoryDisk = view.getUint16(end + 6, true);
+  const countOnDisk = view.getUint16(end + 8, true);
   const count = view.getUint16(end + 10, true);
+  const directorySize = view.getUint32(end + 12, true);
   const directoryOffset = view.getUint32(end + 16, true);
-  if (count === ZIP64_16 || directoryOffset === ZIP64_32) return 'zip64';
+  const markers = [disk, directoryDisk, countOnDisk, count].includes(ZIP64_16) || directorySize === ZIP64_32 || directoryOffset === ZIP64_32;
+  if (markers) return 'zip64';
+  if (disk !== 0 || directoryDisk !== 0 || countOnDisk !== count) return null;
+  if (directoryOffset + directorySize !== end) return null;
 
   const entries: ZipEntryInfo[] = [];
   let at = directoryOffset;
@@ -68,7 +78,7 @@ function readEntries(bytes: Uint8Array): ZipEntryInfo[] | 'zip64' | null {
     const commentLength = view.getUint16(at + 32, true);
     at += ENTRY_HEADER_BYTES + nameLength + extraLength + commentLength;
   }
-  return entries;
+  return at === end ? entries : null;
 }
 
 // Null when the bytes are not a zip or the directory is cut short. ZIP64 sizes are not parsed: they count as over every

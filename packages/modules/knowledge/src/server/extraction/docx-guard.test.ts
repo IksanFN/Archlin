@@ -61,3 +61,51 @@ describe('entriesMatchDeclaredSizes', () => {
     expect(entriesMatchDeclaredSizes(utf8('bukan zip'))).toBe(false);
   });
 });
+
+// The zip library keeps reading directory records while their signature matches and moves every offset by the bytes that
+// sit before the end record. A guard that reads the directory differently could vet one set of entries and let another through.
+describe('archives read differently by other zip readers', () => {
+  const parts = () => zipFixture([{ name: 'a', data: utf8('abc') }, { name: 'b', data: utf8('de') }]);
+  const endOf = (bytes: Uint8Array) => bytes.length - 22;
+  const viewOf = (bytes: Uint8Array) => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  it('an end record that counts fewer entries than the directory holds is refused', () => {
+    const bytes = parts();
+    viewOf(bytes).setUint16(endOf(bytes) + 8, 1, true);
+    viewOf(bytes).setUint16(endOf(bytes) + 10, 1, true);
+    expect(inspectZip(bytes)).toBeNull();
+    expect(entriesMatchDeclaredSizes(bytes)).toBe(false);
+  });
+
+  it('bytes between the directory and the end record are refused', () => {
+    const bytes = parts();
+    const padded = new Uint8Array(bytes.length + 10);
+    padded.set(bytes.subarray(0, endOf(bytes)), 0);
+    padded.set(bytes.subarray(endOf(bytes)), endOf(bytes) + 10);
+    expect(inspectZip(padded)).toBeNull();
+    expect(entriesMatchDeclaredSizes(padded)).toBe(false);
+  });
+
+  it('a directory that stops short of the end record is refused', () => {
+    const bytes = parts();
+    const size = viewOf(bytes).getUint32(endOf(bytes) + 12, true);
+    viewOf(bytes).setUint32(endOf(bytes) + 12, size - 10, true);
+    expect(inspectZip(bytes)).toBeNull();
+  });
+
+  it('an archive split over several disks is refused', () => {
+    const bytes = parts();
+    viewOf(bytes).setUint16(endOf(bytes) + 4, 1, true);
+    expect(inspectZip(bytes)).toBeNull();
+    const other = parts();
+    viewOf(other).setUint16(endOf(other) + 6, 1, true);
+    expect(inspectZip(other)).toBeNull();
+  });
+
+  it('a directory size marker for zip64 counts as over every limit', () => {
+    const bytes = parts();
+    viewOf(bytes).setUint32(endOf(bytes) + 12, 0xffffffff, true);
+    expect(inspectZip(bytes)?.uncompressed).toBe(Infinity);
+    expect(entriesMatchDeclaredSizes(bytes)).toBe(false);
+  });
+});
