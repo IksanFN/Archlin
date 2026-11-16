@@ -1,4 +1,4 @@
-import { Callout, contentExtensions } from '@archlin/modules-knowledge/shared';
+import { Callout, contentExtensions, Mention, WikiLink } from '@archlin/modules-knowledge/shared';
 import type { Extensions } from '@tiptap/core';
 import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
 import { Placeholder } from '@tiptap/extensions';
@@ -11,6 +11,9 @@ import { CalloutView } from './callout-view';
 import { CodeBlockView } from './code-block-view';
 import { FindReplace } from './find-replace';
 import type { EditorLabels } from './labels';
+import { LinkNodeView } from '../links/wiki-link-view';
+import { LinkSuggestions } from '../links/link-suggestion';
+import type { PageEditorLinks } from '../links/page-editor-links';
 import { MarkdownPaste } from './markdown-paste';
 import { SlashCommand } from './slash-command';
 
@@ -27,7 +30,18 @@ function bindLabels(
   return Bound;
 }
 
-export function editorExtensions(labels: EditorLabels): Extensions {
+// Editors that are not a page (the note type template) pass no links and keep plain link nodes without a picker.
+export interface EditorExtensionOptions {
+  links?: PageEditorLinks | undefined;
+}
+
+function linkNode(kind: 'wikiLink' | 'mention', labels: EditorLabels, links: PageEditorLinks) {
+  return (kind === 'wikiLink' ? WikiLink : Mention).extend({
+    addNodeView: () => (props) => new LinkNodeView(props.node, { kind, editor: props.editor, links, labels, getPos: () => props.getPos() }),
+  });
+}
+
+export function editorExtensions(labels: EditorLabels, options: EditorExtensionOptions): Extensions {
   return [
     ...contentExtensions().map((extension) => {
       if (extension.name === 'codeBlock') {
@@ -40,6 +54,9 @@ export function editorExtensions(labels: EditorLabels): Extensions {
           addNodeView: () => ReactNodeViewRenderer(bindLabels(CalloutView, labels)),
         });
       }
+      if (options.links !== undefined && (extension.name === 'wikiLink' || extension.name === 'mention')) {
+        return linkNode(extension.name, labels, options.links);
+      }
       return extension;
     }),
     Placeholder.configure({
@@ -47,6 +64,7 @@ export function editorExtensions(labels: EditorLabels): Extensions {
       placeholder: ({ node }) => (node.type.name === 'heading' ? labels.headingPlaceholder : labels.placeholder),
     }),
     SlashCommand.configure({ labels }),
+    ...(options.links === undefined ? [] : [LinkSuggestions.configure({ links: options.links, labels })]),
     BlockCommands,
     BlockHandleExtension,
     MarkdownPaste,

@@ -3,6 +3,18 @@ import type { EditorLabels } from './labels';
 import { filterSlashItems, slashItems } from './slash-items';
 
 const testLabels: EditorLabels = {
+  links: {
+    searching: 'Mencari…',
+    empty: 'Tidak ada halaman yang cocok.',
+    loadFailed: 'Saran halaman gagal dimuat.',
+    createItem: (query) => `Tautkan “${query}” sebagai halaman baru`,
+    found: (count) => `${count} halaman ditemukan`,
+    unresolvedBody: (title) => `Halaman “${title}” belum ada.`,
+    createPage: 'Buat halaman',
+    ambiguousBody: (title) => `Ada beberapa halaman berjudul “${title}”. Pilih yang dimaksud.`,
+    inTrash: 'Ada di Trash',
+    pickerLabel: 'Pilih halaman untuk ditautkan',
+  },
   title: 'Judul',
   body: 'Isi halaman',
   untitled: 'Tanpa judul',

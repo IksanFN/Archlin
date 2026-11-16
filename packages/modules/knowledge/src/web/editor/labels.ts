@@ -1,4 +1,7 @@
+import type { LinkLabels } from '../links/page-editor-links';
+
 export interface EditorLabels {
+  links: LinkLabels;
   title: string;
   body: string;
   untitled: string;

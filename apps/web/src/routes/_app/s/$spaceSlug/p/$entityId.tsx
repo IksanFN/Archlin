@@ -1,8 +1,9 @@
-import type { PageView } from '@archlin/modules-knowledge/shared';
+import type { PageScreen, PageView } from '@archlin/modules-knowledge/shared';
 import {
   browserStorage,
   ConflictDialog,
   ContextCard,
+  createLinkTargetStore,
   DraftBanner,
   invalidReason,
   PageEditor,
@@ -12,11 +13,12 @@ import {
   useKnowledgeClient,
   usePageAutosave,
 } from '@archlin/modules-knowledge/web';
+import type { PageEditorLinks } from '@archlin/modules-knowledge/web';
 import type { Breadcrumb, SpaceSummary, TagRef } from '@archlin/platform/contracts';
 import { Button } from '@archlin/ui/components/button';
 import { toast } from '@archlin/ui/components/sonner';
 import { createFileRoute, notFound, redirect, useBlocker, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MoveDialog } from '~/components/move-dialog';
 import { PageMenu } from '~/components/page-menu';
 import { PageTopBar } from '~/components/page-top-bar';
@@ -37,7 +39,7 @@ const UNSAVED = new Set(['dirty', 'saving', 'error', 'offline', 'conflict', 'inv
 export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
   loader: async ({ params, cause }) => {
     try {
-      const { page, breadcrumbs } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
+      const { page, breadcrumbs, linkTargets } = await pageFn({ data: { entityId: params.entityId, recordView: cause === 'enter' } });
       if (params.spaceSlug !== page.spaceSlug) {
         throw redirect({
           to: '/s/$spaceSlug/p/$entityId',
@@ -50,6 +52,7 @@ export const Route = createFileRoute('/_app/s/$spaceSlug/p/$entityId')({
       return {
         page,
         breadcrumbs,
+        linkTargets,
         spaces,
         spaceName: space?.name ?? page.spaceSlug,
         mobileTitle: page.title || messages.page.untitled,
@@ -82,12 +85,14 @@ function PageScreen() {
 function PageBody({
   page,
   breadcrumbs,
+  linkTargets,
   spaces,
   spaceName,
   nowIso,
 }: {
   page: PageView;
   breadcrumbs: readonly Breadcrumb[];
+  linkTargets: PageScreen['linkTargets'];
   spaces: readonly SpaceSummary[];
   spaceName: string;
   nowIso: string;
@@ -102,6 +107,7 @@ function PageBody({
   const [seenConflictVersion, setSeenConflictVersion] = useState<number | null>(null);
   const [editorKey, setEditorKey] = useState(0);
   const [tagState, setTagState] = useState<{ source: TagRef[]; tags: TagRef[] }>({ source: page.tags, tags: page.tags });
+  const [linkStore] = useState(() => createLinkTargetStore(linkTargets));
   const [liveSince] = useState(() => new Date().toISOString());
   const { drafts: draftQueue, refresh: refreshDrafts } = useDraftQueue(page, liveSince);
   const lastTreeTitle = useRef(page.title);
@@ -168,6 +174,35 @@ function PageBody({
         if (entityId === page.entityId) void router.invalidate();
       }),
     [page.entityId, router],
+  );
+
+  useEffect(() => {
+    linkStore.replace(linkTargets);
+  }, [linkStore, linkTargets]);
+
+  const links = useMemo<PageEditorLinks>(
+    () => ({
+      store: linkStore,
+      entityId: page.entityId,
+      spaceId: page.spaceId,
+      spaceSlug: page.spaceSlug,
+      client,
+      navigate: (href) => {
+        void router.navigate({ href });
+      },
+      createLinkedPage: async (title) => {
+        try {
+          const created = await client.createLinkedPage({ sourceEntityId: page.entityId, title });
+          notifyTreeMutation();
+          return created;
+        } catch (error) {
+          const presentation = messageForError(error);
+          if (presentation.kind === 'toast') toast.error(presentation.text);
+          throw error;
+        }
+      },
+    }),
+    [linkStore, page.entityId, page.spaceId, page.spaceSlug, client, router],
   );
 
   const flush = autosave.flush;
@@ -322,6 +357,7 @@ function PageBody({
               content={autosave.state.latest.content}
               editable={!readOnly}
               labels={messages.editor}
+              links={links}
               onChange={(content) => autosave.update({ content })}
               onEditorReady={(editor) => {
                 focusEditor.current = () => {

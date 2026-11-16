@@ -2,10 +2,24 @@ import { getSchema } from '@tiptap/core';
 import type { Schema } from '@tiptap/pm/model';
 import { describe, expect, it } from 'vitest';
 import { getDocumentSchema } from '../../shared/document-schema';
+import { createLinkTargetStore } from '../links/link-targets';
+import type { PageEditorLinks } from '../links/page-editor-links';
 import { editorExtensions } from './extensions';
 import type { EditorLabels } from './labels';
 
 const testLabels: EditorLabels = {
+  links: {
+    searching: 'Mencari…',
+    empty: 'Tidak ada halaman yang cocok.',
+    loadFailed: 'Saran halaman gagal dimuat.',
+    createItem: (query) => `Tautkan “${query}” sebagai halaman baru`,
+    found: (count) => `${count} halaman ditemukan`,
+    unresolvedBody: (title) => `Halaman “${title}” belum ada.`,
+    createPage: 'Buat halaman',
+    ambiguousBody: (title) => `Ada beberapa halaman berjudul “${title}”. Pilih yang dimaksud.`,
+    inTrash: 'Ada di Trash',
+    pickerLabel: 'Pilih halaman untuk ditautkan',
+  },
   title: 'Judul',
   body: 'Isi halaman',
   untitled: 'Tanpa judul',
@@ -86,16 +100,30 @@ const testLabels: EditorLabels = {
   },
 };
 
+const links: PageEditorLinks = {
+  store: createLinkTargetStore([]),
+  entityId: 'e',
+  spaceId: 's',
+  spaceSlug: 'kerja',
+  client: { suggestPages: () => Promise.resolve([]) },
+  navigate: () => undefined,
+  createLinkedPage: () => Promise.resolve({ entityId: 'n', spaceSlug: 'kerja' }),
+};
+
+const describeSchema = (schema: Schema) => ({
+  nodes: Object.fromEntries(
+    Object.entries(schema.nodes).map(([name, type]) => [name, { attrs: Object.keys(type.spec.attrs ?? {}).sort(), content: type.spec.content ?? '' }]),
+  ),
+  marks: Object.keys(schema.marks).sort(),
+});
+
 describe('editor extensions', () => {
-  it('the editor schema equals the server schema', () => {
-    const web = getSchema(editorExtensions(testLabels));
-    const server = getDocumentSchema();
-    const describe = (s: Schema) => ({
-      nodes: Object.fromEntries(
-        Object.entries(s.nodes).map(([n, t]) => [n, { attrs: Object.keys(t.spec.attrs ?? {}).sort(), content: t.spec.content ?? '' }]),
-      ),
-      marks: Object.keys(s.marks).sort(),
-    });
-    expect(describe(web)).toEqual(describe(server));
+  it.each([
+    ['for a page', { links }],
+    ['without links', {}],
+  ])('the editor schema equals the server schema %s', (_name, options) => {
+    const web = getSchema(editorExtensions(testLabels, options));
+    expect(describeSchema(web)).toEqual(describeSchema(getDocumentSchema()));
+    expect(Object.keys(web.nodes)).toEqual(expect.arrayContaining(['wikiLink', 'mention', 'attachment', 'image']));
   });
 });

@@ -40,4 +40,7 @@ export { editorExtensions } from './editor/extensions';
 export { ImageDialog, loadImageSize } from './editor/image-dialog';
 export type { EditorLabels } from './editor/labels';
 export { PageEditor } from './editor/page-editor';
+export { createLinkTargetStore } from './links/link-targets';
+export type { LinkTargetStore } from './links/link-targets';
+export type { LinkLabels, PageEditorLinks } from './links/page-editor-links';
 export { TitleInput } from './editor/title-input';

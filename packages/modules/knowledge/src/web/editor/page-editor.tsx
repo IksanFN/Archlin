@@ -2,6 +2,10 @@ import type { Editor, JSONContent } from '@tiptap/core';
 import { EditorContent, useEditor } from '@tiptap/react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { UnresolvedLinkPopover } from '../links/unresolved-popover';
+import { OPEN_LINK_POPOVER } from '../links/wiki-link-view';
+import type { OpenLinkPopoverDetail } from '../links/wiki-link-view';
+import type { PageEditorLinks } from '../links/page-editor-links';
 import { BlockHandle } from './block-handle';
 import { editorExtensions } from './extensions';
 import { FindPanel } from './find-panel';
@@ -28,19 +32,22 @@ export function PageEditor({
   content,
   editable,
   labels,
+  links,
   onChange,
   onEditorReady,
 }: {
   content: JSONContent;
   editable: boolean;
   labels: EditorLabels;
+  links?: PageEditorLinks;
   onChange: (doc: JSONContent) => void;
   onEditorReady?: (editor: Editor) => void;
 }) {
   const [imageOpen, setImageOpen] = useState(false);
+  const [linkPopover, setLinkPopover] = useState<OpenLinkPopoverDetail | null>(null);
   const [gutter, setGutter] = useState<'inside' | 'outside'>('inside');
   const rootRef = useRef<HTMLDivElement>(null);
-  const extensions = useMemo(() => editorExtensions(labels), [labels]);
+  const extensions = useMemo(() => editorExtensions(labels, { links }), [labels, links]);
   const editor = useEditor({
     extensions,
     content,
@@ -86,8 +93,15 @@ export function PageEditor({
     function onOpen(): void {
       setImageOpen(true);
     }
+    function onOpenLink(event: Event): void {
+      setLinkPopover((event as CustomEvent<OpenLinkPopoverDetail>).detail);
+    }
     root.addEventListener(OPEN_IMAGE_DIALOG, onOpen);
-    return () => root.removeEventListener(OPEN_IMAGE_DIALOG, onOpen);
+    root.addEventListener(OPEN_LINK_POPOVER, onOpenLink);
+    return () => {
+      root.removeEventListener(OPEN_IMAGE_DIALOG, onOpen);
+      root.removeEventListener(OPEN_LINK_POPOVER, onOpenLink);
+    };
   }, []);
 
   return (
@@ -106,6 +120,15 @@ export function PageEditor({
         </>
       )}
       <EditorContent editor={editor} />
+      {links === undefined ? null : (
+        <UnresolvedLinkPopover
+          editor={editor}
+          links={links}
+          labels={labels.links}
+          detail={linkPopover}
+          onClose={() => setLinkPopover(null)}
+        />
+      )}
       <ImageDialog
         open={imageOpen}
         onOpenChange={setImageOpen}

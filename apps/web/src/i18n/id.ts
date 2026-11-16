@@ -1,4 +1,17 @@
 // Every user-facing string lives here (spec N10). Sentence case, no em dashes.
+const linkMessages = {
+  searching: 'Mencari…',
+  empty: 'Tidak ada halaman yang cocok.',
+  loadFailed: 'Saran halaman gagal dimuat.',
+  createItem: (query: string) => `Tautkan “${query}” sebagai halaman baru`,
+  found: (count: number) => `${count} halaman ditemukan`,
+  unresolvedBody: (title: string) => `Halaman “${title}” belum ada.`,
+  createPage: 'Buat halaman',
+  ambiguousBody: (title: string) => `Ada beberapa halaman berjudul “${title}”. Pilih yang dimaksud.`,
+  inTrash: 'Ada di Trash',
+  pickerLabel: 'Pilih halaman untuk ditautkan',
+} as const;
+
 export const messages = {
   appName: 'Archlin',
   common: {
@@ -433,6 +446,7 @@ export const messages = {
     },
   },
   editor: {
+    links: linkMessages,
     title: 'Judul',
     body: 'Isi halaman',
     untitled: 'Tanpa judul',
@@ -531,18 +545,7 @@ export const messages = {
     add: 'Tambah ke favorit',
     remove: 'Hapus dari favorit',
   },
-  links: {
-    searching: 'Mencari…',
-    empty: 'Tidak ada halaman yang cocok.',
-    loadFailed: 'Saran halaman gagal dimuat.',
-    createItem: (query: string) => `Tautkan “${query}” sebagai halaman baru`,
-    found: (count: number) => `${count} halaman ditemukan`,
-    unresolvedBody: (title: string) => `Halaman “${title}” belum ada.`,
-    createPage: 'Buat halaman',
-    ambiguousBody: (title: string) => `Ada beberapa halaman berjudul “${title}”. Pilih yang dimaksud.`,
-    inTrash: 'Ada di Trash',
-    pickerLabel: 'Pilih halaman untuk ditautkan',
-  },
+  links: linkMessages,
   mentionedIn: {
     title: 'Disebut di',
     empty: 'Belum ada halaman yang menautkan ke sini.',
