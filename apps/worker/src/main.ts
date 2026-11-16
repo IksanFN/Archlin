@@ -2,6 +2,8 @@ import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
 import {
+  createBlobMaintenanceTask,
+  createBlobService,
   createEventPublisher,
   createIdentityGateway,
   createLinkService,
@@ -43,6 +45,7 @@ async function main(): Promise<void> {
   const tree = createTreeService({ registry, publisher, clock: systemClock, ids: systemIds });
   const links = createLinkService({ registry, ids: systemIds, clock: systemClock });
   const files = createLocalDiskStorage(env.filesDir);
+  const blobs = createBlobService({ registry, files, clock: systemClock });
   const gateway = createIdentityGateway(db);
   const uow = createOwnerUnitOfWork(db);
 
@@ -55,8 +58,12 @@ async function main(): Promise<void> {
     logger,
     expectedMigrations: qualifiedMigrationNames(migrationSets()),
     tree,
+    files,
     listOwnerIds: () => gateway.listOwnerIds(),
-    tasks: workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files }),
+    tasks: [
+      createBlobMaintenanceTask({ uow, blobs, logger }),
+      ...workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files, blobs }),
+    ],
   });
 
   let shuttingDown = false;

@@ -35,6 +35,32 @@ describe('module registry', () => {
     expect(Object.isFrozen(registry.treeableKinds)).toBe(true);
   });
 
+  it('lists the blob references of every module with their module id', () => {
+    const registry = buildRegistry([
+      defineModule({ id: 'alpha', blobReferences: [{ table: 'alpha_files', column: 'blob_sha256' }] }),
+      defineModule({ id: 'beta' }),
+    ]);
+    expect(registry.blobReferences).toEqual([{ moduleId: 'alpha', table: 'alpha_files', column: 'blob_sha256' }]);
+    expect(Object.isFrozen(registry.blobReferences)).toBe(true);
+  });
+
+  it('registry rejects a blob reference outside the module namespace', () => {
+    expect(() =>
+      buildRegistry([defineModule({ id: 'alpha', blobReferences: [{ table: 'blobs', column: 'sha256' }] })]),
+    ).toThrow(expect.objectContaining({ code: 'invalid_blob_reference' }));
+    expect(() =>
+      buildRegistry([defineModule({ id: 'alpha', blobReferences: [{ table: 'alphabet_files', column: 'sha' }] })]),
+    ).toThrow(expect.objectContaining({ code: 'invalid_blob_reference' }));
+  });
+
+  it('registry rejects a blob reference column that is not a plain identifier', () => {
+    for (const column of ['Sha', 'sha-256', 'sha; drop table x', '']) {
+      expect(() =>
+        buildRegistry([defineModule({ id: 'alpha', blobReferences: [{ table: 'alpha_files', column }] })]),
+      ).toThrow(expect.objectContaining({ code: 'invalid_blob_reference' }));
+    }
+  });
+
   it('returns undefined for unknown kinds, events and handlers', () => {
     const registry = buildRegistry([defineModule({ id: 'fixture' })]);
     expect(registry.entityKind('fixture.nothing')).toBeUndefined();

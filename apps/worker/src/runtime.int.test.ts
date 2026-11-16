@@ -5,6 +5,7 @@ import type { Clock, EventPublisher, Logger, OwnerScope } from '@archlin/kernel'
 import { issueOwnerScope } from '@archlin/kernel/trusted';
 import { platformMigrations } from '@archlin/platform/migrations';
 import {
+  BLOB_GC_GRACE_MS,
   bootstrapQueue,
   createEventPublisher,
   createSpaceService,
@@ -18,7 +19,7 @@ import {
 import type { PeriodicTask, TreeService } from '@archlin/platform/server';
 import { createTwoOwnerDatabase } from '@archlin/testing/db';
 import type { TestDbUrls } from '@archlin/testing/db';
-import { FakeClock, noopLogger } from '@archlin/testing/fakes';
+import { createInMemoryStorage, FakeClock, noopLogger } from '@archlin/testing/fakes';
 import { fixtureMigrations, fixtureModule, fixturePinged } from '@archlin/testing/fixture-module';
 import { sql } from 'kysely';
 import pg from 'pg';
@@ -124,6 +125,7 @@ beforeEach(async () => {
     schemaPollMs: 200,
     tree: defaultTree,
     listOwnerIds,
+    files: createInMemoryStorage(systemClock),
     tasks: [],
   });
 });
@@ -217,6 +219,7 @@ describe('worker runtime', () => {
       schemaPollMs: 200,
       tree,
       listOwnerIds,
+      files: createInMemoryStorage(systemClock),
       trashPurgeIntervalMs: 50,
       tasks: [],
     });
@@ -240,6 +243,50 @@ describe('worker runtime', () => {
         { timeout: 10_000, interval: 50 },
       )
       .toBe(false);
+  });
+
+  it('sweeps staging files a day old or older on its own interval', async () => {
+    const clock = new FakeClock(new Date());
+    const storage = createInMemoryStorage(clock);
+    await storage.stage(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('tertinggal'));
+          controller.close();
+        },
+      }),
+      { maxBytes: 100 },
+    );
+    clock.advance(BLOB_GC_GRACE_MS + 1000);
+    const cutoffs: Date[] = [];
+    const files = {
+      ...storage,
+      sweepStaging: async (olderThan: Date) => {
+        cutoffs.push(olderThan);
+        return storage.sweepStaging(olderThan);
+      },
+    };
+    runtime = createWorkerRuntime({
+      db,
+      uow,
+      registry: buildRegistry([fixtureModule]),
+      queue: createPgBossQueue(boss),
+      clock,
+      logger: noopLogger,
+      expectedMigrations,
+      pollIntervalMs: 200,
+      sweepIntervalMs: 2000,
+      schemaPollMs: 200,
+      tree: defaultTree,
+      listOwnerIds,
+      files,
+      stagingSweepIntervalMs: 50,
+      tasks: [],
+    });
+    await runtime.start();
+    await expect.poll(() => cutoffs.length, { timeout: 10_000, interval: 50 }).toBeGreaterThan(0);
+    expect(cutoffs[0]?.getTime()).toBe(clock.now().getTime() - BLOB_GC_GRACE_MS);
+    expect(await storage.sweepStaging(new Date(clock.now().getTime() + 1))).toBe(0);
   });
 
   it('a periodic task runs for every owner and an error for one owner does not stop the others', async () => {
@@ -273,6 +320,7 @@ describe('worker runtime', () => {
       schemaPollMs: 200,
       tree: defaultTree,
       listOwnerIds,
+      files: createInMemoryStorage(systemClock),
       tasks: [task],
     });
     await runtime.start();

@@ -20,8 +20,19 @@ export interface EventHandlerDraft<TPayload = unknown> {
   handle(event: EventEnvelope<TPayload>, tx: WriteTx): Promise<void>;
 }
 
+// A column that holds a blob digest. The platform reads it to decide whether a stored file is still referenced.
+export interface BlobReferenceDraft {
+  readonly table: string;
+  readonly column: string;
+}
+
+export interface BlobReference extends BlobReferenceDraft {
+  readonly moduleId: string;
+}
+
 export interface ModuleDraft {
   readonly id: string;
+  readonly blobReferences?: readonly BlobReferenceDraft[];
   readonly entityKinds?: Readonly<Record<string, EntityKindDraft>>;
   readonly events?: readonly EventDefinition<unknown>[];
   readonly eventHandlers?: readonly EventHandlerDraft<unknown>[];
@@ -44,6 +55,7 @@ export interface ModuleRegistry {
   readonly moduleIds: readonly string[];
   // Full kind names that appear in the tree, in registration order.
   readonly treeableKinds: readonly string[];
+  readonly blobReferences: readonly BlobReference[];
   entityKind(kind: string): EntityKindDefinition | undefined;
   event(type: string): EventDefinition<unknown> | undefined;
   syncHandlersFor(type: string): readonly EventHandlerDefinition[];
@@ -59,7 +71,8 @@ export type RegistryErrorCode =
   | 'event_namespace_mismatch'
   | 'duplicate_event_type'
   | 'unknown_event'
-  | 'duplicate_handler_id';
+  | 'duplicate_handler_id'
+  | 'invalid_blob_reference';
 
 export class RegistryError extends Error {
   override readonly name = 'RegistryError';
@@ -83,6 +96,7 @@ export function defineModule<const T extends ModuleDraft>(draft: T): T {
 const MODULE_ID = /^[a-z][a-z0-9]{1,15}$/;
 const LOCAL_NAME = /^[a-z][a-zA-Z0-9]{0,47}$/;
 const RESERVED_MODULE_IDS: ReadonlySet<string> = new Set(['platform', 'core', 'kernel', 'system', 'pgboss']);
+const BLOB_COLUMN = /^[a-z][a-z0-9_]{0,48}$/;
 const PLATFORM_EVENT_PREFIXES = ['platform.', 'entity.'] as const;
 
 const NO_HANDLERS: readonly EventHandlerDefinition[] = Object.freeze([]);
@@ -113,6 +127,7 @@ export function buildRegistry(
   const moduleIds = new Set<string>();
   const kinds = new Map<string, EntityKindDefinition>();
   const treeableKinds: string[] = [];
+  const blobReferences: BlobReference[] = [];
   const events = new Map<string, EventDefinition<unknown>>();
   const handlers = new Map<string, EventHandlerDefinition>();
   const syncByEvent = new Map<string, EventHandlerDefinition[]>();
@@ -146,6 +161,18 @@ export function buildRegistry(
       const full = `${draft.id}.${local}`;
       kinds.set(full, Object.freeze({ ...kind, kind: full, module: draft.id }));
       if (kind.treeable) treeableKinds.push(full);
+    }
+
+    // These names become identifiers in the platform's garbage collection query, so they are held to a strict shape.
+    const tablePattern = new RegExp(`^${draft.id}_[a-z0-9_]{1,48}$`);
+    for (const reference of draft.blobReferences ?? []) {
+      if (!tablePattern.test(reference.table) || !BLOB_COLUMN.test(reference.column)) {
+        throw new RegistryError(
+          'invalid_blob_reference',
+          `Module "${draft.id}": blob reference "${reference.table}.${reference.column}" must use a table named "${draft.id}_<name>" and a plain column name.`,
+        );
+      }
+      blobReferences.push(Object.freeze({ moduleId: draft.id, table: reference.table, column: reference.column }));
     }
 
     for (const event of draft.events ?? []) {
@@ -191,6 +218,7 @@ export function buildRegistry(
   return Object.freeze({
     moduleIds: Object.freeze([...moduleIds]),
     treeableKinds: Object.freeze(treeableKinds),
+    blobReferences: Object.freeze(blobReferences),
     entityKind: (kind: string) => kinds.get(kind),
     event: (type: string) => events.get(type),
     syncHandlersFor: (type: string) => syncByEvent.get(type) ?? NO_HANDLERS,

@@ -8,6 +8,7 @@ import type { KnowledgeApi } from '@archlin/modules-knowledge/server';
 import {
   createAccountService,
   createAuthService,
+  createBlobService,
   createEventPublisher,
   createLinkService,
   createLocalDiskStorage,
@@ -24,6 +25,7 @@ import type {
   AccountService,
   AuthDeps,
   AuthService,
+  BlobService,
   FileStorage,
   SpaceService,
   TagService,
@@ -49,6 +51,7 @@ export interface WebContainer {
   tree: TreeService;
   tags: TagService;
   files: FileStorage;
+  blobs: BlobService;
   knowledge: KnowledgeApi;
   auth: AuthService;
   account: AccountService;
@@ -73,6 +76,7 @@ function buildContainer(): WebContainer {
   const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
   const tags = createTagService({ tree, ids: systemIds, clock });
   const files = createLocalDiskStorage(env.filesDir);
+  const blobs = createBlobService({ registry, files, clock });
   const links = createLinkService({ registry, ids: systemIds, clock });
   const knowledge = createKnowledgeApi({ tree, tags, links, publisher, clock, ids: systemIds });
 
@@ -103,6 +107,7 @@ function buildContainer(): WebContainer {
     tree,
     tags,
     files,
+    blobs,
     knowledge,
     auth: createAuthService(authDeps),
     account: createAccountService(authDeps),

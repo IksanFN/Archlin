@@ -41,7 +41,7 @@ describe('assertModuleMigrationContract', () => {
     await runMigrations({ connectionString: urls.migrator, sets: [platformMigrations, fixtureMigrations], logger: noopLogger });
     const fixtureTables = (await publicTables()).filter((t) => !platformTables.includes(t));
 
-    expect(fixtureTables).toEqual(['fixture_audit', 'fixture_pings', 'fixture_switches', 'fixture_sync_marks']);
+    expect(fixtureTables).toEqual(['fixture_audit', 'fixture_files', 'fixture_pings', 'fixture_switches', 'fixture_sync_marks']);
     await assertModuleMigrationContract({ urls, namespace: 'fixture', tablesCreated: fixtureTables });
     await assertModuleMigrationContract({ urls, namespace: 'platform', tablesCreated: platformTables });
   });
