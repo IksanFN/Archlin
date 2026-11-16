@@ -37,6 +37,7 @@ export function AttachmentActions({ view, labels }: { view: AttachmentView; labe
   );
 }
 
+// Plain divs, not paragraphs: the editor styles every paragraph inside it, which would override the card text sizes.
 export function AttachmentCard({
   node,
   store,
@@ -57,15 +58,15 @@ export function AttachmentCard({
       className="kb-attachment-card mt-3 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-3.5 py-3"
     >
       {view === undefined ? (
-        <p className="text-small text-fg-muted">{labels.missing}</p>
+        <div className="text-small text-fg-muted">{labels.missing}</div>
       ) : (
         <>
           <AttachmentIcon view={view} />
           <div className="min-w-0 flex-1 basis-40">
-            <p className="truncate text-small font-medium text-fg" title={view.filename}>
+            <div data-slot="attachment-name" className="truncate text-small font-medium text-fg" title={view.filename}>
               {view.filename}
-            </p>
-            <p className="font-mono text-[12px] leading-5 text-fg-muted">
+            </div>
+            <div data-slot="attachment-meta" className="font-mono text-[12px] leading-5 text-fg-muted">
               {formatBytes(view.size)}
               {' · '}
               {view.trashed ? (
@@ -73,7 +74,7 @@ export function AttachmentCard({
               ) : (
                 <span className={TONE_CLASS[statusTone(view.extraction)]}>{labels.status[view.extraction]}</span>
               )}
-            </p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <AttachmentActions view={view} labels={labels} />

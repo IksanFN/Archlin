@@ -101,7 +101,7 @@ export const LinkPicker = forwardRef<LinkPickerHandle, LinkPickerProps>(function
                 {item.kind === 'page' ? item.suggestion.title : labels.createItem(item.title)}
               </span>
               {item.kind === 'page' ? (
-                <span className="shrink-0 text-micro text-fg-muted">{item.suggestion.spaceName}</span>
+                <span className="shrink-0 text-micro text-fg-secondary">{item.suggestion.spaceName}</span>
               ) : null}
             </button>
           );

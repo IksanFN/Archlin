@@ -28,6 +28,8 @@ export function VersionList({
       'flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors duration-[120ms] ease-out',
       selected ? 'bg-surface-raised' : 'bg-transparent fine-hover:bg-overlay',
     );
+  // Muted text drops below 4.5:1 on the raised row of the light theme, so the selected row reads one step stronger.
+  const detailClass = (selected: boolean): string => cn('font-mono text-micro uppercase', selected ? 'text-fg-secondary' : 'text-fg-muted');
   const dotClass = (selected: boolean): string =>
     cn('mt-[7px] size-2 shrink-0 rounded-full', selected ? 'bg-fg' : 'bg-fg-disabled');
 
@@ -38,7 +40,7 @@ export function VersionList({
           <span aria-hidden="true" className="mt-[7px] size-2 shrink-0 rounded-full bg-success" />
           <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
             <span className="text-small font-medium text-fg">{labels.current}</span>
-            <span className="font-mono text-micro uppercase text-fg-muted">{labels.currentTag}</span>
+            <span className={detailClass(selectedId === null)}>{labels.currentTag}</span>
           </span>
         </button>
       </li>
@@ -50,7 +52,7 @@ export function VersionList({
               <span aria-hidden="true" className={dotClass(selected)} />
               <span className="grid min-w-0 flex-1 gap-0.5">
                 <span className="text-small font-medium text-fg">{formatTime(item.createdAt)}</span>
-                <span className="font-mono text-micro uppercase text-fg-muted">{reasonLabel(item.reason, labels)}</span>
+                <span className={detailClass(selected)}>{reasonLabel(item.reason, labels)}</span>
                 {item.label === null ? null : <span className="truncate text-small text-fg-secondary">“{item.label}”</span>}
               </span>
             </button>
