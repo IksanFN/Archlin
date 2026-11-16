@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Dev bootstrap only: creates .env and .env.migrate with fresh secrets. A value that already exists is never changed:
@@ -16,6 +17,7 @@ const ENV_ENTRIES = [
   ['TOTP_ENC_KEY', () => randomBytes(32).toString('base64')],
   ['ARCHLIN_SETUP_TOKEN', () => secret(32)],
   ['ARCHLIN_PUBLIC_ORIGIN', () => 'http://localhost:3000'],
+  ['ARCHLIN_FILES_DIR', () => resolve(rootDir, '.data', 'files')],
   ['LOG_LEVEL', () => 'info'],
   // The local compose stack (pnpm stack:up). Distinct from the dev-only passwords of docker/compose.dev.yml.
   ['POSTGRES_PASSWORD', () => secret(24)],

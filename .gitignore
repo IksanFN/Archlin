@@ -7,6 +7,8 @@ test-results/
 playwright-report/
 .env
 .env.migrate
+.data/
+apps/web/e2e/.files/
 *.log
 
 .worktrees/

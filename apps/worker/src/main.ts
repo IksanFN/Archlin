@@ -5,6 +5,7 @@ import {
   createEventPublisher,
   createIdentityGateway,
   createLinkService,
+  createLocalDiskStorage,
   createLogger,
   createTreeService,
   PLATFORM_EVENTS,
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
   const publisher = createEventPublisher({ registry, ids: systemIds, clock: systemClock });
   const tree = createTreeService({ registry, publisher, clock: systemClock, ids: systemIds });
   const links = createLinkService({ registry, ids: systemIds, clock: systemClock });
+  const files = createLocalDiskStorage(env.filesDir);
   const gateway = createIdentityGateway(db);
   const uow = createOwnerUnitOfWork(db);
 
@@ -54,7 +56,7 @@ async function main(): Promise<void> {
     expectedMigrations: qualifiedMigrationNames(migrationSets()),
     tree,
     listOwnerIds: () => gateway.listOwnerIds(),
-    tasks: workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links }),
+    tasks: workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files }),
   });
 
   let shuttingDown = false;

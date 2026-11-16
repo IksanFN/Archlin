@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 export type WorkerConfigErrorCode = 'invalid_env' | 'migrator_secret_present';
@@ -14,6 +15,7 @@ export class WorkerConfigError extends Error {
 
 export interface WorkerEnv {
   databaseUrl: string;
+  filesDir: string;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
 
@@ -27,6 +29,7 @@ const isPostgresUrl = (value: string): boolean => {
 
 const envSchema = z.strictObject({
   DATABASE_URL: z.string().refine(isPostgresUrl),
+  ARCHLIN_FILES_DIR: z.string().refine(isAbsolute),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
 
@@ -36,11 +39,15 @@ export function loadWorkerEnv(source: Readonly<Record<string, string | undefined
   if (source.MIGRATOR_DATABASE_URL !== undefined) {
     throw new WorkerConfigError('migrator_secret_present', 'MIGRATOR_DATABASE_URL must not be set for the worker process');
   }
-  const result = envSchema.safeParse({ DATABASE_URL: source.DATABASE_URL, LOG_LEVEL: source.LOG_LEVEL });
+  const result = envSchema.safeParse({
+    DATABASE_URL: source.DATABASE_URL,
+    ARCHLIN_FILES_DIR: source.ARCHLIN_FILES_DIR,
+    LOG_LEVEL: source.LOG_LEVEL,
+  });
   if (!result.success) {
     // Names only: the database url carries a password.
     const names = [...new Set(result.error.issues.map((issue) => issue.path.join('.')))];
     throw new WorkerConfigError('invalid_env', `Invalid worker environment: ${names.join(', ')}`);
   }
-  return { databaseUrl: result.data.DATABASE_URL, logLevel: result.data.LOG_LEVEL };
+  return { databaseUrl: result.data.DATABASE_URL, filesDir: result.data.ARCHLIN_FILES_DIR, logLevel: result.data.LOG_LEVEL };
 }

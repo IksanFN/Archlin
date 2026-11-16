@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 
 const ORIGIN = 'http://localhost:3100';
@@ -13,6 +14,8 @@ export default defineConfig({
   webServer: {
     command: 'node --env-file=e2e/.env.e2e .output/server/index.mjs',
     url: `${ORIGIN}/health`,
+    // --env-file never overrides a variable that is already set, so the files directory comes from here.
+    env: { ARCHLIN_FILES_DIR: fileURLToPath(new URL('./e2e/.files', import.meta.url)) },
     reuseExistingServer: false,
     timeout: 60_000,
   },
