@@ -12,6 +12,7 @@ import { CodeBlockView } from './code-block-view';
 import { FindReplace } from './find-replace';
 import type { EditorLabels } from './labels';
 import { AttachmentCard } from '../attachments/attachment-view';
+import { PasteAttachmentCopy } from '../attachments/paste-copy';
 import { AttachmentUpload } from '../attachments/upload-plugin';
 import type { AttachmentStore } from '../attachments/attachment-store';
 import type { PageEditorAttachments } from '../attachments/page-editor-attachments';
@@ -85,7 +86,9 @@ export function editorExtensions(labels: EditorLabels, options: EditorExtensionO
     }),
     SlashCommand.configure({ labels }),
     ...(options.links === undefined ? [] : [LinkSuggestions.configure({ links: options.links, labels })]),
-    ...(options.attachments === undefined ? [] : [AttachmentUpload.configure({ ...options.attachments, labels })]),
+    ...(options.attachments === undefined
+      ? []
+      : [AttachmentUpload.configure({ ...options.attachments, labels }), PasteAttachmentCopy.configure({ ...options.attachments, labels })]),
     BlockCommands,
     BlockHandleExtension,
     MarkdownPaste,

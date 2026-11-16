@@ -252,6 +252,9 @@ function EntityNode({
             <RowMenuItem onSelect={() => void tree.setStarred(node.id, !node.isStarred, space.id, parentId)}>
               {node.isStarred ? messages.favorites.remove : messages.favorites.add}
             </RowMenuItem>
+            <RowMenuItem onSelect={() => void tree.duplicate({ id: node.id, title: node.title, spaceId: space.id, parentId })}>
+              {messages.page.duplicate}
+            </RowMenuItem>
             <RowMenuItem onSelect={() => tree.openMove({ id: node.id, title: node.title, spaceId: space.id, parentId })}>
               {messages.tree.moveTo}
             </RowMenuItem>

@@ -1,3 +1,4 @@
+import { flushActiveAutosaves } from '@archlin/modules-knowledge/web';
 import { Button } from '@archlin/ui/components/button';
 import {
   DropdownMenu,
@@ -26,6 +27,7 @@ import { branchKey, createTreeStore, type TreeStore } from '~/lib/tree-store';
 import { AppError } from '~/server/errors';
 import { archiveSpaceFn, listSpacesFn, reorderSpaceFn } from '~/server/functions/spaces';
 import { restoreFn } from '~/server/functions/trash';
+import { duplicatePageFn } from '~/server/functions/pages';
 import { moveEntityFn, setStarredFn, trashEntityFn, treeChildrenFn } from '~/server/functions/tree';
 import { SpaceNode } from './space-node';
 
@@ -63,6 +65,7 @@ export interface TreeApi {
   reorderSpace: (id: string, direction: 'up' | 'down', prevId: string | null, nextId: string | null) => Promise<void>;
   trash: (input: { id: string; title: string; spaceId: string; parentId: string | null; animate: boolean }) => Promise<void>;
   setStarred: (entityId: string, starred: boolean, spaceId: string, parentId: string | null) => Promise<void>;
+  duplicate: (entity: { id: string; title: string; spaceId: string; parentId: string | null }) => Promise<void>;
   archive: (space: SpaceSummary) => Promise<void>;
   openMove: (entity: MoveEntity) => void;
   openRenameSpace: (space: SpaceSummary) => void;
@@ -294,6 +297,19 @@ export function SpaceTree() {
           store.invalidate([branchKey(spaceId, parentId)]);
           notifyTreeMutation();
           void router.invalidate();
+        } catch (error) {
+          toast.error(treeError(error));
+        }
+      },
+      async duplicate({ id, title, spaceId, parentId }) {
+        try {
+          // The open page may hold edits that are not saved yet; the copy should include them.
+          await flushActiveAutosaves();
+          const copy = await duplicatePageFn({ data: { entityId: id, rootTitle: messages.page.copyTitle(title) } });
+          store.invalidate([branchKey(spaceId, parentId)]);
+          notifyTreeMutation();
+          void router.navigate({ to: '/s/$spaceSlug/p/$entityId', params: { spaceSlug: copy.spaceSlug, entityId: copy.entityId } });
+          toast(messages.page.duplicated(copy.count));
         } catch (error) {
           toast.error(treeError(error));
         }

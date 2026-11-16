@@ -220,8 +220,21 @@ function PageBody({
     }),
   );
   const pageAttachments = useMemo<PageEditorAttachments>(
-    () => ({ pageId: page.entityId, store: attachmentStore, queue: uploadQueue }),
-    [attachmentStore, page.entityId, uploadQueue],
+    () => ({
+      pageId: page.entityId,
+      store: attachmentStore,
+      queue: uploadQueue,
+      copy: async (ids) => {
+        // The server copies at most 50 at a time.
+        const copied: Record<string, string> = {};
+        for (let from = 0; from < ids.length; from += 50) {
+          Object.assign(copied, await client.copyAttachments({ pageId: page.entityId, attachmentIds: ids.slice(from, from + 50) }));
+        }
+        return copied;
+      },
+      refresh: async () => attachmentStore.replace(await client.listAttachments(page.entityId)),
+    }),
+    [attachmentStore, client, page.entityId, uploadQueue],
   );
 
   const links = useMemo<PageEditorLinks>(
@@ -302,6 +315,23 @@ function PageBody({
     setAttachmentsOpen(false);
     setVersionListOpen(true);
     setHistoryOpen(true);
+  }
+
+  async function duplicate(): Promise<void> {
+    const base = await prepareTypeChange();
+    if (base === null) {
+      toast(messages.history.unsavedFirst);
+      return;
+    }
+    try {
+      const copy = await client.duplicatePage({ entityId: page.entityId, rootTitle: messages.page.copyTitle(autosave.state.latest.title) });
+      notifyTreeMutation();
+      void router.navigate({ to: '/s/$spaceSlug/p/$entityId', params: { spaceSlug: copy.spaceSlug, entityId: copy.entityId } });
+      toast(messages.page.duplicated(copy.count));
+    } catch (error) {
+      const presentation = messageForError(error);
+      if (presentation.kind === 'toast') toast.error(presentation.text);
+    }
   }
 
   function openAttachments(): void {
@@ -420,6 +450,7 @@ function PageBody({
             onOpenAttachments={openAttachments}
             onOpenHistory={openHistory}
             onSaveVersion={() => setSaveVersionOpen(true)}
+            onDuplicate={() => void duplicate()}
             onMove={() => setMoving(true)}
             onTrash={trash}
             onTypeChanged={() => void router.invalidate()}

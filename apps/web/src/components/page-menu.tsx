@@ -22,6 +22,7 @@ export function PageMenu({
   onOpenAttachments,
   onOpenHistory,
   onSaveVersion,
+  onDuplicate,
   onMove,
   onTrash,
   onTypeChanged,
@@ -35,6 +36,7 @@ export function PageMenu({
   onOpenAttachments: () => void;
   onOpenHistory: () => void;
   onSaveVersion: () => void;
+  onDuplicate: () => void;
   onMove: () => void;
   onTrash: () => void;
   onTypeChanged: () => void;
@@ -55,6 +57,7 @@ export function PageMenu({
           <DropdownMenuItem onSelect={onOpenAttachments}>{messages.page.attachments}</DropdownMenuItem>
           <DropdownMenuItem onSelect={onOpenHistory}>{messages.page.history}</DropdownMenuItem>
           <DropdownMenuItem disabled={trashed} onSelect={onSaveVersion}>{messages.page.saveVersion}</DropdownMenuItem>
+          <DropdownMenuItem disabled={trashed} onSelect={onDuplicate}>{messages.page.duplicate}</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={onMove}>{messages.tree.moveTo}</DropdownMenuItem>
           <DropdownMenuSeparator />
