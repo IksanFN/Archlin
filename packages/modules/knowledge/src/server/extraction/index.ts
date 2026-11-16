@@ -1,5 +1,5 @@
 export { runExtractionChild } from './child';
-export { DOCX_LIMITS, inspectZip } from './docx-guard';
+export { DOCX_LIMITS, entriesMatchDeclaredSizes, inspectZip } from './docx-guard';
 export type { ZipSummary } from './docx-guard';
 export { createAttachmentExtractionTask } from './extraction-task';
 export {

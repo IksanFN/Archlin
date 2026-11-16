@@ -40,6 +40,17 @@ describe('extractText', () => {
     expect(await extractText(bomb, DOCX_MIME, { maxChars: 1000 })).toEqual({ status: 'failed', error: 'archive_limits' });
   });
 
+  it('a docx that understates its size in the central directory fails with archive_limits instead of expanding', async () => {
+    const bomb = zipFixture([
+      ...[
+        ['[Content_Types].xml', '<Types/>'],
+        ['_rels/.rels', '<Relationships/>'],
+      ].map(([name, data]) => ({ name: name as string, data: utf8(data as string) })),
+      { name: 'word/document.xml', data: new Uint8Array(30_000_000), deflate: true, declaredSize: 1000 },
+    ]);
+    expect(await extractText(bomb, DOCX_MIME, { maxChars: 1000 })).toEqual({ status: 'failed', error: 'archive_limits' });
+  });
+
   it('a docx with more entries than the limit fails with archive_limits', async () => {
     const many = zipFixture(Array.from({ length: 5001 }, (_, index) => ({ name: `e${index}`, data: utf8('x') })));
     expect(await extractText(many, DOCX_MIME, { maxChars: 1000 })).toEqual({ status: 'failed', error: 'archive_limits' });

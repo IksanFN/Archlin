@@ -1,4 +1,4 @@
-import { crc32, deflateSync } from 'node:zlib';
+import { crc32, deflateRawSync, deflateSync } from 'node:zlib';
 
 export const utf8 = (text: string): Uint8Array => new TextEncoder().encode(text);
 
@@ -36,27 +36,32 @@ export interface ZipEntry {
   data: Uint8Array;
   // Replaces the uncompressed size in the central directory only, to model an archive that lies about its size.
   declaredSize?: number;
+  // Stores the entry deflated (method 8), the way real archives do, so a small file can stand for a huge one.
+  deflate?: boolean;
 }
 
 const DOS_DATE_1980 = 0x21;
 
-// Method STORE with CRC32: the smallest valid zip, enough for the extractors and for the central directory guard.
+// CRC32 over the real bytes, STORE by default and DEFLATE on request: enough for the extractors and the archive guard.
 export function zipFixture(entries: readonly ZipEntry[]): Uint8Array {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
   for (const entry of entries) {
     const name = Buffer.from(entry.name, 'utf8');
-    const data = Buffer.from(entry.data);
-    const crc = crc32(data);
+    const raw = Buffer.from(entry.data);
+    const crc = crc32(raw);
+    const data = entry.deflate === true ? deflateRawSync(raw) : raw;
+    const method = entry.deflate === true ? 8 : 0;
 
     const local = Buffer.alloc(30 + name.length + data.length);
     local.writeUInt32LE(0x04034b50, 0);
     local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(method, 8);
     local.writeUInt16LE(DOS_DATE_1980, 12);
     local.writeUInt32LE(crc, 14);
     local.writeUInt32LE(data.length, 18);
-    local.writeUInt32LE(data.length, 22);
+    local.writeUInt32LE(raw.length, 22);
     local.writeUInt16LE(name.length, 26);
     name.copy(local, 30);
     data.copy(local, 30 + name.length);
@@ -65,10 +70,11 @@ export function zipFixture(entries: readonly ZipEntry[]): Uint8Array {
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
     central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(method, 10);
     central.writeUInt16LE(DOS_DATE_1980, 14);
     central.writeUInt32LE(crc, 16);
     central.writeUInt32LE(data.length, 20);
-    central.writeUInt32LE(entry.declaredSize ?? data.length, 24);
+    central.writeUInt32LE(entry.declaredSize ?? raw.length, 24);
     central.writeUInt16LE(name.length, 28);
     central.writeUInt32LE(offset, 42);
     name.copy(central, 46);

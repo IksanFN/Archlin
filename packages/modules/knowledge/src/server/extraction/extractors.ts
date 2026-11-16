@@ -2,7 +2,7 @@ import type { ExtractResult, TextExtractor } from '@archlin/platform/contracts';
 import mammoth from 'mammoth';
 import { extractText as extractPdfText, getDocumentProxy } from 'unpdf';
 import { DOCX_MIME, PDF_MIME } from '../../shared/attachment-kind';
-import { DOCX_LIMITS, inspectZip } from './docx-guard';
+import { DOCX_LIMITS, entriesMatchDeclaredSizes, inspectZip } from './docx-guard';
 
 export const EXTRACTION_LIMITS = {
   timeoutMs: 60_000,
@@ -50,6 +50,7 @@ export const docxExtractor: TextExtractor = {
     ) {
       return { status: 'failed', error: 'archive_limits' };
     }
+    if (!entriesMatchDeclaredSizes(bytes)) return { status: 'failed', error: 'archive_limits' };
     try {
       const { value } = await mammoth.extractRawText({ buffer: Buffer.from(bytes) });
       return toResult(value, maxChars);
