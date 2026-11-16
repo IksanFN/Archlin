@@ -52,6 +52,10 @@ function pageCount(items: readonly TrashRoot[]): number {
   return items.reduce((sum, item) => sum + 1 + item.descendantCount, 0);
 }
 
+function attachmentCount(items: readonly TrashRoot[]): number {
+  return items.reduce((sum, item) => sum + item.attachedCount, 0);
+}
+
 function restoreMessage(outcome: RestoreOutcome, item: TrashRoot): string {
   const text =
     item.parentTitle !== null && outcome.restoredToRoot
@@ -239,7 +243,7 @@ export function TrashList() {
             <>
               <DialogHeader>
                 <DialogTitle>{copy.emptyTitle}</DialogTitle>
-                <DialogDescription>{copy.emptyBody(pageCount(items))}</DialogDescription>
+                <DialogDescription>{copy.emptyBody(pageCount(items), attachmentCount(items))}</DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <DialogClose asChild>

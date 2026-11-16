@@ -103,7 +103,7 @@ export interface VersionDetail extends VersionSummary {
   content: JSONContent;
   contentText: string;
   context: ContextFields;
-  properties: Record<string, unknown>;
+  properties: PageView['properties'];
   noteType: { id: string; name: string | null };
 }
 

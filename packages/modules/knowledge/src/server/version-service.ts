@@ -136,7 +136,8 @@ export function createVersionService(deps: {
         content: asContent(row.content),
         contentText: row.content_text,
         context: contextOf(row),
-        properties: asRecord(row.properties),
+        // Stored as validated JSON, the same reading page-service gives PageView.
+        properties: asRecord(row.properties) as VersionDetail['properties'],
         noteType: { id: row.note_type_id, name: row.note_type_name },
       };
     },

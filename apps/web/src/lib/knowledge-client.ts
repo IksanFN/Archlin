@@ -8,8 +8,25 @@ import {
   reorderNoteTypeFn,
   updateNoteTypeFn,
 } from '~/server/functions/note-types';
-import { changeNoteTypeFn, overwritePageFn, pageFn, saveConflictCopyFn, savePageFn } from '~/server/functions/pages';
+import {
+  copyAttachmentsFn,
+  pageAttachmentsFn,
+  retryExtractionFn,
+  trashOrphanAttachmentsFn,
+} from '~/server/functions/attachments';
+import {
+  changeNoteTypeFn,
+  createLinkedPageFn,
+  duplicatePageFn,
+  overwritePageFn,
+  pageFn,
+  saveConflictCopyFn,
+  savePageFn,
+  suggestPagesFn,
+} from '~/server/functions/pages';
 import { setEntityTagsFn, suggestTagsFn } from '~/server/functions/tags';
+import { listVersionsFn, restoreVersionFn, snapshotPageFn, versionFn } from '~/server/functions/versions';
+import { uploadFile } from './upload-client';
 
 async function invoke<T>(run: () => Promise<T>): Promise<T> {
   try {
@@ -44,4 +61,16 @@ export const knowledgeClient: KnowledgeClient = {
     await invoke(() => reorderNoteTypeFn({ data: input }));
   },
   deleteNoteType: (input) => invoke(() => deleteNoteTypeFn({ data: input })),
+  suggestPages: (input) => invoke(() => suggestPagesFn({ data: input })),
+  createLinkedPage: (input) => invoke(() => createLinkedPageFn({ data: input })),
+  duplicatePage: (input) => invoke(() => duplicatePageFn({ data: input })),
+  listVersions: (input) => invoke(() => listVersionsFn({ data: input })),
+  getVersion: (input) => invoke(() => versionFn({ data: input })),
+  snapshotPage: (input) => invoke(() => snapshotPageFn({ data: input })),
+  restoreVersion: (input) => invoke(() => restoreVersionFn({ data: input })),
+  listAttachments: (pageId) => invoke(() => pageAttachmentsFn({ data: { entityId: pageId } })),
+  trashOrphanAttachments: (input) => invoke(() => trashOrphanAttachmentsFn({ data: input })),
+  retryExtraction: (attachmentId) => invoke(() => retryExtractionFn({ data: { attachmentId } })),
+  copyAttachments: (input) => invoke(() => copyAttachmentsFn({ data: input })),
+  uploadFile,
 };

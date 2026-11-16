@@ -29,7 +29,7 @@ export {
 export type { StoredDraft } from './autosave/draft-store';
 export { usePageAutosave } from './autosave/use-page-autosave';
 export { KnowledgeClientError, KnowledgeClientProvider, useKnowledgeClient } from './client';
-export type { KnowledgeClient } from './client';
+export type { KnowledgeClient, UploadFileInput, UploadFileResult } from './client';
 export { ContextCard } from './context-card/context-card';
 export type { ContextCardLabels } from './context-card/context-card';
 export { ChangeTypeDialog } from './note-types/change-type-dialog';

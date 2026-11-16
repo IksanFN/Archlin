@@ -1,3 +1,4 @@
+import { KnowledgeClientError } from '@archlin/modules-knowledge/web';
 import { describe, expect, it } from 'vitest';
 import { AppError } from '../server/errors';
 import { messageForError } from './client-errors';
@@ -62,5 +63,42 @@ describe('messageForError', () => {
       kind: 'toast',
       text: 'Tidak bisa terhubung ke server. Periksa koneksi lalu coba lagi.',
     });
+  });
+});
+
+const KNOWLEDGE_COPY: Record<string, string> = {
+  version_not_found: 'Versi ini sudah tidak ada. Muat ulang riwayat.',
+  upload_conflict: 'Unggahan bentrok dengan file lain. Unggah ulang file ini.',
+  file_too_large: 'File lebih dari 50 MB.',
+  file_empty: 'File kosong tidak bisa diunggah.',
+  invalid_upload: 'Unggahan tidak lengkap. Coba lagi.',
+  storage_unavailable: 'Penyimpanan file di server penuh atau tidak bisa ditulis.',
+  attachment_not_found: 'Lampiran tidak ditemukan.',
+  blob_missing: 'File lampiran hilang dari server.',
+  parent_in_trash: 'Halaman induknya ada di Trash. Pulihkan halamannya dulu.',
+  link_title_too_long: 'Judul link terlalu panjang.',
+  network: 'Tidak bisa menghubungi server. Coba lagi.',
+};
+
+describe('messageForError for knowledge codes', () => {
+  it.each(Object.entries(KNOWLEDGE_COPY))('maps %s to its copy for a client error and a server error', (code, text) => {
+    expect(messageForError(new KnowledgeClientError({ code, message: code, status: 400 }))).toEqual({ kind: 'toast', text });
+    expect(messageForError(appError({ status: 400, code }))).toEqual({ kind: 'toast', text });
+  });
+
+  it('keeps the code copy for a 5xx and a 422 instead of the generic internal or field message', () => {
+    expect(messageForError(appError({ status: 503, code: 'storage_unavailable' }))).toEqual({
+      kind: 'toast',
+      text: KNOWLEDGE_COPY.storage_unavailable,
+    });
+    expect(messageForError(appError({ status: 422, code: 'file_empty' }))).toEqual({ kind: 'toast', text: KNOWLEDGE_COPY.file_empty });
+  });
+
+  it('never writes an em dash in the copy', () => {
+    for (const text of Object.values(KNOWLEDGE_COPY)) expect(text).not.toMatch(/—/);
+  });
+
+  it('keeps a lost session redirecting to login for a client error too', () => {
+    expect(messageForError(new KnowledgeClientError({ code: 'unauthenticated', message: 'x', status: 401 }))).toEqual({ kind: 'redirect_login' });
   });
 });
