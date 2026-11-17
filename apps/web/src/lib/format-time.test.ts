@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, formatDateTime, formatRelative } from './format-time';
+import { formatDate, formatDateTime, formatRelative, formatVersionTime } from './format-time';
 
 const NOW = new Date('2026-11-11T12:00:00Z');
 
@@ -38,5 +38,14 @@ describe('formatDateTime', () => {
   it('shifts with the time zone', () => {
     const instant = new Date('2026-11-11T03:05:00Z');
     expect(formatDateTime(instant, 'Asia/Jakarta')).not.toBe(formatDateTime(instant, 'America/New_York'));
+  });
+});
+
+describe('formatVersionTime', () => {
+  it('is relative within a week and absolute after that', () => {
+    expect(formatVersionTime(new Date(NOW.getTime() - 3 * 60 * 60_000), NOW, 'Asia/Jakarta')).toBe('3 jam lalu');
+    expect(formatVersionTime(new Date(NOW.getTime() - 6 * 24 * 60 * 60_000), NOW, 'Asia/Jakarta')).toBe('6 hari lalu');
+    const old = new Date('2026-11-01T03:05:00Z');
+    expect(formatVersionTime(old, NOW, 'Asia/Jakarta')).toBe(formatDateTime(old, 'Asia/Jakarta'));
   });
 });

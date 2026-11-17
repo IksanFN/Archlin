@@ -1,7 +1,10 @@
+import { pdfFixture } from '@archlin/testing/files';
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
+import { setAttachmentExtraction } from './db';
+import { filePayload } from './files';
 import { gotoSettled, reloadSettled } from './flows';
-import { createNoteType, createPage, createSpace, editorOf, spaceRow, treeRow, waitSaved } from './knowledge';
+import { createNoteType, createPage, createSpace, editorOf, insertWikiLink, pasteHtml, spaceRow, treeRow, typeInEditor, waitSaved } from './knowledge';
 
 const CONFLICT_TITLE = 'Halaman ini berubah di tab atau perangkat lain';
 const TRASH_BANNER = 'Halaman ini ada di Trash. Isinya hanya bisa dibaca.';
@@ -121,6 +124,80 @@ async function driveConflicts(page: Page, space: string): Promise<void> {
   }
 }
 
+// Picking a page, linking a missing one, then leaving the page: suggestPages, createLinkedPage and the leave snapshot.
+async function driveLinks(page: Page, space: string): Promise<void> {
+  await createPage(page, { space, type: 'Quick Note', title: 'Tujuan tautan' });
+  const source = await createPage(page, { space, type: 'Quick Note', title: 'Sumber tautan' });
+  await insertWikiLink(page, 'Tujuan', 'Tujuan tautan');
+  await insertWikiLink(page, 'Tautan baru', 'create');
+  await waitSaved(page);
+  await editorOf(page).getByRole('button', { name: 'Tautan baru' }).click();
+  await page.getByRole('button', { name: 'Buat halaman' }).click();
+  await expect(page.getByRole('textbox', { name: 'Judul' })).toHaveValue('Tautan baru');
+  await gotoSettled(page, source.url);
+}
+
+// Version history: save a named version, change the page, browse the list and the diff, restore.
+async function driveHistory(page: Page): Promise<void> {
+  await typeInEditor(page, ' versi lama');
+  await waitSaved(page);
+  await pageMenu(page, 'Simpan versi');
+  await page.getByLabel('Nama versi (opsional)').fill('Titik pulih');
+  await page.getByRole('button', { name: 'Simpan', exact: true }).click();
+  await expect(page.getByText('Versi disimpan.')).toBeVisible();
+  await typeInEditor(page, ' versi baru');
+  await waitSaved(page);
+  await pageMenu(page, 'Riwayat versi');
+  await page.getByRole('button', { name: /Titik pulih/ }).click();
+  await expect(page.getByText('Dihapus: ').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Pulihkan versi ini' }).click();
+  await expect(page.getByText('Versi dipulihkan.')).toBeVisible();
+  await page.keyboard.press('Escape');
+}
+
+async function driveDuplicate(page: Page): Promise<void> {
+  await pageMenu(page, 'Duplikat');
+  await expect(page.getByText('Halaman diduplikasi (1 halaman).')).toBeVisible();
+}
+
+// Attachments: upload, copy a card to another page, retry a failed extraction, then clean up an unused one.
+async function driveAttachments(page: Page, space: string): Promise<void> {
+  const holder = await createPage(page, { space, type: 'Quick Note', title: 'Pemegang lampiran' });
+  await pageMenu(page, 'Lampiran');
+  const panel = page.getByRole('complementary', { name: 'Lampiran' }).or(page.getByRole('dialog', { name: 'Lampiran' }));
+  await panel.locator('input[type="file"]').setInputFiles(filePayload('laporan.pdf', 'application/pdf', pdfFixture('Halo')));
+  const card = editorOf(page).locator('[data-attachment]', { hasText: 'laporan.pdf' });
+  await expect(card).toBeVisible();
+  const attachmentId = await card.getAttribute('data-attachment-id');
+  if (attachmentId === null || attachmentId === '') throw new Error('the card carries no attachment id');
+  await page.keyboard.press('Escape');
+  await waitSaved(page);
+
+  await createPage(page, { space, type: 'Quick Note', title: 'Penerima salinan' });
+  await pasteHtml(page, `<div data-attachment="" data-attachment-id="${attachmentId}"></div>`);
+  await expect(editorOf(page).locator('[data-attachment]', { hasText: 'laporan.pdf' })).toBeVisible();
+  await expect(editorOf(page).locator(`[data-attachment-id="${attachmentId}"]`)).toHaveCount(0);
+  await waitSaved(page);
+
+  await gotoSettled(page, holder.url);
+  await setAttachmentExtraction(attachmentId, 'failed', 'timeout');
+  await pageMenu(page, 'Lampiran');
+  await panel.getByRole('button', { name: 'Coba lagi' }).click();
+  await expect(panel).toContainText('Menunggu ekstraksi teks');
+  // Leaving a page snapshots it, so the file above is kept by a version; a file added and dropped in one visit is not.
+  await panel.locator('input[type="file"]').setInputFiles(filePayload('sementara.pdf', 'application/pdf', pdfFixture('Halo')));
+  const temporary = editorOf(page).locator('[data-attachment]', { hasText: 'sementara.pdf' });
+  await expect(temporary).toBeVisible();
+  await page.keyboard.press('Escape');
+  await temporary.click();
+  await page.keyboard.press('Delete');
+  await waitSaved(page);
+  await pageMenu(page, 'Lampiran');
+  await page.getByRole('button', { name: 'Pindahkan ke Trash' }).click();
+  await expect(page.getByText('1 lampiran dipindahkan ke Trash. Bisa dipulihkan dari Pengaturan, Trash.')).toBeVisible();
+  await page.keyboard.press('Escape');
+}
+
 async function driveNoteTypes(page: Page): Promise<void> {
   await createNoteType(page, 'Catatan Rapat', [{ label: 'Peserta' }]);
 
@@ -148,6 +225,10 @@ export async function driveKnowledgeFlows(page: Page): Promise<void> {
   const { mainUrl } = await drivePages(page, slugs.kerja);
   await driveTrash(page, slugs.kerja, mainUrl);
   await driveConflicts(page, slugs.kerja);
+  await driveLinks(page, slugs.kerja);
+  await driveHistory(page);
+  await driveDuplicate(page);
+  await driveAttachments(page, slugs.kerja);
   await driveNoteTypes(page);
   await driveArchive(page, slugs.rumah);
 }

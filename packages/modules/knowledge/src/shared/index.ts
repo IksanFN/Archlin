@@ -3,6 +3,8 @@ export {
   ALLOWED_LINK_PROTOCOLS,
   ArchlinHeading,
   ArchlinImage,
+  AttachmentNode,
+  attachmentUrl,
   CALLOUT_VARIANTS,
   Callout,
   contentExtensions,
@@ -11,8 +13,13 @@ export {
   headingDocument,
   isAllowedImageSrc,
   isAllowedLink,
+  Mention,
+  WikiLink,
 } from './document-schema';
 export type { CalloutVariant } from './document-schema';
+export { documentText } from './document-text';
+export { attachmentKindOf, DOCX_MIME, IMAGE_MIMES, PDF_MIME } from './attachment-kind';
+export type { AttachmentKind, ExtractionStatus } from './attachment-kind';
 export {
   FIELD_TYPES,
   PROPERTY_KEY,
@@ -26,11 +33,17 @@ export {
 export type { FieldDefinition, FieldType, PropertyIssue } from './field-schema';
 export {
   REVIEW_MODES,
+  SNAPSHOT_REASONS,
+  attachmentIdInputSchema,
   changeNoteTypeInputSchema,
   contextFieldsSchema,
+  copyAttachmentsInputSchema,
   createNoteTypeInputSchema,
+  createLinkedPageInputSchema,
   createPageInputSchema,
   deleteNoteTypeInputSchema,
+  duplicatePageInputSchema,
+  listVersionsInputSchema,
   noteTypeIdInputSchema,
   noteTypeNameSchema,
   overwritePageInputSchema,
@@ -38,24 +51,56 @@ export {
   pageScreenInputSchema,
   propertiesSchema,
   renamePageInputSchema,
+  restoreVersionInputSchema,
   savePageInputSchema,
+  snapshotPageInputSchema,
+  suggestPagesInputSchema,
+  trashOrphansInputSchema,
   updateNoteTypeInputSchema,
+  versionInputSchema,
 } from './inputs';
 export type {
+  AttachmentIdInput,
   ChangeNoteTypeInput,
   ContextFields,
+  CopyAttachmentsInput,
+  CreateLinkedPageInput,
   CreateNoteTypeInput,
   CreatePageInput,
   DeleteNoteTypeInput,
+  DuplicatePageInput,
+  ListVersionsInput,
   NoteTypeIdInput,
   OverwritePageInput,
   PageIdInput,
   PageScreenInput,
   RenamePageInput,
+  RestoreVersionInput,
   ReviewMode,
   SavePageInput,
+  SnapshotPageInput,
+  SnapshotReason,
+  SuggestPagesInput,
+  TrashOrphansInput,
   UpdateNoteTypeInput,
+  VersionInput,
 } from './inputs';
-export { PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES } from './limits';
+export { ATTACHMENT_MAX_BYTES, PAGE_SAVE_CLIENT_MAX_BYTES, PAGE_SAVE_MAX_BYTES, VERSION_PAGE_SIZE } from './limits';
 export { deriveTypeKey } from './type-key';
-export type { NoteTypeDetail, NoteTypeRef, NoteTypeSummary, PageScreen, PageView, SaveResult } from './types';
+export type {
+  AttachmentView,
+  NoteTypeDetail,
+  NoteTypeRef,
+  NoteTypeSummary,
+  PageScreen,
+  PageSuggestion,
+  PageView,
+  RestoreVersionResult,
+  SaveResult,
+  SnapshotResult,
+  VersionDetail,
+  VersionPage,
+  VersionSummary,
+} from './types';
+export { diffVersions, formatPropertyValue } from './version-diff';
+export type { DiffLine, FieldChange, FieldKey, VersionDiff, VersionSnapshot } from './version-diff';

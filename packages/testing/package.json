@@ -4,6 +4,8 @@
   "type": "module",
   "exports": {
     "./fakes": "./src/fakes/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./files": "./src/files/index.ts",
     "./db": "./src/db/index.ts",
     "./auth": "./src/auth/index.ts",
     "./logging": "./src/logging/index.ts",

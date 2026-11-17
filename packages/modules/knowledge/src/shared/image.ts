@@ -12,7 +12,15 @@ export function isAllowedLink(href: string): boolean {
   return protocol !== null && (ALLOWED_LINK_PROTOCOLS as readonly string[]).includes(protocol);
 }
 
-export function isAllowedImageSrc(src: string): boolean {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function attachmentUrl(id: string): string {
+  return `/files/${id}`;
+}
+
+// An image either lives on the web over https, or is one of the page's own attachments and shows exactly that file.
+export function isAllowedImageSrc(src: string, attachmentId: string | null): boolean {
+  if (attachmentId !== null) return UUID.test(attachmentId) && src === attachmentUrl(attachmentId);
   return protocolOf(src) === 'https:';
 }
 
@@ -32,7 +40,10 @@ export const ArchlinImage = Image.extend({
     return [
       {
         tag: 'img[src]',
-        getAttrs: (element) => (isAllowedImageSrc((element as AttributeSource).getAttribute('src') ?? '') ? null : false),
+        getAttrs: (element) => {
+          const source = element as AttributeSource;
+          return isAllowedImageSrc(source.getAttribute('src') ?? '', source.getAttribute('data-attachment-id') || null) ? null : false;
+        },
       },
     ];
   },
@@ -47,6 +58,12 @@ export const ArchlinImage = Image.extend({
       height: {
         default: null,
         parseHTML: (element: AttributeSource) => intOrNull(element.getAttribute('height')),
+      },
+      attachmentId: {
+        default: null,
+        parseHTML: (element: AttributeSource) => element.getAttribute('data-attachment-id') || null,
+        renderHTML: (attributes: { attachmentId?: string | null }) =>
+          attributes.attachmentId ? { 'data-attachment-id': attributes.attachmentId } : {},
       },
     };
   },

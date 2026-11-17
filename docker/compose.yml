@@ -47,6 +47,7 @@ services:
       TOTP_ENC_KEY: ${TOTP_ENC_KEY}
       ARCHLIN_SETUP_TOKEN: ${ARCHLIN_SETUP_TOKEN}
       ARCHLIN_PUBLIC_ORIGIN: http://localhost:${ARCHLIN_STACK_PORT:-8080}
+      ARCHLIN_FILES_DIR: /data/files
       LOG_LEVEL: ${LOG_LEVEL:-info}
     # 8080 on the host so it does not collide with `pnpm dev` on 3000; bound to loopback only.
     ports:
@@ -66,7 +67,10 @@ services:
       target: worker
     environment:
       DATABASE_URL: postgres://cortex_app:${CORTEX_APP_PASSWORD}@postgres:5432/cortex
+      ARCHLIN_FILES_DIR: /data/files
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - files:/data/files
     depends_on:
       migrate:
         condition: service_completed_successfully

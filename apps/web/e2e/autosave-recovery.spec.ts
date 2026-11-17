@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, reloadSettled, signIn, signOut } from './helpers/flows';
+import { saveProblem } from './helpers/knowledge';
 
 const SAVE_FUNCTION = '**/_serverFn/kb-save-page';
 const CONFLICT_TITLE = 'Halaman ini berubah di tab atau perangkat lain';
@@ -147,7 +148,8 @@ test('no draft banner for this tab while saves fail', async ({ page }) => {
   await page.route(SAVE_FUNCTION, (route) => route.abort('failed'));
 
   await typeInEditor(page, 'belum tersimpan');
-  await page.waitForTimeout(2000);
+  // The failed save is the sign that the draft write, which comes first, has had its turn; a fixed wait ran short under load.
+  await expect(saveProblem(page, 'Gagal menyimpan. Mencoba lagi…')).toBeVisible();
   await expect(page.getByText(DRAFT_BANNER)).toBeHidden();
 
   await page.unroute(SAVE_FUNCTION);

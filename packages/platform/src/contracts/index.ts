@@ -65,6 +65,7 @@ export type {
   EntityIdInput,
   EntityRef,
   MoveEntityInput,
+  Placement,
   RecentEntity,
   RestoreOutcome,
   SetIconInput,
@@ -74,3 +75,7 @@ export type {
   TreeChildrenInput,
   TreeNode,
 } from './tree';
+export { LINK_SNIPPET_MAX, LINK_TITLE_MAX, linkKey } from './links';
+export type { InboundLink, LinkKind, LinkRef, LinkTarget, OutboundLink } from './links';
+export { blobKey, STAGING_PREFIX } from './files';
+export type { ExtractionErrorCode, ExtractResult, TextExtractor } from './files';

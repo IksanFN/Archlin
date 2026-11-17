@@ -1,4 +1,9 @@
+import type { AttachmentLabels } from '../attachments/labels';
+import type { LinkLabels } from '../links/page-editor-links';
+
 export interface EditorLabels {
+  links: LinkLabels;
+  attachments: AttachmentLabels;
   title: string;
   body: string;
   untitled: string;
@@ -41,6 +46,7 @@ export interface EditorLabels {
     altHelper: string;
     insert: string;
     loadFailed: string;
+    upload: string;
   };
   slashEmpty: string;
   slash: {
@@ -61,6 +67,7 @@ export interface EditorLabels {
     table: string;
     divider: string;
     image: string;
+    attachment: string;
   };
   block: {
     handle: string;

@@ -8,6 +8,7 @@ import { seedSystemNoteTypes } from './seed';
 
 export const KB_MODULE_ID = 'kb';
 export const PAGE_KIND = 'kb.page';
+export const ATTACHMENT_KIND = 'kb.attachment';
 
 export const noteTypeUpdated = defineEvent({
   type: 'kb.noteType.updated',
@@ -27,7 +28,11 @@ export function createKnowledgeModule(deps: ModuleServerDeps): ModuleDraft {
 
   return defineModule({
     id: KB_MODULE_ID,
-    entityKinds: { page: { label: 'Halaman', icon: 'file-text', treeable: true } },
+    entityKinds: {
+      page: { label: 'Halaman', icon: 'file-text', treeable: true },
+      attachment: { label: 'Lampiran', icon: 'paperclip', treeable: false },
+    },
+    blobReferences: [{ table: 'kb_attachments', column: 'blob_sha256' }],
     events: [noteTypeUpdated],
     eventHandlers: [seedOnAccountCreated],
   });

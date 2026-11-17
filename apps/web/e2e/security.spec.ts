@@ -1,6 +1,9 @@
+import { pdfFixture } from '@archlin/testing/files';
 import { expect, request as playwrightRequest, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { resetAccount } from './helpers/db';
+import { filePayload } from './helpers/files';
+import { createPage, createSpace, editorOf } from './helpers/knowledge';
 import { driveAuthedFlows } from './helpers/drive-flows';
 import { ACCOUNT, completeSetup, fillSetupForm, gotoSettled } from './helpers/flows';
 import { recordServerFns } from './helpers/server-fn-recorder';
@@ -207,4 +210,43 @@ test('client bundles contain no server-only code', async ({ page }) => {
     const source = await (await page.context().request.get(url)).text();
     for (const needle of forbidden) expect(source, `${url} contains ${needle}`).not.toContain(needle);
   }
+});
+
+test('POST /files without a session answers 401 and with a foreign Origin answers 403', async ({ page }) => {
+  await completeSetup(page);
+  const visitor = await playwrightRequest.newContext({ baseURL: BASE_URL });
+  try {
+    const anonymous = await visitor.post('/files', { headers: { origin: BASE_URL }, data: 'x' });
+    expect(anonymous.status()).toBe(401);
+  } finally {
+    await visitor.dispose();
+  }
+  // The origin check runs before the session check, so a signed-in request from another site is refused all the same.
+  const foreign = await page.context().request.post('/files', {
+    headers: { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' },
+    data: 'x',
+  });
+  expect(foreign.status()).toBe(403);
+});
+
+test('a file response carries the file content security policy', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Laporan' });
+  await page.getByRole('button', { name: 'Opsi halaman' }).click();
+  await page.getByRole('menuitem', { name: 'Lampiran' }).click();
+  await page
+    .getByRole('complementary', { name: 'Lampiran' })
+    .or(page.getByRole('dialog', { name: 'Lampiran' }))
+    .locator('input[type="file"]')
+    .setInputFiles(filePayload('laporan.pdf', 'application/pdf', pdfFixture('Halo')));
+  const href = await editorOf(page).locator('[data-attachment]').getByRole('link', { name: 'Buka' }).getAttribute('href');
+  expect(href).toMatch(/^\/files\/[0-9a-f-]{36}$/);
+
+  const response = await page.context().request.get(href ?? '');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-security-policy']).toBe(
+    "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; object-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  );
+  expect(response.headers()['x-content-type-options']).toBe('nosniff');
 });

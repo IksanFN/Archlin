@@ -42,7 +42,8 @@
   --color-inverse: var(--grok-color-inverse-bg); --color-inverse-fg: var(--grok-color-inverse-text);
   --color-inverse-hover: var(--grok-color-inverse-hover); --color-inverse-pressed: var(--grok-color-inverse-pressed);
   --color-attention: var(--grok-color-attention); --color-attention-soft: var(--grok-color-attention-soft);
-  --color-success: var(--grok-color-success); --color-danger: var(--grok-color-danger);
+  --color-success: var(--grok-color-success); --color-success-soft: var(--grok-color-success-soft);
+  --color-danger: var(--grok-color-danger);
   --color-danger-soft: var(--grok-color-danger-soft); --color-on-danger: var(--grok-color-on-danger);
   --color-info: var(--grok-color-info); --color-focus: var(--grok-color-focus);
   --color-disabled-bg: var(--grok-color-disabled-bg); --color-scrim: var(--grok-color-scrim);

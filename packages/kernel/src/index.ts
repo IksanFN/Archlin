@@ -22,6 +22,8 @@ export { defineEvent } from './events';
 export type { EventDefinition, EventEnvelope, EventPublisher, NewDomainEvent, PayloadSchema } from './events';
 export { buildRegistry, defineHandler, defineModule, RegistryError } from './module';
 export type {
+  BlobReference,
+  BlobReferenceDraft,
   EntityKindDefinition,
   EntityKindDraft,
   EventHandlerDefinition,

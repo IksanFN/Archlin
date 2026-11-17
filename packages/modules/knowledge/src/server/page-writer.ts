@@ -1,20 +1,25 @@
 import { sqlFor } from '@archlin/db/scoped';
-import { NotFoundError } from '@archlin/kernel';
-import type { Clock, ReadTx, WriteTx } from '@archlin/kernel';
-import type { EntitiesDatabase, TreeService } from '@archlin/platform/server';
+import { ConflictError, NotFoundError } from '@archlin/kernel';
+import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
+import type { EntitiesDatabase, LinkService, TreeService } from '@archlin/platform/server';
 import type { JSONContent } from '@tiptap/core';
 import { sql } from 'kysely';
 import { canonicalJson } from '../shared/canonical-json';
 import type { ContextFields } from '../shared/inputs';
 import type { SaveResult } from '../shared/types';
+import { documentAttachmentIds, syncAttachmentRefs } from './attachment-refs';
 import { documentText, parseDocument } from './document';
 import { pageStateHash, type PageState } from './hash';
+import { documentLinkRefs } from './links';
 import type { KnowledgeDatabase } from './schema';
+import { shouldSnapshot } from './snapshot-policy';
+import { insertVersion, latestSnapshotHash } from './version-store';
 
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
 export interface LockedPage {
   entityId: string;
+  spaceId: string;
   title: string;
   content: JSONContent;
   context: ContextFields;
@@ -41,11 +46,28 @@ interface LockRow {
   version: number;
   last_saved_at: Date;
   title: string;
+  space_id: string;
   deleted_at: Date | null;
 }
 
 function dbOf(tx: ReadTx) {
   return sqlFor<PageDatabase>(tx);
+}
+
+export function pageInTrash(): never {
+  throw new ConflictError('page_in_trash', 'Halaman ini ada di Trash');
+}
+
+export function pageConflict(currentVersion: number): never {
+  throw new ConflictError('page_conflict', 'Halaman ini berubah di tab atau perangkat lain', { currentVersion });
+}
+
+export function requireAlive(locked: LockedPage): void {
+  if (locked.deletedAt !== null) pageInTrash();
+}
+
+export function requireVersion(locked: LockedPage, expected: number): void {
+  if (expected !== locked.version) pageConflict(locked.version);
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
@@ -79,6 +101,7 @@ export function contextOf(row: {
 function toLocked(row: LockRow): LockedPage {
   return {
     entityId: row.entity_id,
+    spaceId: row.space_id,
     title: row.title,
     content: asContent(row.content),
     context: contextOf(row),
@@ -106,8 +129,8 @@ export function changedPageFields(locked: LockedPage, next: PageState): string[]
   return fields;
 }
 
-export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
-  const { tree, clock } = deps;
+export function createPageWriter(deps: { tree: TreeService; links: LinkService; clock: Clock; ids: Ids }) {
+  const { tree, links, clock, ids } = deps;
 
   return {
     async lockPage(tx: WriteTx, entityId: string): Promise<LockedPage> {
@@ -126,6 +149,7 @@ export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
           p.version,
           p.last_saved_at,
           e.title,
+          e.space_id,
           e.deleted_at
         from kb_pages p
         inner join entities e on e.owner_id = p.owner_id and e.id = p.entity_id
@@ -145,6 +169,14 @@ export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
     ): Promise<SaveResult> {
       const now = clock.now();
       const version = locked.version + 1;
+      const idle = shouldSnapshot({
+        reason: 'idle',
+        now,
+        lastSavedAt: new Date(locked.lastSavedAt),
+        currentHash: locked.contentHash,
+        lastSnapshotHash: await latestSnapshotHash(tx, locked.entityId),
+      });
+      if (idle) await insertVersion(tx, { ids, clock }, { snapshot: locked, reason: 'idle', label: null });
       const doc = parseDocument(next.content);
       const contentText = documentText(doc);
       const contentHash = pageStateHash(next);
@@ -173,6 +205,13 @@ export function createPageWriter(deps: { tree: TreeService; clock: Clock }) {
         } else {
           await tree.touch(tx, locked.entityId, fields);
         }
+      }
+      if (fields.includes('content')) {
+        await links.sync(tx, { sourceId: locked.entityId, spaceId: locked.spaceId, refs: documentLinkRefs(doc) });
+        await syncAttachmentRefs(tx, locked.entityId, documentAttachmentIds(doc));
+      }
+      if (fields.includes('title')) {
+        await links.resolvePending(tx, { entityId: locked.entityId, title: next.title });
       }
       return { status: 'saved', version, savedAt: now.toISOString() };
     },

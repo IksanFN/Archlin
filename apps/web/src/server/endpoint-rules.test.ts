@@ -7,6 +7,17 @@ const rulesOf = (path: string, text: string) => check(path, text).map((violation
 const FN_IMPORT = `import { z } from 'zod';\nimport { authedFn, publicFn, strictInput } from '~/server/fn';\n`;
 
 describe('checkServerEndpoints', () => {
+  it('authedStreamRoute counts as a wrapped handler', () => {
+    expect(
+      checkServerEndpoints([
+        {
+          path: 'src/routes/files.ts',
+          text: "createFileRoute('/files')({ server: { handlers: { POST: authedStreamRoute(h) } } })",
+        },
+      ]),
+    ).toEqual([]);
+  });
+
   it('accepts guarded server functions and wrapped route handlers', () => {
     const functions = `${FN_IMPORT}
 export const loginFn = publicFn.validator(strictInput(z.strictObject({}))).handler(async () => ({ ok: true }));

@@ -1,5 +1,7 @@
 import { expect, it } from 'vitest';
+import { fileStorageContract } from '../contracts';
 import { FakeClock } from './fake-clock';
+import { createInMemoryStorage } from './in-memory-storage';
 import { SequenceIds } from './sequence-ids';
 
 it('FakeClock returns a copy and advances by milliseconds', () => {
@@ -15,3 +17,9 @@ it('SequenceIds yields valid, increasing v7-shaped uuids', () => {
   expect(ids.uuidv7()).toBe('00000000-0000-7000-8000-000000000001');
   expect(ids.uuidv7()).toBe('00000000-0000-7000-8000-000000000002');
 });
+
+// The fake clock starts at the real time so the shared suite's Date.now() cutoffs line up with it.
+fileStorageContract('in memory', async () => ({
+  storage: createInMemoryStorage(new FakeClock(new Date())),
+  cleanup: async () => {},
+}));

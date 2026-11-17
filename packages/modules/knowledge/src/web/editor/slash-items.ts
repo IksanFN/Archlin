@@ -9,6 +9,7 @@ import {
   ListBulletsIcon,
   ListNumbersIcon,
   MinusIcon,
+  PaperclipIcon,
   QuotesIcon,
   TableIcon,
   TextAaIcon,
@@ -22,6 +23,7 @@ import type { Editor, Range } from '@tiptap/core';
 import type { EditorLabels } from './labels';
 
 export const OPEN_IMAGE_DIALOG = 'kb-open-image';
+export const OPEN_FILE_PICKER = 'kb-open-file-picker';
 
 export interface SlashItem {
   id: string;
@@ -225,6 +227,16 @@ export function slashItems(labels: EditorLabels): SlashItem[] {
       run: (editor, range) => {
         afterSlash(editor, range).run();
         editor.view.dom.dispatchEvent(new CustomEvent(OPEN_IMAGE_DIALOG, { bubbles: true }));
+      },
+    },
+    {
+      id: 'attachment',
+      label: slash.attachment,
+      keywords: ['file', 'berkas', 'pdf', 'docx', 'unggah', 'upload'],
+      icon: PaperclipIcon,
+      run: (editor, range) => {
+        afterSlash(editor, range).run();
+        editor.view.dom.dispatchEvent(new CustomEvent(OPEN_FILE_PICKER, { bubbles: true }));
       },
     },
   ];

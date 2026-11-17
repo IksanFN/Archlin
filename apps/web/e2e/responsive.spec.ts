@@ -146,3 +146,35 @@ test('touch targets of tree actions are at least 24px', async ({ page }) => {
     }
   }
 });
+
+test('history and attachments open as a right sheet and close with their button', async ({ page }) => {
+  const pageUrl = await startWithPage(page);
+  const cases = [
+    { item: 'Riwayat versi', dialog: 'Riwayat versi', close: 'Tutup riwayat versi' },
+    { item: 'Lampiran', dialog: 'Lampiran', close: 'Tutup panel lampiran' },
+  ];
+  for (const { item, dialog, close } of cases) {
+    await page.getByRole('button', { name: 'Opsi halaman' }).click();
+    await page.getByRole('menuitem', { name: item }).click();
+    const sheet = page.getByRole('dialog', { name: dialog });
+    await expect(sheet).toBeVisible();
+    const viewport = page.viewportSize();
+    if (viewport === null) throw new Error('the viewport must have a size');
+    // A right sheet ends flush with the right edge once its slide-in has finished.
+    await expect
+      .poll(
+        async () => {
+          const box = await sheet.boundingBox();
+          return box === null ? 0 : Math.round(box.x + box.width);
+        },
+        { message: `${item} sheet right edge` },
+      )
+      .toBe(viewport.width);
+    await expectNoHorizontalScroll(pageUrl, page);
+    await gotoSettled(page, pageUrl);
+    await page.getByRole('button', { name: 'Opsi halaman' }).click();
+    await page.getByRole('menuitem', { name: item }).click();
+    await page.getByRole('dialog', { name: dialog }).getByRole('button', { name: close }).click();
+    await expect(page.getByRole('dialog', { name: dialog })).toBeHidden();
+  }
+});

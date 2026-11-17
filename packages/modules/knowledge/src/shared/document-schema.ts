@@ -5,14 +5,20 @@ import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { TableKit } from '@tiptap/extension-table';
 import type { Schema } from '@tiptap/pm/model';
 import { StarterKit } from '@tiptap/starter-kit';
+import { AttachmentNode } from './attachment-node';
 import { Callout } from './callout';
 import { ArchlinHeading } from './heading';
 import { ArchlinImage, isAllowedLink } from './image';
+import { Mention } from './mention';
+import { WikiLink } from './wiki-link';
 
+export { AttachmentNode } from './attachment-node';
 export { CALLOUT_VARIANTS, Callout } from './callout';
 export type { CalloutVariant } from './callout';
 export { ArchlinHeading } from './heading';
-export { ALLOWED_LINK_PROTOCOLS, ArchlinImage, isAllowedImageSrc, isAllowedLink } from './image';
+export { ALLOWED_LINK_PROTOCOLS, ArchlinImage, attachmentUrl, isAllowedImageSrc, isAllowedLink } from './image';
+export { Mention } from './mention';
+export { WikiLink } from './wiki-link';
 
 export function contentExtensions(): Extensions {
   return [
@@ -39,6 +45,9 @@ export function contentExtensions(): Extensions {
     DetailsContent,
     ArchlinImage,
     Callout,
+    WikiLink,
+    Mention,
+    AttachmentNode,
   ];
 }
 

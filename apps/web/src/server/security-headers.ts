@@ -3,9 +3,21 @@ export interface SecurityHeaderOptions {
   https: boolean;
   // 'vite-dev' exists only for `vite dev`, whose React Refresh preamble and HMR socket carry no nonce.
   mode: 'strict' | 'vite-dev';
+  // 'file' is the response of /files/<id>: no scripts at all, and only the built-in PDF viewer may load.
+  surface: 'app' | 'file';
 }
 
-export function buildSecurityHeaders({ nonce, https, mode }: SecurityHeaderOptions): Record<string, string> {
+const FILE_CSP = [
+  "default-src 'none'",
+  "img-src 'self'",
+  "style-src 'unsafe-inline'",
+  "object-src 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+export function buildSecurityHeaders({ nonce, https, mode, surface }: SecurityHeaderOptions): Record<string, string> {
   const scriptSrc = mode === 'strict' ? `'self' 'nonce-${nonce}'` : "'self' 'unsafe-inline'";
   const connectSrc = mode === 'strict' ? "'self'" : "'self' ws://localhost:*";
   const csp = [
@@ -20,7 +32,7 @@ export function buildSecurityHeaders({ nonce, https, mode }: SecurityHeaderOptio
   ].join('; ');
 
   return {
-    'Content-Security-Policy': csp,
+    'Content-Security-Policy': surface === 'file' ? FILE_CSP : csp,
     'Referrer-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
     'X-Content-Type-Options': 'nosniff',

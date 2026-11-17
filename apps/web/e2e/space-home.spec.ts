@@ -69,6 +69,8 @@ test('an archived space shows the notice and can be restored', async ({ page }) 
   // The portaled row menu can sit outside the viewport, so a pointer click is rejected.
   await archive.press('Enter');
   await expect(spaceRow).toBeHidden();
+  // The tree drops the row before the server has answered, so the toast is the sign that the archive is committed.
+  await expect(page.getByText('Space “Kerja” diarsipkan.')).toBeVisible();
 
   await gotoSettled(page, '/s/kerja');
   await expect(page.getByText('Space ini diarsipkan dan tidak tampil di sidebar.')).toBeVisible();

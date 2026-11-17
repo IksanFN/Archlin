@@ -1,8 +1,8 @@
 import { readSchemaStatus } from '@archlin/db/migrations';
 import type { Clock, Logger, ModuleRegistry, OwnerUnitOfWork } from '@archlin/kernel';
 import { issueOwnerScope } from '@archlin/kernel/trusted';
-import { createDeliveryConsumer, createOutboxRelay } from '@archlin/platform/server';
-import type { TreeService } from '@archlin/platform/server';
+import { BLOB_GC_GRACE_MS, createDeliveryConsumer, createOutboxRelay } from '@archlin/platform/server';
+import type { FileStorage, PeriodicTask, TreeService } from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
 import type { WorkerQueue } from './pg-boss-queue';
 
@@ -15,11 +15,14 @@ export interface WorkerRuntimeDeps {
   logger: Logger;
   expectedMigrations: readonly string[];
   tree: TreeService;
+  files: FileStorage;
   listOwnerIds: () => Promise<string[]>;
+  tasks: readonly PeriodicTask[];
   pollIntervalMs?: number;
   sweepIntervalMs?: number;
   schemaPollMs?: number;
   trashPurgeIntervalMs?: number;
+  stagingSweepIntervalMs?: number;
 }
 
 export interface WorkerRuntime {
@@ -32,11 +35,12 @@ export class SchemaMismatchError extends Error {
 }
 
 export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
-  const { db, uow, registry, queue, clock, logger, expectedMigrations, tree, listOwnerIds } = deps;
+  const { db, uow, registry, queue, clock, logger, expectedMigrations, tree, files, listOwnerIds, tasks } = deps;
   const pollIntervalMs = deps.pollIntervalMs ?? 1000;
   const sweepIntervalMs = deps.sweepIntervalMs ?? 30_000;
   const schemaPollMs = deps.schemaPollMs ?? 5000;
   const trashPurgeIntervalMs = deps.trashPurgeIntervalMs ?? 3_600_000;
+  const stagingSweepIntervalMs = deps.stagingSweepIntervalMs ?? 21_600_000;
 
   const relay = createOutboxRelay({ db, uow, queue, clock, logger });
   const consumer = createDeliveryConsumer({ uow, registry, clock, logger });
@@ -100,6 +104,24 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
     if (roots + count > 0) logger.info({ roots, count });
   }
 
+  // Staging holds no owner data, so one sweep covers everyone. A day matches the blob grace period: no upload takes longer.
+  async function sweepStaging(): Promise<void> {
+    const removed = await files.sweepStaging(new Date(clock.now().getTime() - BLOB_GC_GRACE_MS));
+    if (removed > 0) logger.info({ removed }, 'staging files swept');
+  }
+
+  // One failing owner is logged and skipped so the remaining owners still get their turn.
+  async function runForEveryOwner(task: PeriodicTask): Promise<void> {
+    for (const ownerId of await listOwnerIds()) {
+      if (stopping.signal.aborted) return;
+      try {
+        await task.run(issueOwnerScope(ownerId), stopping.signal);
+      } catch (err) {
+        logger.error({ err, task: task.id }, 'periodic task failed');
+      }
+    }
+  }
+
   return {
     async start() {
       await waitForSchema();
@@ -109,6 +131,8 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps): WorkerRuntime {
         loop('relay', pollIntervalMs, () => relay.tick()),
         loop('sweep', sweepIntervalMs, () => relay.sweep()),
         loop('trash-purge', trashPurgeIntervalMs, purgeExpiredTrash),
+        loop('staging-sweep', stagingSweepIntervalMs, sweepStaging),
+        ...tasks.map((task) => loop(task.id, task.intervalMs, () => runForEveryOwner(task))),
       );
       logger.info({}, 'worker started');
     },

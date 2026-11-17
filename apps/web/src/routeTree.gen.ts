@@ -10,11 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as FilesRouteImport } from './routes/files'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as FilesAttachmentIdRouteImport } from './routes/files.$attachmentId'
 import { Route as LoginIndexRouteImport } from './routes/login.index'
 import { Route as LoginTotpRouteImport } from './routes/login.totp'
 import { Route as AppSSpaceSlugRouteImport } from './routes/_app/s/$spaceSlug'
@@ -28,6 +30,11 @@ import { Route as AppSSpaceSlugPEntityIdRouteImport } from './routes/_app/s/$spa
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FilesRoute = FilesRouteImport.update({
+  id: '/files',
+  path: '/files',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HealthRoute = HealthRouteImport.update({
@@ -54,6 +61,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
+} as any)
+const FilesAttachmentIdRoute = FilesAttachmentIdRouteImport.update({
+  id: '/$attachmentId',
+  path: '/$attachmentId',
+  getParentRoute: () => FilesRoute,
 } as any)
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/',
@@ -110,10 +122,12 @@ const AppSSpaceSlugPEntityIdRoute = AppSSpaceSlugPEntityIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/files': typeof FilesRouteWithChildren
   '/health': typeof HealthRoute
   '/login': typeof LoginRouteWithChildren
   '/setup': typeof SetupRoute
   '/settings': typeof AppSettingsRouteWithChildren
+  '/files/$attachmentId': typeof FilesAttachmentIdRoute
   '/login/totp': typeof LoginTotpRoute
   '/login/': typeof LoginIndexRoute
   '/s/$spaceSlug': typeof AppSSpaceSlugRouteWithChildren
@@ -126,8 +140,10 @@ export interface FileRoutesByFullPath {
   '/s/$spaceSlug/p/$entityId': typeof AppSSpaceSlugPEntityIdRoute
 }
 export interface FileRoutesByTo {
+  '/files': typeof FilesRouteWithChildren
   '/health': typeof HealthRoute
   '/setup': typeof SetupRoute
+  '/files/$attachmentId': typeof FilesAttachmentIdRoute
   '/login/totp': typeof LoginTotpRoute
   '/': typeof AppIndexRoute
   '/login': typeof LoginIndexRoute
@@ -142,10 +158,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/files': typeof FilesRouteWithChildren
   '/health': typeof HealthRoute
   '/login': typeof LoginRouteWithChildren
   '/setup': typeof SetupRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
+  '/files/$attachmentId': typeof FilesAttachmentIdRoute
   '/login/totp': typeof LoginTotpRoute
   '/_app/': typeof AppIndexRoute
   '/login/': typeof LoginIndexRoute
@@ -162,10 +180,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/files'
     | '/health'
     | '/login'
     | '/setup'
     | '/settings'
+    | '/files/$attachmentId'
     | '/login/totp'
     | '/login/'
     | '/s/$spaceSlug'
@@ -178,8 +198,10 @@ export interface FileRouteTypes {
     | '/s/$spaceSlug/p/$entityId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/files'
     | '/health'
     | '/setup'
+    | '/files/$attachmentId'
     | '/login/totp'
     | '/'
     | '/login'
@@ -193,10 +215,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/files'
     | '/health'
     | '/login'
     | '/setup'
     | '/_app/settings'
+    | '/files/$attachmentId'
     | '/login/totp'
     | '/_app/'
     | '/login/'
@@ -212,6 +236,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  FilesRoute: typeof FilesRouteWithChildren
   HealthRoute: typeof HealthRoute
   LoginRoute: typeof LoginRouteWithChildren
   SetupRoute: typeof SetupRoute
@@ -224,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/files': {
+      id: '/files'
+      path: '/files'
+      fullPath: '/files'
+      preLoaderRoute: typeof FilesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/health': {
@@ -260,6 +292,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/files/$attachmentId': {
+      id: '/files/$attachmentId'
+      path: '/$attachmentId'
+      fullPath: '/files/$attachmentId'
+      preLoaderRoute: typeof FilesAttachmentIdRouteImport
+      parentRoute: typeof FilesRoute
     }
     '/login/': {
       id: '/login/'
@@ -382,6 +421,16 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface FilesRouteChildren {
+  FilesAttachmentIdRoute: typeof FilesAttachmentIdRoute
+}
+
+const FilesRouteChildren: FilesRouteChildren = {
+  FilesAttachmentIdRoute: FilesAttachmentIdRoute,
+}
+
+const FilesRouteWithChildren = FilesRoute._addFileChildren(FilesRouteChildren)
+
 interface LoginRouteChildren {
   LoginTotpRoute: typeof LoginTotpRoute
   LoginIndexRoute: typeof LoginIndexRoute
@@ -396,6 +445,7 @@ const LoginRouteWithChildren = LoginRoute._addFileChildren(LoginRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  FilesRoute: FilesRouteWithChildren,
   HealthRoute: HealthRoute,
   LoginRoute: LoginRouteWithChildren,
   SetupRoute: SetupRoute,

@@ -2,17 +2,23 @@ import { qualifiedMigrationNames } from '@archlin/db/migrations';
 import { createDatabase, createOwnerUnitOfWork } from '@archlin/db/runtime';
 import { buildRegistry, systemClock, systemIds } from '@archlin/kernel';
 import {
+  createBlobMaintenanceTask,
+  createBlobService,
   createEventPublisher,
   createIdentityGateway,
+  createLinkService,
+  createLocalDiskStorage,
   createLogger,
   createTreeService,
   PLATFORM_EVENTS,
 } from '@archlin/platform/server';
 import { PgBoss } from 'pg-boss';
-import { migrationSets, moduleDrafts } from '../../../archlin.config';
+import { migrationSets, moduleDrafts, workerTasks } from '../../../archlin.config';
 import { loadWorkerEnv, WorkerConfigError } from './env';
 import { createPgBossQueue } from './pg-boss-queue';
 import { createWorkerRuntime } from './runtime';
+
+const workerAssetUrl = (fileName: string): URL => new URL(`./${fileName}`, import.meta.url);
 
 // Composition root of the worker: wires the database, the module registry and pg-boss, then runs until a signal.
 async function main(): Promise<void> {
@@ -39,18 +45,27 @@ async function main(): Promise<void> {
   const registry = buildRegistry(moduleDrafts({ ids: systemIds }), PLATFORM_EVENTS);
   const publisher = createEventPublisher({ registry, ids: systemIds, clock: systemClock });
   const tree = createTreeService({ registry, publisher, clock: systemClock, ids: systemIds });
+  const links = createLinkService({ registry, ids: systemIds, clock: systemClock });
+  const files = createLocalDiskStorage(env.filesDir);
+  const blobs = createBlobService({ registry, files, clock: systemClock });
   const gateway = createIdentityGateway(db);
+  const uow = createOwnerUnitOfWork(db);
 
   const runtime = createWorkerRuntime({
     db,
-    uow: createOwnerUnitOfWork(db),
+    uow,
     registry,
     queue: createPgBossQueue(boss),
     clock: systemClock,
     logger,
     expectedMigrations: qualifiedMigrationNames(migrationSets()),
     tree,
+    files,
     listOwnerIds: () => gateway.listOwnerIds(),
+    tasks: [
+      createBlobMaintenanceTask({ uow, blobs, logger }),
+      ...workerTasks({ uow, clock: systemClock, ids: systemIds, logger, publisher, tree, links, files, blobs, workerAssetUrl }),
+    ],
   });
 
   let shuttingDown = false;

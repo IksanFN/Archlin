@@ -56,6 +56,49 @@ export async function createNoteType(page: Page, name: string, fields: readonly 
   await expect(page.getByRole('button', { name: 'Simpan perubahan' })).toBeHidden();
 }
 
+// Opens the page options menu and takes one item. The header scrolls away with a long page, and a menu opened while the
+// button is being scrolled back into view is placed from its old position, so the page is brought to the top first.
+export async function menu(page: Page, name: string): Promise<void> {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByRole('button', { name: 'Opsi halaman' }).click();
+  await page.getByRole('menuitem', { name }).click();
+}
+
+export const region = (page: Page, name: string): Locator => page.getByRole('region', { name });
+
+export async function typeInEditor(page: Page, text: string): Promise<void> {
+  await editorOf(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(text);
+}
+
+const startsWith = (text: string): RegExp => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+
+// Types `[[` and a query at the end of the page, then takes the option named `pick`, or the "link as a new page" option for 'create'.
+// A page option is matched from its start: the "link as a new page" row also contains the query and is on screen
+// before the suggestions arrive, so a looser match would take it by mistake.
+export async function insertWikiLink(page: Page, query: string, pick: string | 'create'): Promise<void> {
+  await editorOf(page).click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.type(`[[${query}`);
+  const picker = page.getByRole('listbox', { name: 'Pilih halaman untuk ditautkan' });
+  await expect(picker).toBeVisible();
+  const name = pick === 'create' ? startsWith(`Tautkan “${query}” sebagai halaman baru`) : startsWith(pick);
+  await picker.getByRole('option', { name }).click();
+  await expect(picker).toBeHidden();
+}
+
+// Pastes html through ProseMirror's own paste path (parse, paste handlers, transform). A synthetic ClipboardEvent is not used:
+// Firefox ignores the clipboardData of a constructed event, so the editor would receive an empty paste there.
+export async function pasteHtml(page: Page, html: string): Promise<void> {
+  await editorOf(page).click();
+  await editorOf(page).evaluate((element, markup) => {
+    const editor = (element as unknown as { editor?: { view: { pasteHTML(markup: string): boolean } } }).editor;
+    if (editor === undefined) throw new Error('the editor is not reachable from its element');
+    editor.view.pasteHTML(markup);
+  }, html);
+}
+
 export async function waitSaved(page: Page): Promise<void> {
   await expect(savedLabel(page)).toBeVisible();
 }

@@ -11,6 +11,7 @@ FROM node:24-slim AS web
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.output ./.output
 ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
+RUN mkdir -p /data/files && chown node:node /data/files
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=5 \
@@ -22,6 +23,7 @@ FROM node:24-slim AS worker
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/worker/dist ./dist
 ENV NODE_ENV=production
+RUN mkdir -p /data/files && chown node:node /data/files
 USER node
 CMD ["node","dist/main.mjs"]
 

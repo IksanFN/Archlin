@@ -25,7 +25,7 @@ const FN_FILE = 'src/server/fn.ts';
 const HEALTH_ROUTE_FILE = 'src/routes/health.ts';
 const GUARDED_BUILDERS = new Set(['publicFn', 'authedFn']);
 const PUBLIC_FN_ALLOWLIST = new Set(['authStateFn', 'setupFn', 'loginFn', 'loginTotpFn']);
-const ROUTE_WRAPPERS = new Set(['publicRoute', 'authedRoute', 'tokenRoute']);
+const ROUTE_WRAPPERS = new Set(['publicRoute', 'authedRoute', 'authedStreamRoute', 'tokenRoute']);
 
 // Local name -> exported name, for what this file imports from the guarded fn module.
 function fnImportsOf(sf: ts.SourceFile): Map<string, string> {

@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { resetAccount } from './helpers/db';
 import { completeSetup, gotoSettled, openAccountMenu } from './helpers/flows';
-import { createPage, createSpace, editorOf } from './helpers/knowledge';
+import { createPage, createSpace, editorOf, menu } from './helpers/knowledge';
 
 test.beforeEach(async () => {
   await resetAccount();
@@ -101,6 +101,64 @@ test('the slash menu opens without animation', async ({ page }) => {
   await expect(menu).toBeVisible();
   // The popup wrapper, not only the list, must stay still: it is what a keyboard user sees appear.
   const animated = await menu.evaluate((element) => {
+    const names: string[] = [];
+    for (let node: Element | null = element; node !== null && node !== document.body; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.animationName !== 'none' || style.transitionProperty.includes('opacity')) names.push(node.tagName);
+    }
+    return names;
+  });
+  expect(animated).toEqual([]);
+});
+
+async function openAttachmentsPanel(page: Page): Promise<Locator> {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Panel' });
+  await menu(page, 'Lampiran');
+  const dock = page.locator('.kb-dock');
+  await expect(dock).toBeVisible();
+  return dock;
+}
+
+test('docked panels slide and fade', async ({ page }) => {
+  const dock = await openAttachmentsPanel(page);
+  // Only transform and opacity change: they skip layout, and "all" would also animate the width.
+  expect((await computed(dock, 'transition-property')).split(',').map((name) => name.trim()).sort()).toEqual(['opacity', 'transform']);
+  expect(await computed(dock, 'transition-duration')).toBe('0.32s, 0.32s');
+});
+
+// Reduced motion is set before the panel opens: a transition already running when the preference changes would finish its slide.
+test('docked panels do not slide under reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await openAttachmentsPanel(page);
+  // The leaving state is only on the element for 240ms, so the probe reads it on the frame after the attribute appears.
+  // It is armed before the key press: the promise lives on window and is read afterwards.
+  await page.evaluate(() => {
+    const element = document.querySelector('.kb-dock');
+    if (element === null) throw new Error('the dock is not on screen');
+    (window as unknown as { __leaving: Promise<string> }).__leaving = new Promise<string>((resolve) => {
+      new MutationObserver(() => requestAnimationFrame(() => resolve(getComputedStyle(element).transform))).observe(element, {
+        attributes: true,
+        attributeFilter: ['data-leaving'],
+      });
+    });
+  });
+  await page.getByRole('button', { name: 'Tutup panel lampiran' }).click();
+  expect(await page.evaluate(() => (window as unknown as { __leaving: Promise<string> }).__leaving)).toBe('none');
+});
+
+test('the link picker opens without animation', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Picker' });
+  await editorOf(page).click();
+  // The picker lists nothing for an empty query, so one character brings up the create row.
+  await page.keyboard.type('[[x');
+
+  const picker = page.getByRole('listbox', { name: 'Pilih halaman untuk ditautkan' });
+  await expect(picker).toBeVisible();
+  const animated = await picker.evaluate((element) => {
     const names: string[] = [];
     for (let node: Element | null = element; node !== null && node !== document.body; node = node.parentElement) {
       const style = getComputedStyle(node);

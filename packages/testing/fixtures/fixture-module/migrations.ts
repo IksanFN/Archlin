@@ -8,6 +8,7 @@ const TABLES = {
   fixture_sync_marks: 'aggregate_id uuid NOT NULL, PRIMARY KEY (owner_id, aggregate_id)',
   fixture_pings: 'event_id uuid NOT NULL, received_count int NOT NULL DEFAULT 1, PRIMARY KEY (owner_id, event_id)',
   fixture_audit: 'event_id uuid NOT NULL, PRIMARY KEY (owner_id, event_id)',
+  fixture_files: 'blob_sha256 text NOT NULL, PRIMARY KEY (owner_id, blob_sha256)',
   fixture_switches: 'fail_ping boolean NOT NULL DEFAULT false, fail_audit boolean NOT NULL DEFAULT false, PRIMARY KEY (owner_id)',
 } as const;
 
@@ -32,7 +33,7 @@ const kinds: Migration = {
   async up(db) {
     await sql
       .raw(
-        `INSERT INTO public.entity_kinds (kind, module_id) VALUES ('fixture.item', 'fixture') ON CONFLICT (kind) DO NOTHING`,
+        `INSERT INTO public.entity_kinds (kind, module_id) VALUES ('fixture.item', 'fixture'), ('fixture.part', 'fixture') ON CONFLICT (kind) DO NOTHING`,
       )
       .execute(db);
   },

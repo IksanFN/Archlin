@@ -1,7 +1,8 @@
-import type { Breadcrumb, TagRef } from '@archlin/platform/contracts';
+import type { Breadcrumb, InboundLink, OutboundLink, TagRef } from '@archlin/platform/contracts';
 import type { JSONContent } from '@tiptap/core';
+import type { AttachmentKind, ExtractionStatus } from './attachment-kind';
 import type { FieldDefinition } from './field-schema';
-import type { ContextFields, ReviewMode, SavePageInput } from './inputs';
+import type { ContextFields, ReviewMode, SavePageInput, SnapshotReason } from './inputs';
 
 export interface NoteTypeRef {
   id: string;
@@ -49,7 +50,67 @@ export interface PageView {
 
 export type SaveResult = { status: 'saved' | 'unchanged'; version: number; savedAt: string };
 
+export interface PageSuggestion {
+  entityId: string;
+  title: string;
+  icon: string | null;
+  spaceId: string;
+  spaceSlug: string;
+  spaceName: string;
+}
+
+export interface AttachmentView {
+  id: string;
+  pageId: string;
+  filename: string;
+  mime: string;
+  size: number;
+  kind: AttachmentKind;
+  extraction: ExtractionStatus;
+  // True while live content or a retained version of any page points at it; only the others are orphans.
+  referenced: boolean;
+  trashed: boolean;
+  createdAt: string;
+}
+
 export interface PageScreen {
   page: PageView;
   breadcrumbs: Breadcrumb[];
+  linkTargets: OutboundLink[];
+  backlinks: InboundLink[];
+  attachments: AttachmentView[];
+}
+
+export type SnapshotResult =
+  | { status: 'created'; versionId: string }
+  // The latest version already held this state and is now a manual one with the given name.
+  | { status: 'kept'; versionId: string }
+  | { status: 'unchanged'; versionId: string | null };
+
+export interface VersionSummary {
+  id: string;
+  version: number;
+  reason: SnapshotReason;
+  label: string | null;
+  createdAt: string;
+}
+
+export interface VersionPage {
+  items: VersionSummary[];
+  nextCursor: string | null;
+}
+
+export interface VersionDetail extends VersionSummary {
+  title: string;
+  content: JSONContent;
+  contentText: string;
+  context: ContextFields;
+  properties: PageView['properties'];
+  noteType: { id: string; name: string | null };
+}
+
+export interface RestoreVersionResult {
+  version: number;
+  savedAt: string;
+  preRestoreVersionId: string | null;
 }

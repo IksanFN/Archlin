@@ -1,22 +1,29 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
 import { ConflictError, NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
-import type { EntitiesDatabase, TagService, TreeService } from '@archlin/platform/server';
+import type { BlobService, EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { normalizeTitle } from '@archlin/platform/server';
-import type { JSONContent } from '@tiptap/core';
+import { sql } from 'kysely';
 import { fieldSchemaSchema, legacyKeys, missingRequired, validateProperties } from '../shared/field-schema';
 import type { FieldDefinition } from '../shared/field-schema';
 import type {
   ChangeNoteTypeInput,
   ContextFields,
+  CreateLinkedPageInput,
   CreatePageInput,
+  DuplicatePageInput,
   OverwritePageInput,
+  PageScreenInput,
   RenamePageInput,
   SavePageInput,
+  SuggestPagesInput,
 } from '../shared/inputs';
-import type { PageView, SaveResult } from '../shared/types';
+import type { PageScreen, PageSuggestion, PageView, SaveResult } from '../shared/types';
+import type { AttachmentService } from './attachment-service';
 import { documentText, normalizeDocument, parseDocument } from './document';
+import { createPageDuplicator } from './duplicate';
 import { pageStateHash, type PageState } from './hash';
+import { documentLinkRefs } from './links';
 import { PAGE_KIND } from './module';
 import {
   asContent,
@@ -25,17 +32,26 @@ import {
   contextOf,
   createPageWriter,
   jsonbValue,
-  type LockedPage,
+  pageConflict,
+  pageInTrash,
+  requireAlive,
+  requireVersion,
 } from './page-writer';
 import type { KnowledgeDatabase } from './schema';
+import { insertVersion } from './version-store';
 
 type PageDatabase = KnowledgeDatabase & EntitiesDatabase;
 
 const CONTEXT_NUDGE_MS = 24 * 60 * 60 * 1000;
+const SUGGESTION_LIMIT = 10;
 
 export interface PageService {
   createPage(tx: WriteTx, input: CreatePageInput): Promise<{ entityId: string; spaceSlug: string }>;
+  createLinkedPage(tx: WriteTx, input: CreateLinkedPageInput): Promise<{ entityId: string; spaceSlug: string }>;
+  duplicatePage(tx: WriteTx, input: DuplicatePageInput): Promise<{ entityId: string; spaceSlug: string; count: number }>;
   getPage(tx: ReadTx, entityId: string): Promise<PageView>;
+  screen(tx: WriteTx, input: PageScreenInput): Promise<PageScreen>;
+  suggestPages(tx: ReadTx, input: SuggestPagesInput): Promise<PageSuggestion[]>;
   savePage(tx: WriteTx, input: SavePageInput): Promise<SaveResult>;
   renamePage(tx: WriteTx, input: RenamePageInput): Promise<{ version: number }>;
   changeNoteType(tx: WriteTx, input: ChangeNoteTypeInput): Promise<PageView>;
@@ -93,24 +109,12 @@ function noteTypeNotFound(): never {
   throw new NotFoundError('note_type_not_found', 'Tipe catatan tidak ditemukan');
 }
 
-function pageInTrash(): never {
-  throw new ConflictError('page_in_trash', 'Halaman ini ada di Trash');
-}
-
-function pageConflict(currentVersion: number): never {
-  throw new ConflictError('page_conflict', 'Halaman ini berubah di tab atau perangkat lain', { currentVersion });
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&');
 }
 
 function isBlank(value: string | null): boolean {
   return value === null || value.trim() === '';
-}
-
-function requireAlive(locked: LockedPage): void {
-  if (locked.deletedAt !== null) pageInTrash();
-}
-
-function requireVersion(locked: LockedPage, expected: number): void {
-  if (expected !== locked.version) pageConflict(locked.version);
 }
 
 function asProperties(value: SavePageInput['properties']): Record<string, unknown> {
@@ -136,11 +140,14 @@ function requireValidProperties(
 export function createPageService(deps: {
   tree: TreeService;
   tags: TagService;
+  links: LinkService;
+  attachments: AttachmentService;
+  blobs: BlobService;
   clock: Clock;
   ids: Ids;
 }): PageService {
-  const { tree, tags, clock, ids } = deps;
-  const writer = createPageWriter({ tree, clock });
+  const { tree, tags, links, attachments, blobs, clock, ids } = deps;
+  const writer = createPageWriter({ tree, links, clock, ids });
 
   async function loadNoteType(tx: ReadTx, noteTypeId: string): Promise<NoteTypeRow> {
     const row = await dbOf(tx)
@@ -158,48 +165,6 @@ export function createPageService(deps: {
       fieldSchema: parseFields(row.field_schema),
       schemaVersion: row.schema_version,
     };
-  }
-
-  async function insertConflictVersion(
-    tx: WriteTx,
-    input: {
-      entityId: string;
-      version: number;
-      title: string;
-      content: JSONContent;
-      contentText: string;
-      contentHash: string;
-      noteTypeId: string;
-      noteTypeSchemaVersion: number;
-      properties: Record<string, unknown>;
-      context: ContextFields;
-    },
-  ): Promise<string> {
-    const versionId = ids.uuidv7();
-    await dbOf(tx)
-      .insertInto('kb_page_versions')
-      .values({
-        id: versionId,
-        owner_id: ownerOf(tx),
-        entity_id: input.entityId,
-        version: input.version,
-        title: input.title,
-        content: jsonbValue(input.content),
-        content_text: input.contentText,
-        content_hash: input.contentHash,
-        note_type_id: input.noteTypeId,
-        note_type_schema_version: input.noteTypeSchemaVersion,
-        properties: jsonbValue(input.properties),
-        summary: input.context.summary,
-        when_to_use: input.context.whenToUse,
-        source: input.context.source,
-        aliases: [...input.context.aliases],
-        reason: 'conflict',
-        label: null,
-        created_at: clock.now(),
-      })
-      .execute();
-    return versionId;
   }
 
   async function getPage(tx: ReadTx, entityId: string): Promise<PageView> {
@@ -282,14 +247,14 @@ export function createPageService(deps: {
     };
   }
 
-  return {
+  const service: PageService = {
     async createPage(tx, input) {
       const noteType = await loadNoteType(tx, input.noteTypeId);
       const entity = await tree.create(tx, {
         kind: PAGE_KIND,
         spaceId: input.spaceId,
         parentId: input.parentId,
-        title: '',
+        title: input.title ?? '',
         icon: null,
         placement: input.placement,
       });
@@ -323,12 +288,104 @@ export function createPageService(deps: {
           last_snapshot_at: null,
         })
         .execute();
+      const refs = documentLinkRefs(parseDocument(content));
+      if (refs.length > 0) await links.sync(tx, { sourceId: entity.id, spaceId: entity.spaceId, refs });
+      if (entity.title !== '') await links.resolvePending(tx, { entityId: entity.id, title: entity.title });
       const space = await dbOf(tx).selectFrom('spaces').select('slug').where('id', '=', entity.spaceId).executeTakeFirst();
       if (!space) throw new NotFoundError('space_not_found', 'Space tidak ditemukan');
       return { entityId: entity.id, spaceSlug: space.slug };
     },
 
+    async createLinkedPage(tx, input) {
+      const source = await tree.get(tx, input.sourceEntityId);
+      if (source.kind !== PAGE_KIND) pageNotFound();
+      if (source.deletedAt !== null) pageInTrash();
+      // A page that already carries the title (back from trash, or open in a stale tab) is linked, never created twice.
+      const existing = await links.findTarget(tx, { title: input.title, sourceId: source.id, spaceId: source.spaceId });
+      if (existing.kind === 'many') {
+        throw new ConflictError('link_target_ambiguous', 'Ada beberapa halaman dengan judul ini');
+      }
+      if (existing.kind === 'one') {
+        const target = await tree.get(tx, existing.id);
+        await links.resolvePending(tx, { entityId: target.id, title: target.title });
+        const space = await dbOf(tx).selectFrom('spaces').select('slug').where('id', '=', target.spaceId).executeTakeFirst();
+        if (!space) throw new NotFoundError('space_not_found', 'Space tidak ditemukan');
+        return { entityId: target.id, spaceSlug: space.slug };
+      }
+      const noteType = await dbOf(tx)
+        .selectFrom('kb_note_types')
+        .select('id')
+        .where('key', '=', 'quick_note')
+        .executeTakeFirst();
+      if (!noteType) noteTypeNotFound();
+      return service.createPage(tx, {
+        spaceId: source.spaceId,
+        parentId: null,
+        noteTypeId: noteType.id,
+        placement: 'last',
+        title: input.title,
+      });
+    },
+
+    duplicatePage: createPageDuplicator({ tree, tags, links, attachments, blobs, clock }),
+
     getPage,
+
+    async screen(tx, input) {
+      const page = await getPage(tx, input.entityId);
+      const breadcrumbs = await tree.ancestors(tx, input.entityId);
+      const linkTargets = await links.outbound(tx, input.entityId);
+      const backlinks = await links.inbound(tx, { entityId: input.entityId, title: page.title });
+      if (input.recordView) await tree.recordView(tx, input.entityId);
+      const pageAttachments = await attachments.listForPage(tx, input.entityId);
+      return { page, breadcrumbs, linkTargets, backlinks, attachments: pageAttachments };
+    },
+
+    async suggestPages(tx, input) {
+      const query = normalizeTitle(input.q);
+      const pattern = escapeLike(query);
+      const hasQuery = query !== '';
+      const { rows } = await sql<{
+        entity_id: string;
+        title: string;
+        icon: string | null;
+        space_id: string;
+        space_slug: string;
+        space_name: string;
+      }>`
+        select e.id as entity_id, e.title, e.icon, e.space_id, s.slug as space_slug, s.name as space_name
+        from kb_pages p
+        inner join entities e on e.owner_id = p.owner_id and e.id = p.entity_id
+        inner join spaces s on s.owner_id = e.owner_id and s.id = e.space_id
+        where e.deleted_at is null
+          and s.archived_at is null
+          and e.id is distinct from ${input.excludeId}::uuid
+          and (
+            not ${hasQuery}::boolean
+            or unaccent(lower(e.title)) like '%' || unaccent(lower(${pattern}::text)) || '%' escape '\\'
+            or exists (
+              select 1 from unnest(p.aliases) as a(alias)
+              where unaccent(lower(a.alias)) like '%' || unaccent(lower(${pattern}::text)) || '%' escape '\\'
+            )
+          )
+        order by
+          -- An exact title is what [[ resolves to, so it must survive the limit wherever it lives.
+          (${hasQuery}::boolean and lower(e.title) = lower(${query}::text)) desc,
+          (e.space_id = ${input.spaceId}::uuid) desc,
+          (${hasQuery}::boolean and unaccent(lower(e.title)) like unaccent(lower(${pattern}::text)) || '%' escape '\\') desc,
+          e.updated_at desc,
+          e.id
+        limit ${SUGGESTION_LIMIT}
+      `.execute(dbOf(tx));
+      return rows.map((row) => ({
+        entityId: row.entity_id,
+        title: row.title,
+        icon: row.icon,
+        spaceId: row.space_id,
+        spaceSlug: row.space_slug,
+        spaceName: row.space_name,
+      }));
+    },
 
     async savePage(tx, input) {
       const locked = await writer.lockPage(tx, input.entityId);
@@ -400,18 +457,25 @@ export function createPageService(deps: {
         properties,
         noteTypeId: locked.noteTypeId,
       };
-      const versionId = await insertConflictVersion(tx, {
-        entityId: locked.entityId,
-        version: input.baseVersion,
-        title,
-        content,
-        contentText: documentText(parseDocument(content)),
-        contentHash: pageStateHash(next),
-        noteTypeId: locked.noteTypeId,
-        noteTypeSchemaVersion: noteType.schemaVersion,
-        properties,
-        context: input.context,
-      });
+      const versionId = await insertVersion(
+        tx,
+        { ids, clock },
+        {
+          snapshot: {
+            entityId: locked.entityId,
+            version: input.baseVersion,
+            title,
+            content,
+            contentText: documentText(parseDocument(content)),
+            contentHash: pageStateHash(next),
+            noteTypeId: locked.noteTypeId,
+            properties,
+            context: input.context,
+          },
+          reason: 'conflict',
+          label: null,
+        },
+      );
       return { versionId };
     },
 
@@ -424,18 +488,7 @@ export function createPageService(deps: {
       const content = normalizeDocument(input.content);
       const properties = asProperties(input.properties);
       requireValidProperties(properties, locked.properties, noteType.fieldSchema);
-      await insertConflictVersion(tx, {
-        entityId: locked.entityId,
-        version: locked.version,
-        title: locked.title,
-        content: locked.content,
-        contentText: locked.contentText,
-        contentHash: locked.contentHash,
-        noteTypeId: locked.noteTypeId,
-        noteTypeSchemaVersion: noteType.schemaVersion,
-        properties: locked.properties,
-        context: locked.context,
-      });
+      await insertVersion(tx, { ids, clock }, { snapshot: locked, reason: 'conflict', label: null });
       const next: PageState = {
         title,
         content,
@@ -458,4 +511,5 @@ export function createPageService(deps: {
       return summaries;
     },
   };
+  return service;
 }

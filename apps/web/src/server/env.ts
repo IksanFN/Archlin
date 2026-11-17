@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 
 export interface WebEnv {
@@ -6,6 +7,7 @@ export interface WebEnv {
   totpEncKey: string;
   setupToken: string | null;
   publicOrigin: string;
+  filesDir: string;
   testMode: boolean;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
 }
@@ -28,6 +30,7 @@ const KEYS = [
   'TOTP_ENC_KEY',
   'ARCHLIN_SETUP_TOKEN',
   'ARCHLIN_PUBLIC_ORIGIN',
+  'ARCHLIN_FILES_DIR',
   'ARCHLIN_TEST_MODE',
   'LOG_LEVEL',
 ] as const;
@@ -61,6 +64,8 @@ const envSchema = z.strictObject({
   TOTP_ENC_KEY: z.string().refine(isKey32Bytes),
   ARCHLIN_SETUP_TOKEN: z.string().min(32).optional(),
   ARCHLIN_PUBLIC_ORIGIN: z.string().refine(isBareOrigin),
+  // Relative paths would resolve against whatever directory the process happens to start in.
+  ARCHLIN_FILES_DIR: z.string().refine(isAbsolute),
   ARCHLIN_TEST_MODE: z.literal('1').optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
@@ -95,6 +100,7 @@ export function loadWebEnv(source: Readonly<Record<string, string | undefined>>)
     totpEncKey: env.TOTP_ENC_KEY,
     setupToken: env.ARCHLIN_SETUP_TOKEN ?? null,
     publicOrigin: env.ARCHLIN_PUBLIC_ORIGIN,
+    filesDir: env.ARCHLIN_FILES_DIR,
     testMode: env.ARCHLIN_TEST_MODE === '1',
     logLevel: env.LOG_LEVEL,
   };

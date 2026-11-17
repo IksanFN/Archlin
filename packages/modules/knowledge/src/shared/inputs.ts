@@ -17,8 +17,10 @@ export const createPageInputSchema = z.strictObject({
   parentId: z.uuid().nullable(),
   noteTypeId: z.uuid(),
   placement: z.enum(['first', 'last']),
+  title: z.string().max(500).default(''),
 });
-export type CreatePageInput = z.infer<typeof createPageInputSchema>;
+// Callers that do not name the page leave the title out; the server function schema fills it in.
+export type CreatePageInput = z.input<typeof createPageInputSchema>;
 
 export const savePageInputSchema = z.strictObject({
   entityId: z.uuid(),
@@ -53,6 +55,19 @@ export type PageIdInput = z.infer<typeof pageIdInputSchema>;
 export const pageScreenInputSchema = z.strictObject({ entityId: z.uuid(), recordView: z.boolean() });
 export type PageScreenInput = z.infer<typeof pageScreenInputSchema>;
 
+export const suggestPagesInputSchema = z.strictObject({
+  q: z.string().max(200),
+  spaceId: z.uuid(),
+  excludeId: z.uuid().nullable(),
+});
+export type SuggestPagesInput = z.infer<typeof suggestPagesInputSchema>;
+
+export const createLinkedPageInputSchema = z.strictObject({
+  sourceEntityId: z.uuid(),
+  title: z.string().trim().min(1).max(500),
+});
+export type CreateLinkedPageInput = z.infer<typeof createLinkedPageInputSchema>;
+
 export const REVIEW_MODES = ['none', 'daily', 'spaced'] as const;
 export type ReviewMode = (typeof REVIEW_MODES)[number];
 
@@ -86,3 +101,46 @@ export type DeleteNoteTypeInput = z.infer<typeof deleteNoteTypeInputSchema>;
 
 export const noteTypeIdInputSchema = z.strictObject({ id: z.uuid() });
 export type NoteTypeIdInput = z.infer<typeof noteTypeIdInputSchema>;
+
+export const SNAPSHOT_REASONS = ['idle', 'leave', 'manual', 'pre_restore', 'conflict', 'import'] as const;
+export type SnapshotReason = (typeof SNAPSHOT_REASONS)[number];
+
+export const snapshotPageInputSchema = z
+  .strictObject({
+    entityId: z.uuid(),
+    reason: z.enum(['leave', 'manual']),
+    label: z.string().trim().min(1).max(80).nullable(),
+  })
+  .refine((value) => value.reason === 'manual' || value.label === null, { path: ['label'] });
+export type SnapshotPageInput = z.infer<typeof snapshotPageInputSchema>;
+
+export const listVersionsInputSchema = z.strictObject({ entityId: z.uuid(), before: z.uuid().nullable() });
+export type ListVersionsInput = z.infer<typeof listVersionsInputSchema>;
+
+export const versionInputSchema = z.strictObject({ entityId: z.uuid(), versionId: z.uuid() });
+export type VersionInput = z.infer<typeof versionInputSchema>;
+
+export const restoreVersionInputSchema = z.strictObject({
+  entityId: z.uuid(),
+  versionId: z.uuid(),
+  baseVersion: z.int().min(1),
+});
+export type RestoreVersionInput = z.infer<typeof restoreVersionInputSchema>;
+
+export const trashOrphansInputSchema = z.strictObject({
+  pageId: z.uuid(),
+  attachmentIds: z.array(z.uuid()).min(1).max(100),
+});
+export type TrashOrphansInput = z.infer<typeof trashOrphansInputSchema>;
+
+export const attachmentIdInputSchema = z.strictObject({ attachmentId: z.uuid() });
+export type AttachmentIdInput = z.infer<typeof attachmentIdInputSchema>;
+
+export const copyAttachmentsInputSchema = z.strictObject({
+  pageId: z.uuid(),
+  attachmentIds: z.array(z.uuid()).min(1).max(50),
+});
+export type CopyAttachmentsInput = z.infer<typeof copyAttachmentsInputSchema>;
+
+export const duplicatePageInputSchema = z.strictObject({ entityId: z.uuid(), rootTitle: z.string().max(500) });
+export type DuplicatePageInput = z.infer<typeof duplicatePageInputSchema>;

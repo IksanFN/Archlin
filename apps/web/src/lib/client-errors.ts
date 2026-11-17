@@ -1,6 +1,5 @@
 import { PASSWORD_MIN_CHARS } from '@archlin/platform/contracts';
 import { messages } from '../i18n/id';
-import { AppError } from '../server/errors';
 
 export type ErrorPresentation =
   | { kind: 'field'; fields: Record<string, string> }
@@ -33,11 +32,25 @@ function retryMinutes(details: unknown): number | null {
   return typeof seconds === 'number' && seconds > 0 ? Math.ceil(seconds / 60) : null;
 }
 
+// The server boundary raises AppError and the knowledge client re-raises it as KnowledgeClientError, both with this shape.
+interface CodedError extends Error {
+  readonly code: string;
+  readonly status: number;
+  readonly details?: unknown;
+  readonly requestId?: string | null;
+}
+
+function isCodedError(error: unknown): error is CodedError {
+  return error instanceof Error && 'code' in error && typeof error.code === 'string' && 'status' in error && typeof error.status === 'number';
+}
+
 // Decides how a failed server function is shown. Screens that expect a specific code (wrong password, wrong TOTP code)
 // read error.code first: those 401s are answers to the user, not a lost session.
 export function messageForError(error: unknown): ErrorPresentation {
-  if (!(error instanceof AppError)) return { kind: 'toast', text: messages.errors.offline };
+  if (!isCodedError(error)) return { kind: 'toast', text: messages.errors.offline };
   if (error.status === 401 && error.code === 'unauthenticated') return { kind: 'redirect_login' };
+  // Matched on the code before the status: a full disk is a 503 and an empty file a 422, and neither is a generic failure.
+  if (Object.hasOwn(messages.errors.codes, error.code)) return { kind: 'toast', text: messages.errors.codes[error.code] ?? messages.errors.offline };
   if (error.status === 422) {
     const fields: Record<string, string> = {};
     for (const { path, message } of readIssues(error.details)) fields[path] ??= fieldMessage(message);
@@ -47,6 +60,6 @@ export function messageForError(error: unknown): ErrorPresentation {
     const minutes = retryMinutes(error.details);
     if (minutes !== null) return { kind: 'toast', text: messages.errors.tooManyAttempts(minutes) };
   }
-  if (error.status >= 500) return { kind: 'toast', text: messages.errors.internal(error.requestId) };
+  if (error.status >= 500) return { kind: 'toast', text: messages.errors.internal(error.requestId ?? null) };
   return { kind: 'toast', text: error.message };
 }

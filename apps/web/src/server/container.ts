@@ -8,7 +8,10 @@ import type { KnowledgeApi } from '@archlin/modules-knowledge/server';
 import {
   createAccountService,
   createAuthService,
+  createBlobService,
   createEventPublisher,
+  createLinkService,
+  createLocalDiskStorage,
   createLogger,
   createPasswordHasher,
   createSecretBox,
@@ -18,7 +21,16 @@ import {
   createTreeService,
   PLATFORM_EVENTS,
 } from '@archlin/platform/server';
-import type { AccountService, AuthDeps, AuthService, SpaceService, TagService, TreeService } from '@archlin/platform/server';
+import type {
+  AccountService,
+  AuthDeps,
+  AuthService,
+  BlobService,
+  FileStorage,
+  SpaceService,
+  TagService,
+  TreeService,
+} from '@archlin/platform/server';
 import type { Kysely } from 'kysely';
 import { migrationSets, moduleDrafts } from '../../../../archlin.config';
 import { loadWebEnv } from './env';
@@ -38,6 +50,8 @@ export interface WebContainer {
   spaces: SpaceService;
   tree: TreeService;
   tags: TagService;
+  files: FileStorage;
+  blobs: BlobService;
   knowledge: KnowledgeApi;
   auth: AuthService;
   account: AccountService;
@@ -61,7 +75,10 @@ function buildContainer(): WebContainer {
   const spaces = createSpaceService({ registry, ids: systemIds, clock });
   const tree = createTreeService({ registry, publisher, clock, ids: systemIds });
   const tags = createTagService({ tree, ids: systemIds, clock });
-  const knowledge = createKnowledgeApi({ tree, tags, publisher, clock, ids: systemIds });
+  const files = createLocalDiskStorage(env.filesDir);
+  const blobs = createBlobService({ registry, files, clock });
+  const links = createLinkService({ registry, ids: systemIds, clock });
+  const knowledge = createKnowledgeApi({ tree, tags, links, blobs, publisher, clock, ids: systemIds });
 
   const authDeps: AuthDeps = {
     db,
@@ -89,6 +106,8 @@ function buildContainer(): WebContainer {
     spaces,
     tree,
     tags,
+    files,
+    blobs,
     knowledge,
     auth: createAuthService(authDeps),
     account: createAccountService(authDeps),

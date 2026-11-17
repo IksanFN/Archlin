@@ -1,10 +1,15 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { loadWebEnv } from './env';
+
+const filesDir = join(tmpdir(), 'archlin-files');
 
 const base = {
   DATABASE_URL: 'postgres://u:p@localhost:5432/cortex',
   TOTP_ENC_KEY: Buffer.alloc(32, 1).toString('base64'),
   ARCHLIN_PUBLIC_ORIGIN: 'http://localhost:3000',
+  ARCHLIN_FILES_DIR: filesDir,
 };
 
 const failureCode = (source: Record<string, string | undefined>): unknown => {
@@ -31,6 +36,7 @@ describe('loadWebEnv', () => {
       totpEncKey: base.TOTP_ENC_KEY,
       setupToken: 's'.repeat(32),
       publicOrigin: 'http://localhost:3000',
+      filesDir,
       testMode: true,
       logLevel: 'debug',
     });
@@ -79,6 +85,14 @@ describe('loadWebEnv', () => {
     expect(failureCode({ ...base, ARCHLIN_SETUP_TOKEN: 'short' })).toBe('invalid_env');
     expect(failureCode({ ...base, DATABASE_URL: 'mysql://u:p@h/db' })).toBe('invalid_env');
     expect(failureCode({ ...base, NODE_ENV: 'development', ARCHLIN_TEST_MODE: 'true' })).toBe('invalid_env');
+  });
+
+  it('requires an absolute ARCHLIN_FILES_DIR', () => {
+    expect(() => loadWebEnv({ ...base, ARCHLIN_FILES_DIR: 'relative/files' })).toThrow(
+      expect.objectContaining({ code: 'invalid_env', message: expect.stringContaining('ARCHLIN_FILES_DIR') }),
+    );
+    expect(failureCode({ ...base, ARCHLIN_FILES_DIR: undefined })).toBe('invalid_env');
+    expect(loadWebEnv({ ...base, ARCHLIN_FILES_DIR: filesDir }).filesDir).toBe(filesDir);
   });
 
   it('never echoes configuration values in the error message', () => {

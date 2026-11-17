@@ -16,6 +16,7 @@ import {
   entityRestored,
   entityUpdated,
 } from './events';
+import { MAX_TREE_DEPTH } from '../../contracts';
 import { createSpaceService } from './space-service';
 import { createTreeService } from './tree-service';
 
@@ -552,5 +553,140 @@ describe('TreeService', () => {
     expect(counts.get(child.id)).toBe(1);
     expect(counts.get(other.id)).toBe(0);
     expect(counts.get(grand.id)).toBe(0);
+  });
+});
+
+describe('TreeService non-treeable children', () => {
+  const PART = 'fixture.part';
+
+  const makePart = (spaceId: string, parentId: string, title: string) =>
+    uow.write(scopeA(), (tx) =>
+      tree.create(tx, { kind: PART, spaceId, parentId, title, icon: null, placement: 'last' }),
+    );
+  const setup = async () => {
+    const space = await makeSpace('Lampiran');
+    const page = await make(space.id, 'Induk');
+    return { space, page };
+  };
+
+  it('create places a non-treeable child under a live page and refuses it at the space root', async () => {
+    const { space, page } = await setup();
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    expect(part.parentId).toBe(page.id);
+    await expect(
+      uow.write(scopeA(), (tx) =>
+        tree.create(tx, { kind: PART, spaceId: space.id, parentId: null, title: 'b.pdf', icon: null, placement: 'last' }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid_parent' });
+  });
+
+  it('create still rejects a kind that is not registered', async () => {
+    const { space, page } = await setup();
+    await expect(
+      uow.write(scopeA(), (tx) =>
+        tree.create(tx, { kind: 'fixture.nothing', spaceId: space.id, parentId: page.id, title: 'x', icon: null, placement: 'last' }),
+      ),
+    ).rejects.toMatchObject({ code: 'unknown_kind' });
+  });
+
+  it('children, hasChildren and subtreeCounts ignore non-treeable children', async () => {
+    const { space, page } = await setup();
+    await makePart(space.id, page.id, 'a.pdf');
+    const roots = await uow.read(scopeA(), (tx) => tree.children(tx, { spaceId: space.id, parentId: null }));
+    expect(roots.find((node) => node.id === page.id)?.hasChildren).toBe(false);
+    expect(await uow.read(scopeA(), (tx) => tree.children(tx, { spaceId: space.id, parentId: page.id }))).toEqual([]);
+    const counts = await uow.read(scopeA(), (tx) => tree.subtreeCounts(tx, [page.id]));
+    expect(counts.get(page.id)).toBe(0);
+  });
+
+  it('recentInSpace and starred leave out non-treeable entities', async () => {
+    const { space, page } = await setup();
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) => tree.setStarred(tx, part.id, true));
+    const recent = await uow.read(scopeA(), (tx) => tree.recentInSpace(tx, space.id, 10));
+    expect(recent.map((row) => row.kind)).not.toContain(PART);
+    const starred = await uow.read(scopeA(), (tx) => tree.starred(tx));
+    expect(starred.map((row) => row.kind)).not.toContain(PART);
+  });
+
+  it('trash takes non-treeable children along and restore brings them back', async () => {
+    const { space, page } = await setup();
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) => tree.trash(tx, page.id));
+    expect((await uow.read(scopeA(), (tx) => tree.get(tx, part.id))).deletedAt).not.toBeNull();
+    await uow.write(scopeA(), (tx) => tree.restore(tx, page.id));
+    expect((await uow.read(scopeA(), (tx) => tree.get(tx, part.id))).deletedAt).toBeNull();
+  });
+
+  it('trashRoots counts non-treeable descendants as attachedCount', async () => {
+    const { space, page } = await setup();
+    await make(space.id, 'Anak', page.id);
+    await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) => tree.trash(tx, page.id));
+    const [root] = await uow.read(scopeA(), (tx) => tree.trashRoots(tx));
+    expect(root).toMatchObject({ descendantCount: 1, attachedCount: 1 });
+  });
+
+  it('moving a page across spaces carries its non-treeable children', async () => {
+    const { space, page } = await setup();
+    const other = await makeSpace('Lain');
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) =>
+      tree.move(tx, { entityId: page.id, targetSpaceId: other.id, newParentId: null, beforeId: null, afterId: null }),
+    );
+    expect((await uow.read(scopeA(), (tx) => tree.get(tx, part.id))).spaceId).toBe(other.id);
+  });
+
+  it('a non-treeable child does not count toward the depth of a move', async () => {
+    const space = await makeSpace('Dalam');
+    let parentId: string | null = null;
+    for (let level = 1; level < MAX_TREE_DEPTH; level += 1) parentId = (await make(space.id, `L${level}`, parentId)).id;
+    const page = await make(space.id, 'Daun');
+    await makePart(space.id, page.id, 'a.pdf');
+    const moved = await uow.write(scopeA(), (tx) =>
+      tree.move(tx, { entityId: page.id, targetSpaceId: space.id, newParentId: parentId, beforeId: null, afterId: null }),
+    );
+    expect(moved.parentId).toBe(parentId);
+  });
+
+  it('restoring a non-treeable root whose parent is in trash fails with parent_in_trash', async () => {
+    const { space, page } = await setup();
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) => tree.trash(tx, part.id));
+    await uow.write(scopeA(), (tx) => tree.trash(tx, page.id));
+    await expect(uow.write(scopeA(), (tx) => tree.restore(tx, part.id))).rejects.toMatchObject({
+      code: 'parent_in_trash',
+    });
+  });
+
+  it('restoring a non-treeable root under a live page puts it back under that page', async () => {
+    const { space, page } = await setup();
+    const part = await makePart(space.id, page.id, 'a.pdf');
+    await uow.write(scopeA(), (tx) => tree.trash(tx, part.id));
+    const outcome = await uow.write(scopeA(), (tx) => tree.restore(tx, part.id));
+    expect(outcome).toMatchObject({ parentId: page.id, restoredToRoot: false });
+  });
+
+  it('create with placement after puts the entity right after that sibling', async () => {
+    const space = await makeSpace('Urut');
+    const a = await make(space.id, 'A');
+    await make(space.id, 'C');
+    const b = await uow.write(scopeA(), (tx) =>
+      tree.create(tx, { kind: KIND, spaceId: space.id, parentId: null, title: 'B', icon: null, placement: { afterId: a.id } }),
+    );
+    const titles = (await uow.read(scopeA(), (tx) => tree.children(tx, { spaceId: space.id, parentId: null }))).map((node) => node.title);
+    expect(titles).toEqual(['A', 'B', 'C']);
+    expect(b.title).toBe('B');
+  });
+
+  it('create with placement after refuses a sibling from another parent', async () => {
+    const space = await makeSpace('Salah');
+    const parent = await make(space.id, 'Induk');
+    const child = await make(space.id, 'Anak', parent.id);
+    await expect(
+      uow.write(scopeA(), (tx) =>
+        tree.create(tx, { kind: KIND, spaceId: space.id, parentId: null, title: 'B', icon: null, placement: { afterId: child.id } }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid_sibling' });
   });
 });
