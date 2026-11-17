@@ -14,7 +14,14 @@ trap 'rm -rf "$work"' EXIT
 
 pg_dump --format=custom --dbname="$BACKUP_DATABASE_URL" --file="$work/db.dump"
 # Staging holds half-written uploads; they are not part of any committed state.
-tar -C /data/files --exclude=./.staging -cf "$work/files.tar" .
+# Uploads and blob collection add or remove whole files while tar reads, and a blob never changes in place, so exit 1
+# (a file appeared, changed or vanished meanwhile) still archives every blob the dump refers to; the GC grace keeps those.
+tar_status=0
+tar -C /data/files --exclude=./.staging --warning=no-file-changed --warning=no-file-removed -cf "$work/files.tar" . || tar_status=$?
+if [ "$tar_status" -gt 1 ]; then
+  echo "tar failed with status $tar_status" >&2
+  exit "$tar_status"
+fi
 
 migrations=$(psql "$BACKUP_DATABASE_URL" -At -c "select coalesce(json_agg(name order by name), '[]'::json) from kysely_migration")
 

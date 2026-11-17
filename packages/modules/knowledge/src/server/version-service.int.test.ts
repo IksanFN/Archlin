@@ -187,6 +187,23 @@ describe('VersionService snapshots', () => {
     expect((await list(page)).items[0]?.label).toBe('Sebelum revisi langkah 3');
   });
 
+  it('a manual save of a state an automatic version already holds keeps that version as manual, with the name', async () => {
+    const page = await createPageTitled('Runbook');
+    await save(page, docText('rilis'));
+    const leave = await snapshot(page, 'leave', null);
+    expect(await snapshot(page, 'manual', 'Rilis v1')).toEqual({ status: 'kept', versionId: createdId(leave) });
+    const [latest, ...rest] = (await list(page)).items;
+    expect(latest).toMatchObject({ id: createdId(leave), reason: 'manual', label: 'Rilis v1' });
+    expect(rest).toEqual([]);
+  });
+
+  it('naming a manual version that holds the current state renames it instead of storing it twice', async () => {
+    const page = await createPageTitled('Runbook');
+    const first = await snapshot(page, 'manual', null);
+    expect(await snapshot(page, 'manual', 'Nama baru')).toEqual({ status: 'kept', versionId: createdId(first) });
+    expect((await list(page)).items.map((item) => item.label)).toEqual(['Nama baru']);
+  });
+
   it('a leave snapshot after edits is created and without edits is unchanged', async () => {
     const page = await createPageTitled('Runbook');
     await save(page, docText('baru'));

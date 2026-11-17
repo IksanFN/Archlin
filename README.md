@@ -75,7 +75,8 @@ Backup harian jam 02:00 (`BACKUP_TZ`) disimpan 14 hari di volume `backups` sebag
 
 - Lampiran disimpan di volume `files` sebagai blob yang tidak pernah diubah: `blobs/<owner>/<aa>/<sha256>`. Nama file adalah hash isinya, jadi file yang sama di dua halaman memakai satu blob.
 - Pembersih (GC) menghapus blob hanya setelah tidak dirujuk selama 24 jam sejak ditandai. Karena itu backup yang selesai kurang dari 24 jam selalu memuat setiap blob yang dirujuk dump-nya. File staging (`.staging`) tidak ikut backup; worker membersihkan yang tertinggal setelah 24 jam.
-- `verify-restore.sh` membandingkan jumlah dan daftar hash blob sebelum dan sesudah restore, lalu menjalankan `check-blobs.sh` yang menghitung ulang hash setiap file di volume dan membandingkannya dengan namanya.
+- `verify-restore.sh` membandingkan jumlah dan daftar hash blob sebelum dan sesudah restore, lalu menjalankan `check-blobs.sh` yang menghitung ulang hash setiap file di volume dan memastikan setiap blob yang dikenal database ada. File yatim dari unggahan yang batal (belum disapu worker) ikut diperiksa hash-nya, tetapi tidak dianggap gagal.
+- Backup tetap jalan bila ada unggahan atau GC saat `tar` membaca volume: blob tidak pernah diubah di tempat, jadi status 1 dari `tar` (file muncul, berubah, atau hilang di tengah) diterima; status 2 ke atas menggagalkan backup.
 - Ekstraksi teks PDF dan DOCX berjalan di proses anak dengan batas heap 512 MB dan timeout 60 detik. Memori native proses itu tidak dibatasi oleh flag heap. Bila perlu batas keras, beri container `worker` `mem_limit` di `docker/compose.yml` (opsional, spec 13.5). Risiko ini belum ditutup.
 - Ekstraksi memerlukan hasil build worker (`pnpm --filter @archlin/worker build`) karena proses anaknya adalah `dist/extract-child.mjs`; image Docker sudah memuatnya.
 

@@ -773,6 +773,43 @@ describe('PageService links', () => {
     ]);
   });
 
+  it('createLinkedPage links the page that came back from trash instead of creating a second one', async () => {
+    const target = await createPageTitled('Rapat');
+    await write((tx) => tree.trash(tx, target.entityId));
+    const source = await createPageTitled('Agenda');
+    await save(source, docWith(wiki(null, 'Rapat')));
+    await write((tx) => tree.restore(tx, target.entityId));
+
+    const linked = await write((tx) => api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'rapat' }));
+
+    expect(linked.entityId).toBe(target.entityId);
+    expect((await suggest('Rapat')).map((suggestion) => suggestion.entityId)).toEqual([target.entityId]);
+    expect((await screenOf(source)).linkTargets[0]?.target?.id).toBe(target.entityId);
+  });
+
+  it('createLinkedPage never answers with the source page itself, as sync never links a page to itself by title', async () => {
+    const source = await createPageTitled('Rapat');
+    const created = await write((tx) => api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'Rapat' }));
+    expect(created.entityId).not.toBe(source.entityId);
+  });
+
+  it('createLinkedPage refuses a title that several pages carry, so the author picks one', async () => {
+    await createPageTitled('Rapat');
+    await createPageTitled('Rapat');
+    const source = await createPageTitled('Agenda');
+    await expect(
+      write((tx) => api.pages.createLinkedPage(tx, { sourceEntityId: source.entityId, title: 'Rapat' })),
+    ).rejects.toMatchObject({ code: 'link_target_ambiguous' });
+  });
+
+  it('suggestPages puts exact title matches first so they are never cut off by the limit', async () => {
+    const exact = await createPageTitled('Rapat', otherSpaceId);
+    for (let index = 0; index < 10; index += 1) await createPageTitled(`Rapat mingguan ${index}`);
+    const found = await suggest('rapat');
+    expect(found).toHaveLength(10);
+    expect(found[0]?.entityId).toBe(exact.entityId);
+  });
+
   it('createLinkedPage puts a quick note at the root of the source space', async () => {
     const source = await createPageTitled('Indeks', otherSpaceId);
     const created = await write((tx) =>
@@ -958,6 +995,25 @@ describe('duplicatePage', () => {
     const [copiedChild] = await read((tx) => tree.children(tx, { spaceId: defaultSpaceId, parentId: copy.entityId }));
     const links = (await screenOf({ entityId: copiedChild?.id ?? '' })).linkTargets.map((link) => link.target?.id);
     expect(links).toEqual([copy.entityId]);
+  });
+
+  it('a link typed by title follows the copy like a picked one, and one leaving the subtree keeps its target', async () => {
+    const root = await createPageTitled('Runbook');
+    const child = await createPageTitled('Langkah', defaultSpaceId, root.entityId);
+    const outside = await createPageTitled('Kontak');
+    const typed = (title: string): JSONContent => ({ type: 'wikiLink', attrs: { entityId: null, title } });
+    await save(root, docWith(para(typed('Langkah'), typed('Kontak'))));
+    expect((await screenOf(root)).linkTargets.map((link) => link.target?.id)).toEqual([child.entityId, outside.entityId]);
+
+    const copy = await duplicate(root, 'Runbook (salinan)');
+
+    const [copiedChild] = await read((tx) => tree.children(tx, { spaceId: defaultSpaceId, parentId: copy.entityId }));
+    const copied = (await screenOf({ entityId: copy.entityId })).linkTargets;
+    expect(copied.map((link) => link.target?.id)).toEqual([copiedChild?.id, outside.entityId]);
+    expect(copied.some((link) => link.ambiguous)).toBe(false);
+    // The resolution is the copy's own from now on, so a later save keeps it.
+    await save({ entityId: copy.entityId }, docWith(para(typed('Langkah'))));
+    expect((await screenOf({ entityId: copy.entityId })).linkTargets[0]?.target?.id).toBe(copiedChild?.id);
   });
 
   it('duplicating copies attachments as new entities that share the blob', async () => {

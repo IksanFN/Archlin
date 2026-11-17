@@ -25,10 +25,15 @@ export interface LinkPickerProps {
   trigger: LinkNodeKind;
   command: (item: PickerItem) => void;
   labels: LinkLabels;
+  // Focus stays in the editor while the picker is open, so the editor carries the combobox relations.
+  editorDom: HTMLElement;
 }
 
+const LISTBOX_ID = 'kb-link-listbox';
+const optionId = (position: number): string => `kb-link-option-${position}`;
+
 export const LinkPicker = forwardRef<LinkPickerHandle, LinkPickerProps>(function LinkPicker(
-  { rows, loading, query, trigger, command, labels },
+  { rows, loading, query, trigger, command, labels, editorDom },
   ref,
 ) {
   const [index, setIndex] = useState(0);
@@ -64,16 +69,27 @@ export const LinkPicker = forwardRef<LinkPickerHandle, LinkPickerProps>(function
     },
   }));
 
-  const optionId = (position: number): string => `kb-link-option-${position}`;
   const settledCount = settled.current.length;
+  const hasActive = items[index] !== undefined;
+
+  useEffect(() => {
+    editorDom.setAttribute('aria-controls', LISTBOX_ID);
+    editorDom.setAttribute('aria-autocomplete', 'list');
+    return () => {
+      editorDom.removeAttribute('aria-controls');
+      editorDom.removeAttribute('aria-autocomplete');
+      editorDom.removeAttribute('aria-activedescendant');
+    };
+  }, [editorDom]);
+
+  useEffect(() => {
+    if (hasActive) editorDom.setAttribute('aria-activedescendant', optionId(index));
+    else editorDom.removeAttribute('aria-activedescendant');
+  }, [editorDom, index, hasActive]);
 
   return (
     <div className="kb-link-picker min-w-72 max-w-[min(24rem,calc(100vw-1rem))] rounded-lg border border-line-subtle bg-surface-raised p-1.5 shadow-overlay">
-      <div
-        role="listbox"
-        aria-label={labels.pickerLabel}
-        {...(items[index] === undefined ? {} : { 'aria-activedescendant': optionId(index) })}
-      >
+      <div id={LISTBOX_ID} role="listbox" aria-label={labels.pickerLabel}>
         {items.map((item, position) => {
           const selected = position === index;
           return (

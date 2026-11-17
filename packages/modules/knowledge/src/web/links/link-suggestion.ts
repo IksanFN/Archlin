@@ -43,6 +43,7 @@ function createPickerRenderer(trigger: LinkNodeKind, labels: LabelsWithLinks) {
     trigger,
     command: props.command,
     labels: labels.links,
+    editorDom: props.editor.view.dom,
   });
 
   return {

@@ -46,8 +46,11 @@ if [ "$before" != "$after" ]; then
   echo "Snapshot berbeda setelah restore." >&2
   exit 1
 fi
-blob_count=$("${compose[@]}" exec -T postgres psql -U postgres -d cortex -At -c "select count(*) from blobs")
-checked=$("${compose[@]}" run --rm --entrypoint check-blobs.sh backup /data/files | tr -d '\r')
+blob_count=$("${compose[@]}" exec -T postgres psql -U postgres -d cortex -At -c "select count(*) from blobs" | tr -d '\r')
+# Every blob the database knows must be on the volume with the right hash; stray files from rolled-back uploads may be too.
+checked=$("${compose[@]}" exec -T postgres psql -U postgres -d cortex -At \
+    -c "select 'blobs/' || owner_id || '/' || substr(sha256, 1, 2) || '/' || sha256 from blobs order by 1" |
+  "${compose[@]}" run --rm -T --entrypoint check-blobs.sh backup /data/files --expect - | tr -d '\r' || true)
 echo "Blob: $checked"
 if [ "$checked" != "blobs-ok $blob_count" ]; then
   echo "Blob di volume tidak cocok: diharapkan blobs-ok $blob_count." >&2

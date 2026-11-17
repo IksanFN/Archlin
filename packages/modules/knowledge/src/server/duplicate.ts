@@ -170,7 +170,9 @@ export function createPageDuplicator(deps: {
         })
         .execute();
       const refs = documentLinkRefs(doc);
-      if (refs.length > 0) await links.sync(tx, { sourceId: copyId, spaceId: row.space_id, refs });
+      if (refs.length > 0) {
+        await links.sync(tx, { sourceId: copyId, spaceId: row.space_id, refs, inheritFrom: { sourceId: row.id, remap: copies } });
+      }
       await syncAttachmentRefs(tx, copyId, documentAttachmentIds(doc));
       if (title !== '') await links.resolvePending(tx, { entityId: copyId, title });
       const tagNames = (await tags.forEntity(tx, row.id)).map((tag) => tag.name);

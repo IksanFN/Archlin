@@ -83,6 +83,8 @@ export interface PageScreen {
 
 export type SnapshotResult =
   | { status: 'created'; versionId: string }
+  // The latest version already held this state and is now a manual one with the given name.
+  | { status: 'kept'; versionId: string }
   | { status: 'unchanged'; versionId: string | null };
 
 export interface VersionSummary {

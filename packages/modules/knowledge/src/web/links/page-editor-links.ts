@@ -19,6 +19,7 @@ export interface LinkLabels {
   createItem: (query: string) => string;
   found: (count: number) => string;
   unresolvedBody: (title: string) => string;
+  existingBody: (title: string) => string;
   createPage: string;
   ambiguousBody: (title: string) => string;
   inTrash: string;

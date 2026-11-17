@@ -53,6 +53,19 @@ describe('child process runner', () => {
     });
   });
 
+  it('the child does not inherit the worker environment, so a parser exploit finds no database credentials', async () => {
+    process.env.ARCHLIN_RUNNER_TEST_SECRET = 'postgres://cortex_app:secret@db/cortex';
+    try {
+      const result = await runner('env-child.mjs').run({ mime: 'text/plain', bytes: streamOf('x') }, new AbortController().signal);
+      expect(result.status).toBe('done');
+      const names = result.status === 'done' ? result.text.split(',') : [];
+      expect(names).not.toContain('ARCHLIN_RUNNER_TEST_SECRET');
+      expect(names).not.toContain('DATABASE_URL');
+    } finally {
+      delete process.env.ARCHLIN_RUNNER_TEST_SECRET;
+    }
+  });
+
   it('an aborted signal kills the child and rejects so the caller writes nothing', async () => {
     const controller = new AbortController();
     const running = runner('hang-child.mjs', 30_000).run({ mime: 'text/plain', bytes: streamOf('x') }, controller.signal);

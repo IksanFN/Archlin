@@ -298,7 +298,9 @@ function PageBody({
       }
       try {
         const result = await client.snapshotPage({ entityId: page.entityId, reason: 'manual', label });
-        toast(result.status === 'created' ? messages.history.saved : messages.history.unchanged);
+        toast(
+          result.status === 'created' ? messages.history.saved : result.status === 'kept' ? messages.history.kept : messages.history.unchanged,
+        );
         setHistoryReload((value) => value + 1);
         return true;
       } catch (error) {

@@ -1,5 +1,5 @@
 import { ownerOf, sqlFor } from '@archlin/db/scoped';
-import { NotFoundError, ValidationError } from '@archlin/kernel';
+import { ConflictError, NotFoundError, ValidationError } from '@archlin/kernel';
 import type { Clock, Ids, ReadTx, WriteTx } from '@archlin/kernel';
 import type { BlobService, EntitiesDatabase, LinkService, TagService, TreeService } from '@archlin/platform/server';
 import { normalizeTitle } from '@archlin/platform/server';
@@ -300,6 +300,18 @@ export function createPageService(deps: {
       const source = await tree.get(tx, input.sourceEntityId);
       if (source.kind !== PAGE_KIND) pageNotFound();
       if (source.deletedAt !== null) pageInTrash();
+      // A page that already carries the title (back from trash, or open in a stale tab) is linked, never created twice.
+      const existing = await links.findTarget(tx, { title: input.title, sourceId: source.id, spaceId: source.spaceId });
+      if (existing.kind === 'many') {
+        throw new ConflictError('link_target_ambiguous', 'Ada beberapa halaman dengan judul ini');
+      }
+      if (existing.kind === 'one') {
+        const target = await tree.get(tx, existing.id);
+        await links.resolvePending(tx, { entityId: target.id, title: target.title });
+        const space = await dbOf(tx).selectFrom('spaces').select('slug').where('id', '=', target.spaceId).executeTakeFirst();
+        if (!space) throw new NotFoundError('space_not_found', 'Space tidak ditemukan');
+        return { entityId: target.id, spaceSlug: space.slug };
+      }
       const noteType = await dbOf(tx)
         .selectFrom('kb_note_types')
         .select('id')
@@ -357,6 +369,8 @@ export function createPageService(deps: {
             )
           )
         order by
+          -- An exact title is what [[ resolves to, so it must survive the limit wherever it lives.
+          (${hasQuery}::boolean and lower(e.title) = lower(${query}::text)) desc,
           (e.space_id = ${input.spaceId}::uuid) desc,
           (${hasQuery}::boolean and unaccent(lower(e.title)) like unaccent(lower(${pattern}::text)) || '%' escape '\\') desc,
           e.updated_at desc,

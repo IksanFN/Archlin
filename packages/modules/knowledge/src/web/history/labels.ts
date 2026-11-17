@@ -29,6 +29,7 @@ export interface HistoryLabels {
   save: string;
   saved: string;
   unchanged: string;
+  kept: string;
   empty: string;
   pick: string;
   loadFailed: string;

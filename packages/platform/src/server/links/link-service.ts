@@ -11,11 +11,23 @@ import { pickTarget } from './pick-target';
 import type { TargetCandidate } from './pick-target';
 
 export interface LinkService {
-  sync(tx: WriteTx, input: { sourceId: string; spaceId: string; refs: readonly LinkRef[] }): Promise<void>;
+  sync(tx: WriteTx, input: LinkSyncInput): Promise<void>;
   resolvePending(tx: WriteTx, target: { entityId: string; title: string }): Promise<number>;
   outbound(tx: ReadTx, sourceId: string): Promise<OutboundLink[]>;
   inbound(tx: ReadTx, target: { entityId: string; title: string }): Promise<InboundLink[]>;
+  // What a typed title in sourceId would resolve to, by the same rule sync uses (a page never links itself by title).
+  findTarget(tx: ReadTx, input: { title: string; sourceId: string; spaceId: string }): Promise<TitleTarget>;
 }
+
+export interface LinkSyncInput {
+  sourceId: string;
+  spaceId: string;
+  refs: readonly LinkRef[];
+  // A copy of a page takes over how the original resolved its titles, with targets inside the copied subtree remapped.
+  inheritFrom?: { sourceId: string; remap: ReadonlyMap<string, string> };
+}
+
+export type TitleTarget = { kind: 'none' } | { kind: 'one'; id: string } | { kind: 'many' };
 
 type ResolvedBy = 'id' | 'title' | 'none';
 
@@ -110,6 +122,11 @@ export function createLinkService(deps: { registry: ModuleRegistry; ids: Ids; cl
       const byTitle = refs.filter((ref) => ref.targetId === null || !validIds.has(ref.targetId));
       const titles = [...new Set(byTitle.map((ref) => ref.targetTitle))];
       const sticky = await stickyTargets(tx, input.sourceId, titles);
+      if (input.inheritFrom !== undefined) {
+        const { sourceId, remap } = input.inheritFrom;
+        const inherited = await stickyTargets(tx, sourceId, titles.filter((title) => !sticky.has(title)));
+        for (const [title, targetId] of inherited) sticky.set(title, remap.get(targetId) ?? targetId);
+      }
       const candidates = await liveCandidates(
         tx,
         titles.filter((title) => !sticky.has(title)),
@@ -215,6 +232,15 @@ export function createLinkService(deps: { registry: ModuleRegistry; ids: Ids; cl
         });
       }
       return result;
+    },
+
+    async findTarget(tx, input) {
+      const title = normalizeTitle(input.title);
+      if (title.length === 0) return { kind: 'none' };
+      const pool = (await liveCandidates(tx, [title], input.sourceId)).get(title) ?? [];
+      if (pool.length === 0) return { kind: 'none' };
+      const id = pickTarget(pool, input.spaceId);
+      return id === null ? { kind: 'many' } : { kind: 'one', id };
     },
 
     async inbound(tx, target) {

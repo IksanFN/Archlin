@@ -57,7 +57,22 @@ export function createVersionService(deps: {
         currentHash: locked.contentHash,
         lastSnapshotHash: latest?.contentHash ?? null,
       });
-      if (!wanted) return { status: 'unchanged', versionId: latest?.id ?? null };
+      if (!wanted) {
+        // Retention would prune an automatic version, so asking to keep its state turns it into the manual one.
+        if (input.reason === 'manual' && latest !== null) {
+          const permanent = latest.reason === 'manual' || latest.reason === 'import';
+          const renamed = input.label !== null && input.label !== latest.label;
+          if (!permanent || renamed) {
+            await dbOf(tx)
+              .updateTable('kb_page_versions')
+              .set({ reason: permanent ? latest.reason : 'manual', label: input.label ?? latest.label })
+              .where('id', '=', latest.id)
+              .execute();
+            return { status: 'kept', versionId: latest.id };
+          }
+        }
+        return { status: 'unchanged', versionId: latest?.id ?? null };
+      }
       const versionId = await insertVersion(tx, { ids, clock }, {
         snapshot: locked,
         reason: input.reason,

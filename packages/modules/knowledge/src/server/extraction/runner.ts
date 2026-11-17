@@ -25,6 +25,18 @@ const TIMED_OUT: ExtractResult = { status: 'failed', error: 'timeout' };
 
 const abortError = (): Error => new DOMException('Extraction was aborted', 'AbortError');
 
+// The child parses untrusted files, so it gets no secrets: only what Node needs to start (Windows wants SystemRoot) and a temp dir.
+const CHILD_ENV_KEYS = ['NODE_ENV', 'SystemRoot', 'SYSTEMROOT', 'windir', 'TEMP', 'TMP', 'TMPDIR'];
+
+function childEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of CHILD_ENV_KEYS) {
+    const value = process.env[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
 // One short-lived process per file: a library bug, a memory blow-up or an endless loop ends with SIGKILL and costs only
 // that file, never the worker. Worker threads could not promise this, because their limits only cover the JS heap.
 export function createChildProcessRunner(options: { entry: URL; timeoutMs: number; maxOldSpaceMb: number }): ExtractionRunner {
@@ -39,6 +51,7 @@ export function createChildProcessRunner(options: { entry: URL; timeoutMs: numbe
         }
         const child = fork(entry, [], {
           execArgv: [`--max-old-space-size=${options.maxOldSpaceMb}`],
+          env: childEnv(),
           stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
           serialization: 'json',
         });

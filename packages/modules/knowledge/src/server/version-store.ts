@@ -74,16 +74,16 @@ export async function insertVersion(
 export async function latestVersion(
   tx: ReadTx,
   entityId: string,
-): Promise<{ id: string; contentHash: string } | null> {
+): Promise<{ id: string; contentHash: string; reason: SnapshotReason; label: string | null } | null> {
   const row = await dbOf(tx)
     .selectFrom('kb_page_versions')
-    .select(['id', 'content_hash'])
+    .select(['id', 'content_hash', 'reason', 'label'])
     .where('entity_id', '=', entityId)
     .orderBy('created_at', 'desc')
     .orderBy('id', 'desc')
     .limit(1)
     .executeTakeFirst();
-  return row ? { id: row.id, contentHash: row.content_hash } : null;
+  return row ? { id: row.id, contentHash: row.content_hash, reason: row.reason, label: row.label } : null;
 }
 
 export async function latestSnapshotHash(tx: ReadTx, entityId: string): Promise<string | null> {

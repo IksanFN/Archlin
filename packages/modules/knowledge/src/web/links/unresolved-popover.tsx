@@ -17,26 +17,19 @@ function resolveNode(editor: Editor, detail: OpenLinkPopoverDetail, target: { en
   editor.view.dispatch(editor.state.tr.setNodeMarkup(detail.pos, undefined, target));
 }
 
-function AmbiguousChoices({
-  title,
-  links,
-  labels,
-  onPick,
-}: {
-  title: string;
-  links: PageEditorLinks;
-  labels: LinkLabels;
-  onPick: (page: PageSuggestion) => void;
-}) {
+const titleKey = (title: string): string => title.trim().replace(/\s+/g, ' ').toLowerCase();
+
+// Pages whose title is exactly the link's: the choices of an ambiguous link, or the page an unresolved one already has.
+function useExactCandidates(title: string, links: PageEditorLinks): Candidates {
   const [candidates, setCandidates] = useState<Candidates>({ status: 'loading' });
 
   useEffect(() => {
     let current = true;
-    const wanted = title.trim().toLowerCase();
+    const wanted = titleKey(title);
     links.client
       .suggestPages({ q: title, spaceId: links.spaceId, excludeId: links.entityId })
       .then((rows) => {
-        if (current) setCandidates({ status: 'ready', items: rows.filter((row) => row.title.trim().toLowerCase() === wanted) });
+        if (current) setCandidates({ status: 'ready', items: rows.filter((row) => titleKey(row.title) === wanted) });
       })
       .catch(() => {
         if (current) setCandidates({ status: 'failed' });
@@ -46,6 +39,18 @@ function AmbiguousChoices({
     };
   }, [links, title]);
 
+  return candidates;
+}
+
+function Choices({
+  candidates,
+  labels,
+  onPick,
+}: {
+  candidates: Candidates;
+  labels: LinkLabels;
+  onPick: (page: PageSuggestion) => void;
+}) {
   function moveFocus(event: KeyboardEvent<HTMLDivElement>): void {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     const options = [...event.currentTarget.querySelectorAll<HTMLElement>('[role="option"]')];
@@ -87,6 +92,49 @@ function AmbiguousChoices({
         </button>
       ))}
     </div>
+  );
+}
+
+function PopoverBody({
+  detail,
+  links,
+  labels,
+  creating,
+  onCreate,
+  onPick,
+}: {
+  detail: OpenLinkPopoverDetail;
+  links: PageEditorLinks;
+  labels: LinkLabels;
+  creating: boolean;
+  onCreate: () => void;
+  onPick: (page: PageSuggestion) => void;
+}) {
+  const candidates = useExactCandidates(detail.title, links);
+  if (detail.state === 'ambiguous') {
+    return (
+      <>
+        <p className="text-small text-fg-secondary">{labels.ambiguousBody(detail.title)}</p>
+        <Choices candidates={candidates} labels={labels} onPick={onPick} />
+      </>
+    );
+  }
+  // The server saw no match when the page loaded, but one may exist now (restored from trash, a twin trashed).
+  if (candidates.status === 'ready' && candidates.items.length > 0) {
+    return (
+      <>
+        <p className="text-small text-fg-secondary">{labels.existingBody(detail.title)}</p>
+        <Choices candidates={candidates} labels={labels} onPick={onPick} />
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="text-small text-fg-secondary">{labels.unresolvedBody(detail.title)}</p>
+      <Button className="mt-3" size="row" loading={creating || candidates.status === 'loading'} onClick={onCreate}>
+        {labels.createPage}
+      </Button>
+    </>
   );
 }
 
@@ -156,18 +204,16 @@ export function UnresolvedLinkPopover({
           editor?.commands.focus();
         }}
       >
-        {detail === null ? null : detail.state === 'unresolved' ? (
-          <>
-            <p className="text-small text-fg-secondary">{labels.unresolvedBody(detail.title)}</p>
-            <Button className="mt-3" size="row" loading={creating} onClick={() => void createPage()}>
-              {labels.createPage}
-            </Button>
-          </>
-        ) : (
-          <>
-            <p className="text-small text-fg-secondary">{labels.ambiguousBody(detail.title)}</p>
-            <AmbiguousChoices title={detail.title} links={links} labels={labels} onPick={pick} />
-          </>
+        {detail === null ? null : (
+          <PopoverBody
+            key={`${detail.pos}:${detail.title}`}
+            detail={detail}
+            links={links}
+            labels={labels}
+            creating={creating}
+            onCreate={() => void createPage()}
+            onPick={pick}
+          />
         )}
       </PopoverContent>
     </Popover>

@@ -10,6 +10,7 @@ const testLabels: EditorLabels = {
     createItem: (query) => `Tautkan “${query}” sebagai halaman baru`,
     found: (count) => `${count} halaman ditemukan`,
     unresolvedBody: (title) => `Halaman “${title}” belum ada.`,
+    existingBody: (title) => `Halaman “${title}” sudah ada.`,
     createPage: 'Buat halaman',
     ambiguousBody: (title) => `Ada beberapa halaman berjudul “${title}”. Pilih yang dimaksud.`,
     inTrash: 'Ada di Trash',
