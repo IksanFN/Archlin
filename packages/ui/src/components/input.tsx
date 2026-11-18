@@ -24,6 +24,10 @@ function Input({ className, inputClassName, size = 'default', leadingIcon, trail
   return (
     <div
       data-slot="input"
+      onClick={(event) => {
+        // The frame's padding and decorative icon belong to the input, not trailing controls.
+        if (event.target === event.currentTarget) event.currentTarget.querySelector('input')?.focus();
+      }}
       {...(dataShake === undefined ? {} : { 'data-shake': dataShake })}
       className={cn(
         'flex items-center',
@@ -33,11 +37,11 @@ function Input({ className, inputClassName, size = 'default', leadingIcon, trail
       )}
     >
       {leadingIcon === undefined ? null : (
-        <span className="mr-2.5 flex shrink-0 text-fg-muted [&_svg]:size-4">{leadingIcon}</span>
+        <span className="pointer-events-none mr-2.5 flex shrink-0 text-fg-muted [&_svg]:size-4">{leadingIcon}</span>
       )}
       <input
         className={cn(
-          'min-w-0 flex-1 bg-transparent outline-none placeholder:text-fg-muted disabled:cursor-not-allowed disabled:text-fg-disabled',
+          'h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-fg-muted disabled:cursor-not-allowed disabled:text-fg-disabled',
           inputClassName,
         )}
         {...props}

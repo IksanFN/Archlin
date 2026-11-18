@@ -70,7 +70,7 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
   };
 
   return (
-    <div className={cn('min-h-dvh nav:grid', collapsed ? 'nav:grid-cols-[72px_1fr]' : 'nav:grid-cols-[300px_1fr]')}>
+    <div className={cn('app-shell min-h-dvh nav:grid', collapsed ? 'nav:grid-cols-[72px_1fr]' : 'nav:grid-cols-[300px_1fr]')}>
       <SkipLink label={labels.skipToContent} targetId={MAIN_ID} />
 
       <aside aria-label={labels.navigation} className="sticky top-0 hidden h-dvh overflow-x-hidden overflow-y-auto bg-surface nav:block">
@@ -85,7 +85,7 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
         </ShellContext>
       </aside>
 
-      <div className="flex min-w-0 flex-col">
+      <div className="shell-column flex min-w-0 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line-subtle px-4 nav:hidden">
           <Button variant="icon" size="icon-sm" aria-label={labels.openNavigation} className="bg-transparent hover:bg-overlay" onClick={() => setDrawerOpen(true)}>
             <ListIcon aria-hidden="true" size={20} />
@@ -94,7 +94,8 @@ function AppShell({ sidebar, title, labels, children }: AppShellProps) {
         </header>
 
         <main id={MAIN_ID} tabIndex={-1} className="flex min-h-0 flex-1 flex-col outline-none">
-          {children}
+          <div className="shell-content">{children}</div>
+          <div data-slot="shell-dock" className="shell-dock relative z-30 shrink-0" />
         </main>
       </div>
 

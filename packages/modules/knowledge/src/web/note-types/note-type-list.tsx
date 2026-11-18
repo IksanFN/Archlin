@@ -90,7 +90,7 @@ export function NoteTypeList({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <h1 className="text-h3 text-fg">{labels.title}</h1>
           <p className="text-small text-fg-muted">{labels.description}</p>
@@ -108,38 +108,42 @@ export function NoteTypeList({
               else rows.current.set(type.id, node);
             }}
             style={{ '--rise-index': index } as CSSProperties}
-            className="rise flex items-center gap-3 border-b border-line-subtle py-3 last:border-b-0"
+            className="rise grid grid-cols-[24px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 border-b border-line-subtle py-3 last:border-b-0"
           >
             <span className="flex size-6 shrink-0 items-center justify-center text-[18px] leading-none">{type.icon}</span>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              {renderLink(type, 'truncate rounded-sm text-ui font-medium text-fg hover:underline', type.name)}
-              <span className="font-mono text-[12px] leading-4 text-fg-muted">{type.key}</span>
+              {renderLink(type, 'rounded-sm text-ui font-medium text-fg [overflow-wrap:anywhere] hover:underline', type.name)}
+              <span className="font-mono text-[12px] leading-4 text-fg-muted [overflow-wrap:anywhere]">{type.key}</span>
             </div>
-            {type.isSystem ? <Badge>{labels.system}</Badge> : null}
-            <span className="hidden text-small text-fg-muted sm:inline">{labels.fieldCount(type.fieldSchema.length)}</span>
-            <span className="flex items-baseline gap-1 text-small text-fg-muted">
-              <NumberFlip value={type.pageCount} />
-              {labels.pageUnit}
-            </span>
-            <div className="flex gap-1">
-              <Button
-                variant="icon"
-                size="icon-sm"
-                aria-label={labels.moveUp(type.name)}
-                disabled={index === 0}
-                onClick={() => void move(index, 'up')}
-              >
-                <ArrowUpIcon aria-hidden="true" size={16} />
-              </Button>
-              <Button
-                variant="icon"
-                size="icon-sm"
-                aria-label={labels.moveDown(type.name)}
-                disabled={index === items.length - 1}
-                onClick={() => void move(index, 'down')}
-              >
-                <ArrowDownIcon aria-hidden="true" size={16} />
-              </Button>
+            <div className="col-start-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+              {type.isSystem ? <Badge>{labels.system}</Badge> : null}
+              <span className="text-small text-fg-muted">{labels.fieldCount(type.fieldSchema.length)}</span>
+              <span className="flex items-baseline gap-1 text-small text-fg-muted">
+                <NumberFlip value={type.pageCount} />
+                {labels.pageUnit}
+              </span>
+              <div className="ml-auto flex shrink-0 gap-1">
+                <Button
+                  variant="icon"
+                  size="icon-sm"
+                  className="size-11"
+                  aria-label={labels.moveUp(type.name)}
+                  disabled={index === 0}
+                  onClick={() => void move(index, 'up')}
+                >
+                  <ArrowUpIcon aria-hidden="true" size={16} />
+                </Button>
+                <Button
+                  variant="icon"
+                  size="icon-sm"
+                  className="size-11"
+                  aria-label={labels.moveDown(type.name)}
+                  disabled={index === items.length - 1}
+                  onClick={() => void move(index, 'down')}
+                >
+                  <ArrowDownIcon aria-hidden="true" size={16} />
+                </Button>
+              </div>
             </div>
           </li>
         ))}

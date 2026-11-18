@@ -23,7 +23,7 @@ const buttonVariants = cva(
         default: '',
         auth: 'h-12 w-full px-[18px] text-ui',
         row: 'h-[34px] px-3.5 text-[13px]',
-        'icon-sm': 'size-8 px-0',
+        'icon-sm': 'size-8 px-0 [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:shrink-0',
       },
     },
     defaultVariants: { variant: 'primary', size: 'default' },

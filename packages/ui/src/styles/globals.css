@@ -2,6 +2,29 @@
 @import "tw-animate-css";
 @import "./tokens.css";
 
+.shell-content { display: contents; }
+.app-shell:has(.shell-dock:not(:empty)) {
+  position: fixed;
+  top: var(--shell-viewport-top, 0px);
+  width: 100%;
+  height: var(--shell-viewport-height, 100dvh);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+.app-shell:has(.shell-dock:not(:empty)) > aside { height: 100%; }
+.app-shell:has(.shell-dock:not(:empty)) > .shell-column {
+  height: 100%;
+  min-height: 0;
+}
+.app-shell:has(.shell-dock:not(:empty)) .shell-content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+}
+
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @custom-variant fine-hover {
   @media (hover: hover) and (pointer: fine) {

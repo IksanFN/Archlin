@@ -61,6 +61,8 @@ function TreeRow({
   const indent = 14 * Math.max(level - 1, 0) + (expandable ? 0 : 18);
   const space = level === 1;
   const indicatorIndent = dropIndentPx ?? indent;
+  // Coarse-pointer layout caps this indent to preserve four 44px targets and their spacing.
+  const rowStyle: CSSProperties & { '--tree-indent': string } = { '--tree-indent': `${indent}px` };
 
   const body = (
     <>
@@ -97,21 +99,23 @@ function TreeRow({
         ref={rowRef}
         data-menu-open={menuOpen ? 'true' : undefined}
         className={cn(
-          'enter-item group/tree relative flex h-11 items-center gap-2 rounded-md pr-2 transition-[color,background-color,transform,opacity] duration-[120ms] ease-out',
+          'enter-item group/tree relative flex h-11 items-center gap-2 rounded-md pr-2 pl-[var(--tree-indent)] transition-[color,background-color,transform,opacity] duration-[120ms] ease-out',
+          '[@media(pointer:coarse)]:pl-[min(var(--tree-indent),max(0px,calc(100%_-_200px)))]',
           'fine-hover:bg-overlay',
           '[@media(hover:hover)_and_(pointer:fine)]:active:scale-[0.98] motion-reduce:active:scale-100',
+          'has-[button:active]:scale-100',
           selected ? 'bg-selected font-medium text-fg' : 'text-fg-secondary',
           dragging && 'opacity-50',
           flash && 'flash-selected',
         )}
-        style={{ paddingLeft: indent } satisfies CSSProperties}
+        style={rowStyle}
       >
         {expandable ? (
           <button
             type="button"
             tabIndex={-1}
             aria-hidden="true"
-            className="flex size-[18px] shrink-0 items-center justify-center text-fg-muted"
+            className="flex size-[18px] shrink-0 items-center justify-center text-fg-muted [@media(pointer:coarse)]:size-11"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -128,7 +132,7 @@ function TreeRow({
         {href === undefined ? (
           <span className="flex min-w-0 flex-1 items-center gap-2">{body}</span>
         ) : (
-          <Link to={href} tabIndex={-1} className="flex min-w-0 flex-1 items-center gap-2 outline-none">
+          <Link to={href} tabIndex={-1} className="flex min-w-0 flex-1 items-center gap-2 outline-none [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11">
             {body}
           </Link>
         )}

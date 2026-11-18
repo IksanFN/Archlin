@@ -235,7 +235,7 @@ export function BlockHandle({ editor, labels }: { editor: Editor; labels: Editor
             aria-label={labels.block.handle}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="size-6 cursor-grab px-0 text-fg-muted active:cursor-grabbing"
+            className="size-6 cursor-grab px-0 text-fg-muted active:cursor-grabbing [@media(pointer:coarse)]:size-6"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onDragStart={onDragStart}

@@ -60,6 +60,25 @@ test('an attachment card keeps its own type sizes inside the editor', async ({ p
   expect([await size('attachment-name'), await size('attachment-meta')]).toEqual(['14px', '12px']);
 });
 
+// The card used to carry its own top margin on top of the editor's block rhythm.
+test('an attachment card sits 16px below the text above it', async ({ page }) => {
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Jarak' });
+  await typeInEditor(page, 'Sebelum kartu');
+  await menu(page, 'Lampiran');
+  await attachmentsInput(page).setInputFiles(filePayload('laporan.pdf', 'application/pdf', pdfFixture('Halo')));
+  const card = editorOf(page).locator('[data-attachment]', { hasText: 'laporan.pdf' });
+  await expect(card).toBeVisible();
+  const gap = await card.evaluate((node) => {
+    const block = node.closest('.ProseMirror > *');
+    const previous = block?.previousElementSibling;
+    if (!block || !previous) throw new Error('the card has no text block above it');
+    return Math.round(block.getBoundingClientRect().top - previous.getBoundingClientRect().bottom);
+  });
+  expect(gap).toBe(16);
+});
+
 test('an image uploaded from the image dialog renders from its attachment', async ({ page }) => {
   await completeSetup(page);
   const { slug } = await createSpace(page, 'Kerja');

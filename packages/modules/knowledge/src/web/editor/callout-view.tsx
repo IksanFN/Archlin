@@ -34,7 +34,7 @@ export function CalloutView({ node, updateAttributes, editor, labels }: NodeView
   return (
     <NodeViewWrapper className="kb-callout rounded-md bg-surface px-3.5 py-3" data-callout="" data-variant={variant}>
       <div className="flex items-start gap-2.5">
-        <div className="pt-0.5" contentEditable={false}>
+        <div className="flex h-[26px] items-center" contentEditable={false}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

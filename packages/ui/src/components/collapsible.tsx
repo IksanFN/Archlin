@@ -16,7 +16,7 @@ function CollapsibleContent({ className, ...props }: ComponentProps<typeof Colla
     <CollapsiblePrimitive.Content
       data-slot="collapsible-content"
       className={cn(
-        'overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:duration-150 data-[state=closed]:ease-in',
+        'overflow-hidden motion-safe:data-[state=closed]:animate-collapsible-up motion-safe:data-[state=open]:animate-collapsible-down data-[state=open]:duration-200 data-[state=open]:ease-out data-[state=closed]:duration-150 data-[state=closed]:ease-in',
         className,
       )}
       {...props}

@@ -15,6 +15,7 @@ export interface NativeSelectProps extends Omit<ComponentProps<'select'>, 'size'
 }
 
 // A real <select>: the platform picker is keyboard and screen reader complete, so only the frame is styled.
+// The select is transparent, so the browser paints its list on a light default with our light text; options carry their own surface.
 function NativeSelect({ className, wrapperClassName, size = 'default', children, 'data-shake': dataShake, ...props }: NativeSelectProps) {
   return (
     <div
@@ -27,7 +28,11 @@ function NativeSelect({ className, wrapperClassName, size = 'default', children,
       )}
     >
       <select
-        className={cn('w-full appearance-none rounded-md bg-transparent outline-none disabled:cursor-not-allowed', selectSize[size], className)}
+        className={cn(
+          'w-full appearance-none rounded-md bg-transparent outline-none disabled:cursor-not-allowed [&>option]:bg-popover [&>option]:text-popover-foreground',
+          selectSize[size],
+          className,
+        )}
         {...props}
       >
         {children}

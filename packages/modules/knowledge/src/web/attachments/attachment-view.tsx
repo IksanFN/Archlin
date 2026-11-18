@@ -55,7 +55,7 @@ export function AttachmentCard({
       data-attachment=""
       data-attachment-id={id ?? ''}
       contentEditable={false}
-      className="kb-attachment-card mt-3 flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-3.5 py-3"
+      className="kb-attachment-card flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-3.5 py-3"
     >
       {view === undefined ? (
         <div className="text-small text-fg-muted">{labels.missing}</div>
