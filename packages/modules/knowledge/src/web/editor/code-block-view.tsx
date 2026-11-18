@@ -3,6 +3,7 @@ import { NativeSelect } from '@archlin/ui/components/native-select';
 import type { NodeViewProps } from '@tiptap/core';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import { common } from 'lowlight';
+import { useEffect, useState } from 'react';
 import type { EditorLabels } from './labels';
 
 const codeLanguages = Object.keys(common).sort((a, b) => a.localeCompare(b));
@@ -10,6 +11,18 @@ const codeLanguages = Object.keys(common).sort((a, b) => a.localeCompare(b));
 export function CodeBlockView({ node, updateAttributes, editor, labels }: NodeViewProps & { labels: EditorLabels }) {
   const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
   const editable = editor.isEditable;
+  // The scroll region is a tab stop, but a click inside it must keep focus in the editor, so it is not focusable until the press ends.
+  const [pressing, setPressing] = useState(false);
+  useEffect(() => {
+    if (!pressing) return;
+    const release = () => setPressing(false);
+    window.addEventListener('click', release, { once: true, capture: true });
+    window.addEventListener('pointercancel', release, { once: true });
+    return () => {
+      window.removeEventListener('click', release, { capture: true });
+      window.removeEventListener('pointercancel', release);
+    };
+  }, [pressing]);
 
   return (
     <NodeViewWrapper className="kb-code-block overflow-hidden rounded-lg border border-line-subtle bg-surface">
@@ -38,8 +51,22 @@ export function CodeBlockView({ node, updateAttributes, editor, labels }: NodeVi
           size="row"
         />
       </div>
-      <pre className="kb-code-block-body m-0 overflow-x-auto px-4 py-3">
-        <NodeViewContent />
+      <pre
+        className="kb-code-block-body"
+        tabIndex={pressing ? undefined : 0}
+        role="region"
+        aria-label={labels.slash.codeBlock}
+        onPointerDownCapture={() => setPressing(true)}
+        onKeyDownCapture={(event) => {
+          if (event.target !== event.currentTarget || document.activeElement !== event.currentTarget) return;
+          if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+          if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+          event.preventDefault();
+          event.stopPropagation();
+          event.currentTarget.scrollBy({ left: event.key === 'ArrowRight' ? 48 : -48 });
+        }}
+      >
+        <NodeViewContent style={{ whiteSpace: 'pre' }} />
       </pre>
     </NodeViewWrapper>
   );

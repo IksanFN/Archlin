@@ -94,21 +94,27 @@ test('the slash menu opens without animation', async ({ page }) => {
   await completeSetup(page);
   const { slug } = await createSpace(page, 'Kerja');
   await createPage(page, { space: slug, type: 'Quick Note', title: 'Garis miring' });
-  await editorOf(page).click();
-  await page.keyboard.type('/');
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    await page.emulateMedia({ reducedMotion });
+    await editorOf(page).click();
+    await page.keyboard.type('/');
 
-  const menu = page.getByRole('listbox');
-  await expect(menu).toBeVisible();
-  // The popup wrapper, not only the list, must stay still: it is what a keyboard user sees appear.
-  const animated = await menu.evaluate((element) => {
-    const names: string[] = [];
-    for (let node: Element | null = element; node !== null && node !== document.body; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      if (style.animationName !== 'none' || style.transitionProperty.includes('opacity')) names.push(node.tagName);
-    }
-    return names;
-  });
-  expect(animated).toEqual([]);
+    const menu = page.getByRole('listbox');
+    await expect(menu).toBeVisible();
+    // The popup wrapper, not only the list, must stay still: it is what a keyboard user sees appear.
+    const animated = await menu.evaluate((element) => {
+      const names: string[] = [];
+      for (let node: Element | null = element; node !== null && node !== document.body; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        if (style.animationName !== 'none' || style.transitionProperty.includes('opacity')) names.push(node.tagName);
+      }
+      return names;
+    });
+    expect(animated).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await page.keyboard.press('Backspace');
+  }
 });
 
 async function openAttachmentsPanel(page: Page): Promise<Locator> {
@@ -168,3 +174,67 @@ test('the link picker opens without animation', async ({ page }) => {
   });
   expect(animated).toEqual([]);
 });
+
+// Set the preference before navigation so the first opening cannot start a geometry animation.
+test('context card does not animate geometry with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Gerak terbatas');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Konteks tanpa gerak' });
+  const trigger = page.getByRole('button', { name: 'Kartu Konteks' });
+  const content = page.locator('[data-slot="collapsible-content"]');
+  for (const expanded of [false, true]) {
+    const frames = await trigger.evaluate(async (button) => {
+      if (!(button instanceof HTMLButtonElement)) throw new Error('context card trigger is not a button');
+      button.click();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const root = button.closest('[data-slot="collapsible"]');
+      if (root === null) throw new Error('context card is missing');
+      return root.getAnimations({ subtree: true }).flatMap((animation) =>
+        animation.effect instanceof KeyframeEffect ? animation.effect.getKeyframes() : [],
+      );
+    });
+    const geometry = ['height', 'width', 'transform', 'translate', 'scale', 'rotate', 'top', 'left', 'right', 'bottom', 'marginTop', 'marginBottom'];
+    expect(frames.some((frame) => geometry.some((property) => property in frame))).toBe(false);
+    await expect(trigger).toHaveAttribute('aria-expanded', String(expanded));
+    if (expanded) await expect(content).toBeVisible();
+    else await expect(content).toBeHidden();
+  }
+});
+
+for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+  test(`context card handles rapid toggles and keyboard with ${reducedMotion} motion`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion });
+    await completeSetup(page);
+    const { slug } = await createSpace(page, 'Konteks interaktif');
+    await createPage(page, { space: slug, type: 'Quick Note', title: 'Interaksi kartu' });
+    const trigger = page.getByRole('button', { name: 'Kartu Konteks' });
+    const content = page.locator('[data-slot="collapsible-content"]');
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect(content).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(content).toBeVisible();
+    await expect(trigger).toBeFocused();
+    for (const expanded of [false, true]) {
+      await trigger.evaluate(async (button) => {
+        if (!(button instanceof HTMLButtonElement)) throw new Error('context card trigger is not a button');
+        button.click();
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        button.click();
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        button.click();
+      });
+      await expect(trigger).toHaveAttribute('aria-expanded', String(expanded));
+      if (expanded) await expect(content).toBeVisible();
+      else await expect(content).toBeHidden();
+      // Verify the interrupted exit cannot hide content again after the final opening.
+      await page.waitForTimeout(250);
+      if (expanded) await expect(content).toBeVisible();
+      else await expect(content).toBeHidden();
+      await expect(trigger).toBeFocused();
+    }
+  });
+}

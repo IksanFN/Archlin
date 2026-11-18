@@ -1,5 +1,5 @@
 import type { SuggestionKeyDownProps } from '@tiptap/suggestion';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { EditorLabels } from './labels';
 import type { SlashItem } from './slash-items';
 
@@ -14,6 +14,7 @@ export interface SlashMenuProps {
 }
 
 export const SlashMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(function SlashMenu({ items, command, labels }, ref) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   indexRef.current = index;
@@ -47,8 +48,27 @@ export const SlashMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(function Sl
   const active = items[index];
   const activeId = active === undefined ? undefined : `slash-item-${active.id}`;
 
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const option = menu?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!menu || !option) return;
+    function reveal() {
+      if (!menu || !option) return;
+      const top = menu.getBoundingClientRect().top + menu.clientTop;
+      const bounds = option.getBoundingClientRect();
+      if (bounds.top < top) menu.scrollTop += bounds.top - top;
+      else if (bounds.bottom > top + menu.clientHeight) menu.scrollTop += bounds.bottom - top - menu.clientHeight;
+    }
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(menu);
+    return () => observer.disconnect();
+  }, [activeId]);
+
   return (
     <div
+      ref={menuRef}
+      style={{ maxHeight: 'var(--slash-menu-height)', overflowY: 'auto', overscrollBehavior: 'contain' }}
       id="kb-slash-menu"
       role="listbox"
       className="kb-slash-menu min-w-56 rounded-lg border border-line-subtle bg-surface-raised p-1.5 shadow-overlay"

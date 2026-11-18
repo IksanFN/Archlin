@@ -16,7 +16,10 @@ import type { SpaceHome as SpaceHomeData } from '~/server/functions/spaces';
 import { unarchiveSpaceFn } from '~/server/functions/spaces';
 
 const ROW_CLASS =
-  'flex h-auto w-full items-start gap-3 border-b border-line-subtle py-3 transition-[color,background-color,transform] duration-[120ms] ease-out fine-hover:bg-overlay [@media(hover:hover)_and_(pointer:fine)]:active:scale-[0.98] motion-reduce:active:scale-100';
+  'group/row flex h-auto w-full items-start gap-3 border-b border-line-subtle py-3 transition-[color,background-color,transform] duration-[120ms] ease-out fine-hover:bg-overlay [@media(hover:hover)_and_(pointer:fine)]:active:scale-[0.98] motion-reduce:active:scale-100';
+
+// Muted text on the hovered row's overlay is about 4.4:1 in light mode, under AA, so it steps up to secondary while hovered.
+const ROW_MUTED = 'transition-colors duration-[120ms] group-hover/row:text-fg-secondary';
 
 function rise(index: number): CSSProperties {
   const clamped = Math.min(index, 7);
@@ -118,11 +121,11 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
                         <span className="min-w-0 flex-1">
                           <span className="block text-ui font-medium text-fg">{displayTitle(page.title)}</span>
                           {summary === null ? null : (
-                            <span className="block truncate text-small text-fg-muted">{summary}</span>
+                            <span className={cn('block truncate text-small text-fg-muted', ROW_MUTED)}>{summary}</span>
                           )}
                         </span>
                         {page.descendantCount > 0 ? (
-                          <span className="shrink-0 font-mono text-micro text-fg-muted">
+                          <span className={cn('shrink-0 font-mono text-micro text-fg-muted', ROW_MUTED)}>
                             {messages.spaceHome.pages(page.descendantCount)}
                           </span>
                         ) : null}
@@ -150,10 +153,10 @@ export function SpaceHome({ space, rootPages, recent, now }: SpaceHomeData & { n
                           <span className="min-w-0 flex-1">
                             <span className="block text-ui font-medium text-fg">{displayTitle(item.title)}</span>
                             {item.path === '' ? null : (
-                              <span className="block truncate text-micro text-fg-muted">{item.path}</span>
+                              <span className={cn('block truncate text-micro text-fg-muted', ROW_MUTED)}>{item.path}</span>
                             )}
                           </span>
-                          <span className="shrink-0 text-micro text-fg-muted">
+                          <span className={cn('shrink-0 text-micro text-fg-muted', ROW_MUTED)}>
                             {formatRelative(new Date(item.updatedAt), now)}
                           </span>
                         </Link>

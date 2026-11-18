@@ -160,6 +160,22 @@ test('M1 screens pass axe in light and dark', async ({ page, context }) => {
   }
 });
 
+// Muted text on a hovered row's overlay was about 4.4:1 in light mode; the pointer only rests there by chance, so it failed intermittently.
+test('space home rows keep their muted text readable while hovered', async ({ page }) => {
+  await resetAccount();
+  await completeSetup(page);
+  const { slug } = await createSpace(page, 'Kerja');
+  await createPage(page, { space: slug, type: 'Quick Note', title: 'Catatan' });
+  for (const theme of ['light', 'dark'] as const) {
+    await applyTheme(page, theme);
+    await gotoSettled(page, `/s/${slug}`);
+    const recent = page.getByRole('region', { name: 'Baru diubah' });
+    await expect(recent).toBeVisible();
+    await recent.getByRole('link').first().hover();
+    await expectNoA11yViolations(page);
+  }
+});
+
 test('the save status is announced politely', async ({ page }) => {
   await resetAccount();
   await completeSetup(page);
@@ -246,5 +262,29 @@ test('M2 surfaces pass axe in light and dark', async ({ page }) => {
     await expect(page.getByRole('complementary', { name: 'Lampiran' })).toContainText('laporan.pdf');
     await expectNoA11yViolations(page);
     await page.keyboard.press('Escape');
+  }
+});
+
+test('clicking the input surface focuses the input', async ({ page }) => {
+  await resetAccount();
+  await completeSetup(page);
+  await gotoSettled(page, '/settings/security');
+  const input = page.getByLabel('Nama tampilan');
+  const frame = input.locator('..');
+  for (const theme of ['light', 'dark'] as const) {
+    await applyTheme(page, theme);
+    const box = await frame.boundingBox();
+    if (box === null) throw new Error('The display name field must be visible');
+    const points = [
+      { x: box.width / 2, y: 4 },
+      { x: box.width / 2, y: box.height - 4 },
+      { x: 4, y: box.height / 2 },
+      { x: box.width - 4, y: box.height / 2 },
+    ];
+    for (const point of points) {
+      await page.getByRole('heading', { level: 1 }).click();
+      await page.mouse.click(box.x + point.x, box.y + point.y);
+      await expect(input).toBeFocused();
+    }
   }
 });

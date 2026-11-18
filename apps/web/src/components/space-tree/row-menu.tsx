@@ -16,7 +16,7 @@ export function RowIconButton({ label, children, onClick, ...rest }: { label: st
       type="button"
       {...rest}
       aria-label={label}
-      className="flex size-7 items-center justify-center rounded-sm text-fg-muted fine-hover:bg-overlay"
+      className="flex size-7 items-center justify-center rounded-sm text-fg-muted fine-hover:bg-overlay [@media(pointer:coarse)]:size-11 [@media(pointer:coarse)]:shrink-0"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();

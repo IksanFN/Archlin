@@ -46,6 +46,7 @@ export function PasswordField({ label, value, onChange, autoComplete, placeholde
           <Input
             {...control}
             size={size}
+            className="[@media(pointer:coarse)]:h-12 [@media(pointer:coarse)]:pr-1"
             type={visible ? 'text' : 'password'}
             value={value}
             onChange={(event) => onChange(event.target.value)}
@@ -60,7 +61,7 @@ export function PasswordField({ label, value, onChange, autoComplete, placeholde
                 size="icon-sm"
                 aria-label={visible ? messages.password.hide : messages.password.show}
                 aria-pressed={visible}
-                className="-mr-1.5 bg-transparent text-fg-muted hover:bg-surface-hover"
+                className="-mr-1.5 bg-transparent text-fg-muted hover:bg-surface-hover [@media(pointer:coarse)]:mr-0"
                 onClick={() => setVisible((current) => !current)}
               >
                 {visible ? <EyeSlashIcon aria-hidden="true" size={16} /> : <EyeIcon aria-hidden="true" size={16} />}

@@ -70,6 +70,15 @@ test('a type moves up and down the list', async ({ page }) => {
 
   await page.getByRole('button', { name: `Naikkan tipe ${second}` }).click();
   await expect(names.first()).toHaveText(second);
+  await expect(page.getByRole('button', { name: `Naikkan tipe ${second}` })).toBeDisabled();
+  const down = page.getByRole('button', { name: `Turunkan tipe ${second}` });
+  await down.focus();
+  await page.keyboard.press('Enter');
+  await expect(names.nth(1)).toHaveText(second);
+  await expect(names.first()).toHaveText(before[0] ?? '');
+  const last = before.at(-1);
+  if (last === undefined) throw new Error('expected a last type');
+  await expect(page.getByRole('button', { name: `Turunkan tipe ${last}` })).toBeDisabled();
 });
 
 test('the type list and the type editor have no axe violations', async ({ page }) => {
@@ -154,4 +163,36 @@ test('changing a page type keeps values of shared keys', async ({ page }) => {
 
   await reloadSettled(page);
   await expect(page.getByLabel('Peserta', { exact: true })).toHaveValue('Tim operasional');
+});
+
+test('type names and controls stay usable in compact layouts', async ({ page }) => {
+  // About 16s of measuring across both themes and four widths, so a loaded machine can pass the default 30s.
+  test.slow();
+  await completeSetup(page);
+  // Type names are capped at 60 characters; a longer one would be saved cut and never match its link.
+  const longName = 'Catatan Rapat Evaluasi Proyek dan Rencana Kerja Tim';
+  await createNoteType(page, longName, [{ label: 'Ringkasan' }]);
+  await gotoSettled(page, '/settings/note-types');
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((value) => document.documentElement.setAttribute('data-theme', value), theme);
+    for (const width of [320, 390, 768, 1024]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const name of ['Catatan Kerja', 'Info Bisnis', 'Quick Note', longName]) {
+        const link = page.getByRole('link', { name, exact: true });
+        await expect(link).toBeVisible();
+        const geometry = await link.evaluate((node) => ({
+          overflow: node.scrollWidth - node.clientWidth,
+          ellipsis: getComputedStyle(node).textOverflow,
+        }));
+        expect(geometry.overflow).toBeLessThanOrEqual(1);
+        expect(geometry.ellipsis).not.toBe('ellipsis');
+        for (const button of await link.locator('xpath=ancestor::li').getByRole('button').all()) {
+          const box = await button.boundingBox();
+          expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+          expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+        }
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+    }
+  }
 });
