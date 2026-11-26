@@ -1,5 +1,8 @@
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { Wait } from 'testcontainers';
 import { assertDatabaseName, buildTestDbUrls, TEST_ROLE_PASSWORDS } from './urls';
 import type { TestDbUrls } from './urls';
 
@@ -12,11 +15,27 @@ export interface TestPostgres {
   stop(): Promise<void>;
 }
 
-export const PROVISION_DATABASE_SQL = '/opt/archlin/provision-database.sql';
+const PROVISION_DATABASE_SQL = '/opt/archlin/provision-database.sql';
+
+const execFileAsync = promisify(execFile);
 
 // import.meta.url keeps the source paths correct on Windows (no hand-built POSIX paths).
 const dockerFile = (relative: string): string =>
   fileURLToPath(new URL(`../../../../docker/postgres/${relative}`, import.meta.url));
+
+// Goes through the CLI: over Podman's Windows named pipe the API's exec stream never ends, so container.exec() hangs.
+export async function provisionDatabase(containerId: string, name: string): Promise<void> {
+  assertDatabaseName(name);
+  try {
+    await execFileAsync('podman', [
+      'exec', containerId, 'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-v', `db_name=${name}`,
+      '-f', PROVISION_DATABASE_SQL,
+    ]);
+  } catch (err) {
+    const stderr = err instanceof Error && 'stderr' in err ? String(err.stderr) : '';
+    throw new Error(`Provisioning database ${name} failed: ${stderr}`, { cause: err });
+  }
+}
 
 export async function startTestPostgres(): Promise<TestPostgres> {
   const container = await new PostgreSqlContainer('pgvector/pgvector:pg17')
@@ -34,6 +53,8 @@ export async function startTestPostgres(): Promise<TestPostgres> {
       { source: dockerFile('sql/provision-database.sql'), target: PROVISION_DATABASE_SQL },
       { source: dockerFile('sql/recreate-database.sh'), target: '/opt/archlin/recreate-database.sh', mode: 0o755 },
     ])
+    // The default also checks the port through exec. The health check already connects over TCP, so it is enough.
+    .withWaitStrategy(Wait.forHealthCheck())
     .start();
 
   const host = container.getHost();
@@ -44,15 +65,7 @@ export async function startTestPostgres(): Promise<TestPostgres> {
     port,
     containerId: container.getId(),
     urls: (database) => buildTestDbUrls(host, port, database),
-    async createDatabase(name) {
-      assertDatabaseName(name);
-      const result = await container.exec([
-        'psql', '-U', 'postgres', '-v', 'ON_ERROR_STOP=1', '-v', `db_name=${name}`, '-f', PROVISION_DATABASE_SQL,
-      ]);
-      if (result.exitCode !== 0) {
-        throw new Error(`Provisioning database ${name} failed (exit ${result.exitCode}): ${result.output}`);
-      }
-    },
+    createDatabase: (name) => provisionDatabase(container.getId(), name),
     async stop() {
       await container.stop();
     },

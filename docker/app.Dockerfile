@@ -1,5 +1,5 @@
 # One build stage, three runtime images (web, worker, migrate). Built from the cortex/ directory:
-#   docker build -f docker/app.Dockerfile --target web .
+#   podman build -f docker/app.Dockerfile --target web .
 FROM node:24-slim AS build
 RUN npm install -g pnpm@12.18.0
 WORKDIR /repo

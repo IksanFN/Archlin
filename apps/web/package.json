@@ -7,7 +7,7 @@
     "build": "vite build",
     "start": "node --env-file-if-exists=../../.env .output/server/index.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "e2e:prepare": "node -e \"require('node:fs').rmSync('e2e/.files',{recursive:true,force:true})\" && docker compose -f ../../docker/compose.dev.yml exec -T postgres bash /opt/archlin/recreate-database.sh cortex_e2e && node --env-file=e2e/.env.e2e-runner ../migrate/dist/main.mjs",
+    "e2e:prepare": "node -e \"require('node:fs').rmSync('e2e/.files',{recursive:true,force:true})\" && podman compose -f ../../docker/compose.dev.yml exec -T postgres bash /opt/archlin/recreate-database.sh cortex_e2e && node --env-file=e2e/.env.e2e-runner ../migrate/dist/main.mjs",
     "test:e2e": "pnpm run build && pnpm --filter @archlin/migrate build && pnpm run e2e:prepare && playwright test"
   },
   "dependencies": {

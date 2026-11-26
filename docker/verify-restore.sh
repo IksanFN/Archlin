@@ -12,7 +12,7 @@ if [ $# -ne 2 ] || [ "$2" != "--confirm-destroy" ]; then
 fi
 identity=$1
 
-compose=(docker compose -f docker/compose.yml --env-file .env)
+compose=(podman compose -f docker/compose.yml --env-file .env)
 snapshot_sql="select (select count(*) from users) || ':' || (select count(*) from security_events) || ':' || (select string_agg(name, ',' order by name) from kysely_migration) || ':' || (select count(*) from blobs) || ':' || (select count(*) from kb_attachments) || ':' || coalesce((select string_agg(sha256, ',' order by sha256) from blobs), '')"
 snapshot() {
   "${compose[@]}" exec -T postgres psql -U postgres -d cortex -At -c "$snapshot_sql"
@@ -35,7 +35,7 @@ tmp_host=$(cd "$tmp" && (pwd -W 2>/dev/null || pwd))
 "${compose[@]}" run --rm --entrypoint cp -v "$tmp_host:/out" backup "/backups/$latest" /out/
 
 "${compose[@]}" down
-docker volume rm archlin_pgdata archlin_files
+podman volume rm archlin_pgdata archlin_files
 "${compose[@]}" up -d --wait postgres
 
 bash docker/restore.sh "$tmp/$latest" "$identity"

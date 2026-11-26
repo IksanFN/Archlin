@@ -21,7 +21,7 @@ backup_dir=$(host_dir "$1")
 backup_name=$(basename "$1")
 identity_path="$(host_dir "$2")/$(basename "$2")"
 
-compose=(docker compose -f docker/compose.yml --env-file .env)
+compose=(podman compose -f docker/compose.yml --env-file .env)
 
 "${compose[@]}" stop web worker backup
 "${compose[@]}" --profile ops run --rm \
